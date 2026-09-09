@@ -1,0 +1,22 @@
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+# node
+node_modules/
+frontend/dist/
+# pinned upstream source (fetched by scripts/fetch_px4.sh)
+third_party/
+# generated outputs
+out/
+exports/
+*.log
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
