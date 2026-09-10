@@ -49,7 +49,13 @@ export default function FoilCard({ foil, title }: Props) {
         <span className="text-slate-400">deg</span>
       </label>
       {eff && !segmented && (
-        <p className="mt-1 text-[11px] text-emerald-300">thrust {describeAxis(eff.axis)}</p>
+        <p className={`mt-1 text-[11px] ${eff.attached ? "text-emerald-300" : "text-rose-300"}`}>
+          thrust {describeAxis(eff.axis)}
+          {eff.coandaLimitDeg !== null &&
+            (eff.attached
+              ? ` · jet attached (Coanda limit ${eff.coandaLimitDeg.toFixed(0)} deg), thrust kept ${(eff.ctScale * 100).toFixed(0)}%`
+              : ` · jet SEPARATES: the foil asks ${eff.deflectionDeg?.toFixed(0)} deg but the jet leaves at ${eff.coandaLimitDeg.toFixed(0)} deg, thrust kept ${(eff.ctScale * 100).toFixed(0)}%`)}
+        </p>
       )}
       <details className="mt-1 text-[11px]" open={segmented}>
         <summary className="cursor-pointer text-slate-400">
@@ -81,7 +87,10 @@ export default function FoilCard({ foil, title }: Props) {
                       </button>
                     )}
                   </td>
-                  <td className="py-0.5 text-slate-300">{describeAxis(e.axis)}</td>
+                  <td className={`py-0.5 ${e.attached ? "text-slate-300" : "text-rose-300"}`}>
+                    {describeAxis(e.axis)}
+                    {!e.attached && " (separated)"}
+                  </td>
                   <td className="py-0.5 text-right tabular-nums text-slate-400" title="hover command 0..1">
                     {hoverU?.[fans.indexOf(fan)]?.toFixed(2) ?? "-"}
                   </td>

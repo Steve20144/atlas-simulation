@@ -66,8 +66,10 @@ def foil_angle_sheet(scenario: Scenario) -> list[dict[str, Any]]:
         if foil is None:
             continue
         d = foil.deflection_for(fan.id)
+        d_eff = foil.effective_deflection_for(fan.id)
+        attached = foil.attached(fan.id)
         motor_axis = fan.axis()  # thrust direction of the bare motor; exhaust is the opposite
-        thrust = deflect_axis(motor_axis, d)
+        thrust = deflect_axis(motor_axis, d_eff)
         exhaust = -thrust
         pressure = scenario.effective_pos(fan)
         motor = np.asarray(fan.pos_frd_m, dtype=float)
@@ -81,6 +83,14 @@ def foil_angle_sheet(scenario: Scenario) -> list[dict[str, Any]]:
                 "foil": foil.id,
                 "side": "left" if fan.pos_frd_m[1] < 0 else "right",
                 "deflection_deg": round(d, 2),
+                "effective_turning_deg": round(d_eff, 2),
+                "jet_attached": attached,
+                "coanda_limit_deg": (
+                    round(foil.coanda.separation_deg(), 1)
+                    if foil.coanda and foil.coanda.enabled
+                    else None
+                ),
+                "coanda_radius_m": foil.coanda.radius_m if foil.coanda else None,
                 "change_from_as_built_deg": round(d - AS_BUILT_DEFLECTION_DEG, 2),
                 "exhaust_angle_below_fore_aft_deg": round(exit_down_deg, 2),
                 "thrust_dir_frd": _fmt_dir(thrust),
@@ -112,13 +122,15 @@ def angle_sheet_markdown(scenario: Scenario, rows: list[dict[str, Any]]) -> str:
         f"{AS_BUILT_DEFLECTION_DEG:g} degree foil about the lateral axis (positive turns the exit "
         "further down and forward).",
         "",
-        "| rotor | side | deflection | change vs as built | exhaust below fore-aft | "
-        f"exhaust dir CAD | pressure point CAD {units} | motor centre CAD {units} |",
-        "|---|---|---|---|---|---|---|---|",
+        "| rotor | side | wrap | effective turning | attached | change vs as built | "
+        f"exhaust below fore-aft | exhaust dir CAD | pressure point CAD {units} | "
+        f"motor centre CAD {units} |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in rows:
         lines.append(
             f"| {r['rotor']} | {r['side']} | {r['deflection_deg']:g} | "
+            f"{r['effective_turning_deg']:g} | {'yes' if r['jet_attached'] else 'NO'} | "
             f"{r['change_from_as_built_deg']:+g} | {r['exhaust_angle_below_fore_aft_deg']:g} | "
             f"{r['exhaust_dir_cad']} | {r[f'pressure_point_cad_{units}']} | "
             f"{r[f'motor_centre_cad_{units}']} |"

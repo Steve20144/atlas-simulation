@@ -40,4 +40,9 @@ export const api = {
     post<{ rows: FoilSheetRow[]; markdown: string }>("/api/foil_sheet", { scenario }),
   exportFoilSheet: (scenario: Scenario) =>
     post<{ csv_path: string; md_path: string }>("/api/export/foil_sheet", { scenario }),
+  exportGazebo: (scenario: Scenario) =>
+    post<{ root: string; model_sdf: string; world_sdf: string; airframe: string; readme: string }>(
+      "/api/export/gazebo",
+      { scenario },
+    ),
 };

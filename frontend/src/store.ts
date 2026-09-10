@@ -3,6 +3,7 @@ import { api } from "./api";
 import { mirrorAzimuth } from "./geometry";
 import { DIHEDRAL_SCENARIO_NAME, presetOmni, presetVertical, type PresetId } from "./presets";
 import type {
+  Coanda,
   ControlConcept,
   Fan,
   Foil,
@@ -78,6 +79,8 @@ export interface TiltlabState {
   /** Set one fan's deflection inside a segmented foil (null clears the override). */
   setFoilFanDeflection: (foilId: string, fanId: number, deg: number | null) => void;
   setFoilLoss: (loss: number) => void;
+  /** Patch the Coanda surface model on every foil (radius, jet thickness, losses, enabled). */
+  setCoanda: (patch: Partial<Coanda>) => void;
   /** Load a sweep candidate: foil deflections or fan tilts depending on its variable. */
   applySweepCandidate: (c: SweepCandidate) => void;
   updateFan: (id: number, patch: FanPatch) => void;
@@ -150,6 +153,16 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     setFoilLoss: (loss) => {
       const { scenario } = get();
       const foils: Foil[] = (scenario.foils ?? []).map((f) => ({ ...f, loss_at_90deg: loss }));
+      setScenarioAndRefresh({ ...scenario, foils });
+    },
+
+    setCoanda: (patch) => {
+      const { scenario } = get();
+      const base: Coanda = {
+        enabled: true, radius_m: 0.25, jet_thickness_m: 0.08, theta0_deg: 245, k: 1.64,
+        loss_per_90deg: 0.1, separated_loss: 0.3, estimated: true,
+      };
+      const foils: Foil[] = (scenario.foils ?? []).map((f) => ({ ...f, coanda: { ...base, ...(f.coanda ?? {}), ...patch } }));
       setScenarioAndRefresh({ ...scenario, foils });
     },
 

@@ -23,6 +23,13 @@ export default function ExportPanel() {
       <div className="flex gap-2">
         <button className={btn} onClick={() => void run(api.exportParams(scenario, concept))}>.params</button>
         <button className={btn} disabled={!row} onClick={() => row && void run(api.exportCsv([row], scenario.meta.name))}>CSV</button>
+        <button
+          className={btn}
+          title="gz sim model, world, PX4 airframe and README under exports/gazebo/<name>/"
+          onClick={() => void api.exportGazebo(scenario).then((r) => setStatus(`wrote Gazebo harness to ${r.root}`)).catch((e: Error) => setStatus(e.message))}
+        >
+          Gazebo
+        </button>
       </div>
       {status && <p className="break-all text-[10px] text-slate-400">{status}</p>}
     </div>

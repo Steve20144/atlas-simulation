@@ -71,14 +71,22 @@ def test_rotors_and_params_use_the_foil_geometry(cad):
 
 
 def test_turning_loss_scales_ct(cad):
-    foils = [f.model_copy(update={"loss_at_90deg": 0.2, "deflection_deg": 90.0}) for f in cad.foils]
+    """The simple sin^2 loss model applies when no Coanda model is attached."""
+    foils = [
+        f.model_copy(update={"loss_at_90deg": 0.2, "deflection_deg": 90.0, "coanda": None})
+        for f in cad.foils
+    ]
     sc = cad.model_copy(update={"foils": foils})
     fan0 = sc.fans_sorted()[0]
     assert sc.foil_ct_scale(fan0) == pytest.approx(0.8)
     assert sc.fan_ct_effective(fan0) == pytest.approx(0.8 * sc.fan_ct(fan0))
     assert ca_geometry_params(sc)["CA_ROTOR0_CT"] == pytest.approx(0.8 * sc.fan_ct(fan0), rel=1e-6)
     sc45 = cad.model_copy(
-        update={"foils": [f.model_copy(update={"loss_at_90deg": 0.2}) for f in cad.foils]}
+        update={
+            "foils": [
+                f.model_copy(update={"loss_at_90deg": 0.2, "coanda": None}) for f in cad.foils
+            ]
+        }
     )
     assert sc45.foil_ct_scale(fan0) == pytest.approx(1 - 0.2 * 0.5)
 

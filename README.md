@@ -74,6 +74,10 @@ In the scenario this is the `foils` section: `left` and `right`, each with its m
 
 In the UI the left column becomes **Geometry**: one slider per foil (linked by default), the resulting thrust direction in words, optional per-motor angles for a segmented foil, the turning loss, and the centreline fans. The 3D view draws the motors as grey ducts along the fuselage, a dotted jet to the pressure point, and the force arrow from there.
 
+### The Coanda effect: how far a foil can turn the jet
+
+The jet follows the curved foil by the Coanda effect and detaches once the wrap exceeds a separation angle that depends on jet thickness over surface radius: `theta_sep = 245 deg * exp(-1.64 * h / R)`. For the PHASE_0.1 foils (radius about 0.25 m from the CAD channel walls, 80 mm jet) that is about 145 degrees. Thrust retained while attached is 1 minus 0.10 per 90 degrees of turning; a separated jet leaves at the separation angle with a further 30 percent loss. The constants live in `foils[].coanda` and in the **Coanda surface** block of the Geometry panel; they are engineering estimates until the rig measures the deflected jet angle and thrust at a few wrap settings. The sweep marks any geometry that asks for more turning than the surface can hold as "jet separates", the foil cards say whether each jet is attached, and the effective (not requested) turning drives the thrust direction everywhere, including the PX4 export. `docs/coanda_evaluation.md` has the evaluation of thrust and authority under this model.
+
 ### From a sweep result to the Fusion model: the foil design sheet
 
 Open **Foil design sheet (for the CAD)** at the bottom of the Geometry panel. For every wing motor it lists the chosen deflection, the change from the as-built 45 degree foil (the rotation to apply to that foil segment about the lateral axis, positive turns the exit further down and forward), the exhaust direction as a unit vector in the Fusion frame, and the Fusion coordinates (mm) of the motor centre and of the pressure point where the turned jet acts. Model each foil segment so its exit plane sends the jet along that exhaust direction. "Export sheet" writes the same table as timestamped Markdown and CSV into `exports/`. The Fusion coordinates use the frame and origin recorded in the scenario (`frame.cad_origin`, the reference point of the import), so they land on the dashboard's own coordinates.
@@ -133,6 +137,10 @@ This writes `scenarios/atlas_phase01_cad.json` (fan positions from the CAD, PX4 
 ### Scenario JSON
 
 Fields (see `PLAN.md` section 5 and `backend/tiltlab/scenario.py`): `meta`, `frame`, `mass`, `fans` (10 entries: `pos_frd_m`, `tilt_deg`, `azimuth_deg`, `spin`, `mirror_of`, `curve_ref`, `km`), `fan_curves`, `control` (`concept`, `ca_method`, `reaction_torque`, `px4_params_override`), `rig`, `environment`, `outputs`. Fan positions are metres in FRD relative to the CG; they came from the CA_ROTOR parameters measured off the CAD. Thrust direction is derived, never stored: `a = (sin t cos p, sin t sin p, -cos t)`.
+
+### Gazebo harness
+
+The **Gazebo** button in the Export panel (or `POST /api/export/gazebo`) writes `exports/gazebo/<scenario>/` with a gz sim model (SDF 1.9: airframe body with the scenario mass and inertia and the CAD glTF, one rotor link per fan at the foil pressure point pointing along the effective thrust, each driven by the `MulticopterMotorModel` plugin scaled to the fan's effective CT), a world with the sensor systems PX4's gz bridge needs, a PX4 posix airframe file (`4010_gz_<scenario>`) carrying the same `CA_ROTOR*` geometry, and a README with the install and launch steps for a PX4 v1.17 checkout on Linux (`make px4_sitl gz_<scenario>`). It is generated, not run here; the README lists what to check first. It models the rotors as point thrusters at the effective directions; the foil aerodynamics and the Coanda turning are baked into those directions, not simulated.
 
 ## API
 

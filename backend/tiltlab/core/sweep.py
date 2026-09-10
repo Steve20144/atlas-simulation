@@ -240,6 +240,14 @@ def evaluate_scenario(sc: Scenario, spec: SweepSpec) -> dict[str, Any]:
         if _min_authority(auth, AXIS_NAMES[k]) is None:
             reasons.append(f"{AXIS_NAMES[k]} unattainable")
     cond = m["conditioning"].get("condition_number")
+    separated = [f.id for f in sc.fans_sorted() if not sc.fan_jet_attached(f)]
+    if separated:
+        foil = sc.foil_for(separated[0])
+        limit = foil.coanda.separation_deg() if foil and foil.coanda else 0.0
+        reasons.append(
+            f"jet separates from the Coanda surface on motors {separated} "
+            f"(attachment limit {limit:.0f} deg)"
+        )
     if float(m.get("collective_hover", 0.0)) > 1.0:
         reasons.append(
             "cannot lift the aircraft: vertical thrust at full command is below the weight"

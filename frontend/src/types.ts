@@ -120,6 +120,23 @@ export interface OutputSelection {
  * jet down by deflection_deg: 0 = straight aft (pure forward thrust), 90 = straight down (pure
  * lift), 180 = straight forward. The force acts at pressure_points_frd_m (keyed by fan id).
  */
+/**
+ * Coanda surface model (backend Coanda): the jet follows a convex surface of radius_m and stays
+ * attached up to theta0_deg * exp(-k * jet_thickness_m / radius_m); thrust retained while attached is
+ * 1 - loss_per_90deg * turning / 90, times (1 - separated_loss) once separated.
+ */
+export interface Coanda {
+  enabled: boolean;
+  radius_m: number;
+  jet_thickness_m: number;
+  theta0_deg: number;
+  k: number;
+  loss_per_90deg: number;
+  separated_loss: number;
+  estimated?: boolean;
+  notes?: string;
+}
+
 export interface Foil {
   id: string;
   fan_ids: number[];
@@ -127,6 +144,7 @@ export interface Foil {
   per_fan_deflection_deg: Record<string, number>;
   pressure_points_frd_m: Record<string, Vec3>;
   loss_at_90deg: number;
+  coanda?: Coanda | null;
   estimated?: boolean;
   notes?: string;
 }

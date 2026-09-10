@@ -36,6 +36,7 @@ from tiltlab.scenario import (
     NUM_FANS,
     Body,
     CadReported,
+    Coanda,
     Fan,
     Foil,
     Mass,
@@ -647,9 +648,18 @@ def build_scenario(
         right = [i for i in pressure if fans[i].pos_frd_m[1] >= 0]
         note = (
             "Motors are horizontal and blow aft into the foil (motor axis tilt 90, azimuth 0). "
-            f"Deflection {foil_deflection_deg:g} deg as built (thrust up and forward), not read "
-            "from the CAD. Pressure points are the centroid of the foil channel behind each motor "
-            "measured on the CAD meshes. Turning loss is not measured (0)."
+            f"Wrap {foil_deflection_deg:g} deg as built (thrust up and forward), not read from "
+            "the CAD. Pressure points are the centroid of the foil channel behind each motor "
+            "measured on the CAD meshes. The jet follows the foil by the Coanda effect: surface "
+            "radius about 0.25 m estimated from the channel walls in the CAD (they curve down "
+            "about 75 mm over the first 160 mm), jet thickness 0.08 m (duct exit); separation "
+            "angle and losses are correlations to calibrate on the rig."
+        )
+        coanda = Coanda(
+            radius_m=0.25,
+            jet_thickness_m=0.08,
+            estimated=True,
+            notes="radius from the PHASE_0.1 channel walls; correlation constants are defaults",
         )
         for fid, ids in (("left", left), ("right", right)):
             foils_out.append(
@@ -659,6 +669,7 @@ def build_scenario(
                     deflection_deg=foil_deflection_deg,
                     pressure_points_frd_m={i: pressure[i] for i in ids},
                     loss_at_90deg=0.0,
+                    coanda=coanda,
                     estimated=True,
                     notes=note,
                 )

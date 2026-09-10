@@ -1,4 +1,4 @@
-import type { Fan, Foil, Vec3 } from "./types";
+import type { Coanda, Fan, Foil, Vec3 } from "./types";
 
 const DEG = Math.PI / 180;
 
@@ -28,30 +28,46 @@ export function deflectAxis(motorAxis: Vec3, deflectionDeg: number): Vec3 {
 export interface EffectiveFan {
   /** Where the force acts (FRD m): the foil pressure point when the fan blows into a foil. */
   pos: Vec3;
-  /** Direction of the force on the airframe (FRD unit vector). */
+  /** Direction of the force on the airframe (FRD unit vector), after the effective turning. */
   axis: Vec3;
   /** Motor axis (FRD unit vector), differs from axis only for foil fans. */
   motorAxis: Vec3;
-  /** Foil deflection in degrees, or null for a plain fan. */
+  /** Foil wrap angle asked for in degrees, or null for a plain fan. */
   deflectionDeg: number | null;
+  /** Turning the jet actually gets (Coanda attachment limit applied), or null. */
+  effectiveDeg: number | null;
+  /** False when the jet separates from the Coanda surface before the requested wrap. */
+  attached: boolean;
+  /** Coanda separation angle in degrees when the model is on, else null. */
+  coandaLimitDeg: number | null;
   /** Fraction of the motor thrust left after the turn. */
   ctScale: number;
 }
 
-/** Foil-aware geometry of one fan, matching the backend's effective_pos / effective_axis. */
+/** Coanda separation angle, degrees; mirrors backend Coanda.separation_deg. */
+export function coandaSeparationDeg(c: Coanda): number {
+  return c.theta0_deg * Math.exp((-c.k * c.jet_thickness_m) / c.radius_m);
+}
+
+/** Foil-aware geometry of one fan, matching the backend's effective_pos / effective_axis / ct scale. */
 export function effectiveFan(fan: Fan, foils: Foil[] | undefined): EffectiveFan {
   const motorAxis = tiltAzimuthToAxis(fan.tilt_deg, fan.azimuth_deg);
   const foil = foils?.find((f) => f.fan_ids.includes(fan.id));
-  if (!foil) return { pos: fan.pos_frd_m, axis: motorAxis, motorAxis, deflectionDeg: null, ctScale: 1 };
+  if (!foil) {
+    return { pos: fan.pos_frd_m, axis: motorAxis, motorAxis, deflectionDeg: null, effectiveDeg: null, attached: true, coandaLimitDeg: null, ctScale: 1 };
+  }
   const d = foil.per_fan_deflection_deg?.[String(fan.id)] ?? foil.deflection_deg;
+  const pos = foil.pressure_points_frd_m?.[String(fan.id)] ?? fan.pos_frd_m;
+  const c = foil.coanda;
+  if (c && c.enabled) {
+    const sep = coandaSeparationDeg(c);
+    const attached = d <= sep;
+    const eff = attached ? d : sep;
+    const scale = Math.max(0, 1 - c.loss_per_90deg * (eff / 90)) * (attached ? 1 : 1 - c.separated_loss);
+    return { pos, axis: deflectAxis(motorAxis, eff), motorAxis, deflectionDeg: d, effectiveDeg: eff, attached, coandaLimitDeg: sep, ctScale: scale };
+  }
   const s = Math.sin(d * DEG);
-  return {
-    pos: foil.pressure_points_frd_m?.[String(fan.id)] ?? fan.pos_frd_m,
-    axis: deflectAxis(motorAxis, d),
-    motorAxis,
-    deflectionDeg: d,
-    ctScale: 1 - (foil.loss_at_90deg ?? 0) * s * s,
-  };
+  return { pos, axis: deflectAxis(motorAxis, d), motorAxis, deflectionDeg: d, effectiveDeg: d, attached: true, coandaLimitDeg: null, ctScale: 1 - (foil.loss_at_90deg ?? 0) * s * s };
 }
 
 /** Plain-words description of a thrust direction, e.g. "up and forward (45 deg from vertical)". */

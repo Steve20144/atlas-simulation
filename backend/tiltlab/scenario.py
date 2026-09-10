@@ -148,6 +148,43 @@ class Fan(BaseModel):
         return self.km if self.spin == "CCW" else -self.km
 
 
+class Coanda(BaseModel):
+    """Coanda surface model: the jet leaving the duct follows a convex surface of radius_m and
+    stays attached up to separation_deg(); a foil that asks for more turning gets the jet leaving
+    at the separation angle instead, with an extra loss.
+
+    Separation correlation (engineering estimate for a plane jet on a cylinder, Newman-type data;
+    calibrate on the rig): theta_sep = theta0_deg * exp(-k * h / R), with h the jet thickness at
+    the duct exit (duct diameter) and R the surface radius. Thrust retained while attached:
+    1 - loss_per_90deg * theta / 90 (wall friction and entrainment); when separated, additionally
+    times (1 - separated_loss).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = True
+    radius_m: float = Field(default=0.25, gt=0.0)
+    jet_thickness_m: float = Field(default=0.08, gt=0.0)
+    theta0_deg: float = Field(default=245.0, gt=0.0, le=360.0)
+    k: float = Field(default=1.64, ge=0.0)
+    loss_per_90deg: float = Field(default=0.10, ge=0.0, le=1.0)
+    separated_loss: float = Field(default=0.30, ge=0.0, le=1.0)
+    estimated: bool = True
+    notes: str = ""
+
+    def separation_deg(self) -> float:
+        return self.theta0_deg * math.exp(-self.k * self.jet_thickness_m / self.radius_m)
+
+    def turning(self, wrap_deg: float) -> tuple[float, bool]:
+        """(effective turning deg, attached) for a foil wrap angle."""
+        sep = self.separation_deg()
+        return (wrap_deg, True) if wrap_deg <= sep else (sep, False)
+
+    def thrust_scale(self, wrap_deg: float) -> float:
+        eff, attached = self.turning(wrap_deg)
+        s = max(0.0, 1.0 - self.loss_per_90deg * eff / 90.0)
+        return s if attached else s * (1.0 - self.separated_loss)
+
+
 class Foil(BaseModel):
     """A jet-deflecting foil behind a group of motors.
 
@@ -168,6 +205,7 @@ class Foil(BaseModel):
     per_fan_deflection_deg: dict[int, float] = Field(default_factory=dict)
     pressure_points_frd_m: dict[int, Vec3] = Field(default_factory=dict)
     loss_at_90deg: float = Field(default=0.0, ge=0.0, le=1.0)
+    coanda: Coanda | None = None
     estimated: bool = True
     notes: str = ""
 
@@ -184,10 +222,25 @@ class Foil(BaseModel):
         return self
 
     def deflection_for(self, fan_id: int) -> float:
+        """Foil wrap (trailing-edge) angle asked for, degrees."""
         return float(self.per_fan_deflection_deg.get(fan_id, self.deflection_deg))
+
+    def effective_deflection_for(self, fan_id: int) -> float:
+        """Turning the jet actually gets: the wrap angle, capped at the Coanda separation angle."""
+        d = self.deflection_for(fan_id)
+        if self.coanda is not None and self.coanda.enabled:
+            return self.coanda.turning(d)[0]
+        return d
+
+    def attached(self, fan_id: int) -> bool:
+        if self.coanda is not None and self.coanda.enabled:
+            return self.coanda.turning(self.deflection_for(fan_id))[1]
+        return True
 
     def ct_scale(self, fan_id: int) -> float:
         """Fraction of the motor thrust that survives the turn (dimensionless)."""
+        if self.coanda is not None and self.coanda.enabled:
+            return self.coanda.thrust_scale(self.deflection_for(fan_id))
         s = math.sin(math.radians(self.deflection_for(fan_id)))
         return 1.0 - self.loss_at_90deg * s * s
 
@@ -323,7 +376,7 @@ class Scenario(BaseModel):
         foil = self.foil_for(fan.id)
         if foil is None:
             return fan.axis()
-        return deflect_axis(fan.axis(), foil.deflection_for(fan.id))
+        return deflect_axis(fan.axis(), foil.effective_deflection_for(fan.id))
 
     def effective_pos(self, fan: Fan) -> np.ndarray:
         """FRD point (m, body origin) where the force acts: the foil pressure point when the fan
@@ -344,6 +397,14 @@ class Scenario(BaseModel):
     def fan_deflection(self, fan: Fan) -> float | None:
         foil = self.foil_for(fan.id)
         return None if foil is None else foil.deflection_for(fan.id)
+
+    def fan_effective_deflection(self, fan: Fan) -> float | None:
+        foil = self.foil_for(fan.id)
+        return None if foil is None else foil.effective_deflection_for(fan.id)
+
+    def fan_jet_attached(self, fan: Fan) -> bool:
+        foil = self.foil_for(fan.id)
+        return True if foil is None else foil.attached(fan.id)
 
     def fan_ct(self, fan: Fan) -> float:
         """PX4 CA_ROTORn_CT for a fan: curve thrust (N) at cmd 1.0, unless overridden

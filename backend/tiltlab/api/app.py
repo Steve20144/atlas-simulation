@@ -10,6 +10,7 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -248,3 +249,15 @@ def export_foil_sheet_endpoint(req: FoilSheetRequest) -> FoilSheetExportResponse
     """Write the foil design sheet as timestamped CSV and Markdown into exports/."""
     csv_path, md_path = export_angle_sheet(req.scenario, EXPORTS_DIR)
     return FoilSheetExportResponse(csv_path=str(csv_path), md_path=str(md_path))
+
+
+# ---------------------------------------------------------------- gazebo harness
+from tiltlab.export.gazebo import export_gazebo  # noqa: E402
+
+
+@app.post("/api/export/gazebo")
+def export_gazebo_endpoint(req: FoilSheetRequest) -> dict[str, Any]:
+    """Generate the gz sim model, world, PX4 airframe and README under exports/gazebo/<name>/."""
+    if not SCENARIO_NAME_RE.match(req.scenario.meta.name):
+        raise HTTPException(status_code=400, detail="invalid scenario name")
+    return export_gazebo(req.scenario, EXPORTS_DIR / "gazebo")

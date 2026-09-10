@@ -1,4 +1,4 @@
-import { clampTilt, describeAxis, effectiveFan, wrapAzimuth } from "../geometry";
+import { clampTilt, coandaSeparationDeg, describeAxis, effectiveFan, wrapAzimuth } from "../geometry";
 import { useTiltlabStore } from "../store";
 import FoilCard from "./FoilCard";
 import FoilSheet from "./FoilSheet";
@@ -10,11 +10,12 @@ export default function FoilPanel() {
   const scenario = useTiltlabStore((s) => s.scenario);
   const foilLinked = useTiltlabStore((s) => s.foilLinked);
   const hoverU = useTiltlabStore((s) => s.metrics?.hover?.u);
-  const { setFoilLinked, setFoilLoss, updateFan } = useTiltlabStore.getState();
+  const { setFoilLinked, setFoilLoss, setCoanda, updateFan } = useTiltlabStore.getState();
   const foils = scenario.foils ?? [];
   const foilFanIds = new Set(foils.flatMap((f) => f.fan_ids));
   const plainFans = scenario.fans.filter((f) => !foilFanIds.has(f.id));
   const loss = foils[0]?.loss_at_90deg ?? 0;
+  const coanda = foils[0]?.coanda ?? null;
 
   return (
     <section className="flex h-full flex-col gap-2 overflow-auto border-r border-slate-700 bg-slate-900/60 p-2">
@@ -34,20 +35,49 @@ export default function FoilPanel() {
       {foils.map((f) => (
         <FoilCard key={f.id} foil={f} title={`${f.id[0].toUpperCase()}${f.id.slice(1)} foil`} />
       ))}
-      <label className="flex items-center gap-2 text-xs" title="fraction of motor thrust lost when the jet is turned 90 deg; scales with sin^2 of the deflection">
-        <span>turning loss at 90 deg</span>
-        <input
-          aria-label="turning loss"
-          type="number"
-          min={0}
-          max={1}
-          step={0.01}
-          className={num}
-          value={loss}
-          onChange={(e) => setFoilLoss(Math.min(1, Math.max(0, Number(e.target.value))))}
-        />
-        <span className="text-slate-500">(not measured)</span>
-      </label>
+      {coanda ? (
+        <div className="rounded border border-slate-800 p-2 text-[11px]">
+          <div className="flex items-baseline justify-between">
+            <h3 className="text-xs font-semibold">Coanda surface</h3>
+            <span className="text-slate-400">jet stays attached up to {coandaSeparationDeg(coanda).toFixed(0)} deg</span>
+          </div>
+          <p className="mt-1 text-slate-400">
+            The jet follows the curved foil by the Coanda effect and detaches once the wrap exceeds the limit
+            above (limit = {coanda.theta0_deg} deg times exp(-{coanda.k} times thickness / radius)). Thrust kept
+            while attached: 1 minus {coanda.loss_per_90deg} per 90 deg of turning. Estimates until measured on
+            the rig.
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1">surface radius m
+              <input aria-label="coanda radius" type="number" step={0.01} min={0.02} className={num} value={coanda.radius_m} onChange={(e) => setCoanda({ radius_m: Math.max(0.02, Number(e.target.value)) })} />
+            </label>
+            <label className="flex items-center gap-1">jet thickness m
+              <input aria-label="coanda jet thickness" type="number" step={0.005} min={0.005} className={num} value={coanda.jet_thickness_m} onChange={(e) => setCoanda({ jet_thickness_m: Math.max(0.005, Number(e.target.value)) })} />
+            </label>
+            <label className="flex items-center gap-1">loss per 90 deg
+              <input aria-label="coanda loss" type="number" step={0.01} min={0} max={1} className={num} value={coanda.loss_per_90deg} onChange={(e) => setCoanda({ loss_per_90deg: Math.min(1, Math.max(0, Number(e.target.value))) })} />
+            </label>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={coanda.enabled} onChange={(e) => setCoanda({ enabled: e.target.checked })} /> model on
+            </label>
+          </div>
+        </div>
+      ) : (
+        <label className="flex items-center gap-2 text-xs" title="fraction of motor thrust lost when the jet is turned 90 deg; scales with sin^2 of the deflection">
+          <span>turning loss at 90 deg</span>
+          <input
+            aria-label="turning loss"
+            type="number"
+            min={0}
+            max={1}
+            step={0.01}
+            className={num}
+            value={loss}
+            onChange={(e) => setFoilLoss(Math.min(1, Math.max(0, Number(e.target.value))))}
+          />
+          <span className="text-slate-500">(not measured)</span>
+        </label>
+      )}
 
       {plainFans.length > 0 && (
         <div className="rounded border border-slate-800 p-2">

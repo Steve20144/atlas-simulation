@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "atlas_phase01_cad",
-    "created": "2026-09-10T10:49:00-07:00",
+    "created": "2026-09-10T11:12:15-07:00",
     "px4_version": "1.17.0",
     "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0.",
     "cad_model": "atlas_phase01_cad.glb"
@@ -511,8 +511,19 @@
         ]
       },
       "loss_at_90deg": 0.0,
+      "coanda": {
+        "enabled": true,
+        "radius_m": 0.25,
+        "jet_thickness_m": 0.08,
+        "theta0_deg": 245.0,
+        "k": 1.64,
+        "loss_per_90deg": 0.1,
+        "separated_loss": 0.3,
+        "estimated": true,
+        "notes": "radius from the PHASE_0.1 channel walls; correlation constants are defaults"
+      },
       "estimated": true,
-      "notes": "Motors are horizontal and blow aft into the foil (motor axis tilt 90, azimuth 0). Deflection 45 deg as built (thrust up and forward), not read from the CAD. Pressure points are the centroid of the foil channel behind each motor measured on the CAD meshes. Turning loss is not measured (0)."
+      "notes": "Motors are horizontal and blow aft into the foil (motor axis tilt 90, azimuth 0). Wrap 45 deg as built (thrust up and forward), not read from the CAD. Pressure points are the centroid of the foil channel behind each motor measured on the CAD meshes. The jet follows the foil by the Coanda effect: surface radius about 0.25 m estimated from the channel walls in the CAD (they curve down about 75 mm over the first 160 mm), jet thickness 0.08 m (duct exit); separation angle and losses are correlations to calibrate on the rig."
     },
     {
       "id": "right",
@@ -547,8 +558,19 @@
         ]
       },
       "loss_at_90deg": 0.0,
+      "coanda": {
+        "enabled": true,
+        "radius_m": 0.25,
+        "jet_thickness_m": 0.08,
+        "theta0_deg": 245.0,
+        "k": 1.64,
+        "loss_per_90deg": 0.1,
+        "separated_loss": 0.3,
+        "estimated": true,
+        "notes": "radius from the PHASE_0.1 channel walls; correlation constants are defaults"
+      },
       "estimated": true,
-      "notes": "Motors are horizontal and blow aft into the foil (motor axis tilt 90, azimuth 0). Deflection 45 deg as built (thrust up and forward), not read from the CAD. Pressure points are the centroid of the foil channel behind each motor measured on the CAD meshes. Turning loss is not measured (0)."
+      "notes": "Motors are horizontal and blow aft into the foil (motor axis tilt 90, azimuth 0). Wrap 45 deg as built (thrust up and forward), not read from the CAD. Pressure points are the centroid of the foil channel behind each motor measured on the CAD meshes. The jet follows the foil by the Coanda effect: surface radius about 0.25 m estimated from the channel walls in the CAD (they curve down about 75 mm over the first 160 mm), jet thickness 0.08 m (duct exit); separation angle and losses are correlations to calibrate on the rig."
     }
   ]
 }
