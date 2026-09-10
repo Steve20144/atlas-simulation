@@ -122,8 +122,9 @@ export default function SweepPanel() {
           </p>
           {result.n_feasible === 0 && (
             <p className="text-[10px] text-rose-300">
-              No feasible geometry in this grid. Most common reason: {topReason(result)}.
-              {hasFoils ? " With one angle for both foils only 90 deg (straight down) hovers level; use the segmented grouping for yaw." : " Try the alternating fore-aft mode or per-pair angles."}
+              {result.diagnostics.n_controllable > 0
+                ? `${result.diagnostics.n_controllable} of these geometries can hover level and steer every axis but miss your thresholds: the best of them reaches headroom ${fmt(result.diagnostics.best_headroom_controllable ?? 0, 2)} and yaw ${fmt(result.diagnostics.best_yaw_controllable ?? 0, 1)} N m. Lower min headroom or min yaw to see them${result.diagnostics.best_headroom_controllable !== null && result.diagnostics.best_headroom_controllable < 0.15 ? " (headroom is capped by the estimated mass until the real weights are in)" : ""}.`
+                : `No geometry in this grid can hover level and steer every axis. Most common reason: ${result.diagnostics.most_common_reason_near_miss ?? topReason(result)}.${hasFoils && grouping === "same" ? " With one angle for both foils only 90 deg (straight down) hovers level; use the segmented grouping for yaw." : hasFoils && grouping === "left_right" ? " Different left and right angles leave a net yaw moment; use the segmented grouping." : !hasFoils ? " Try the alternating fore-aft mode or per-pair angles." : ""}`}
             </p>
           )}
           <table className="w-full text-[10px] tabular-nums">

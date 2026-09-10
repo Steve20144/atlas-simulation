@@ -262,8 +262,17 @@ export interface SweepRequestBody {
   top: number;
 }
 
+export interface SweepDiagnostics {
+  n_controllable: number;
+  n_blocked_by_thresholds: number;
+  best_headroom_controllable: number | null;
+  best_yaw_controllable: number | null;
+  most_common_reason_near_miss: string | null;
+}
+
 export interface SweepResponse {
   variable: "foil" | "tilt";
+  diagnostics: SweepDiagnostics;
   n_evaluated: number;
   n_feasible: number;
   truncated: boolean;

@@ -111,6 +111,20 @@ def test_same_direction_forward_has_no_level_trim(scenario):
     assert not c["feasible"] and any("no level-attitude hover trim" in r for r in c["reasons"])
 
 
+def test_diagnostics_explain_threshold_blocks(scenario):
+    res = run_sweep(
+        scenario, SweepSpec(tilts_deg=[15, 45], azimuth_mode="alternating", min_headroom=0.9)
+    )
+    d = res["diagnostics"]
+    assert res["n_feasible"] == 0
+    assert d["n_controllable"] == 2 and d["n_blocked_by_thresholds"] == 2
+    assert 0 < d["best_headroom_controllable"] < 0.9 and d["best_yaw_controllable"] > 1.0
+    assert d["most_common_reason_near_miss"].startswith("headroom")
+    res2 = run_sweep(scenario, SweepSpec(tilts_deg=[45], azimuth_mode="forward"))
+    assert res2["diagnostics"]["n_controllable"] == 0
+    assert res2["diagnostics"]["most_common_reason_near_miss"]
+
+
 def test_rank_by_orders_feasible_candidates(scenario):
     spec = dict(tilts_deg=[15, 30, 45], azimuth_mode="alternating", min_headroom=0.05)
     by_power = run_sweep(scenario, SweepSpec(**spec, rank_by="power"))["candidates"]

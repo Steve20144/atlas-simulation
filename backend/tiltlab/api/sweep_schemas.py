@@ -43,5 +43,6 @@ class SweepResponse(BaseModel):
     elapsed_ms: float
     objective: str
     spec: dict[str, Any]
+    diagnostics: dict[str, Any]
     candidates: list[dict[str, Any]]
     best: dict[str, Any] | None

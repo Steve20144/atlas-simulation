@@ -345,6 +345,7 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
     records.sort(key=lambda r: (not r["feasible"], *rank_key(r, spec.rank_by)))
     feasible = [r for r in records if r["feasible"]]
     return {
+        "diagnostics": sweep_diagnostics(records),
         "variable": variable,
         "n_evaluated": len(records),
         "n_feasible": len(feasible),
@@ -366,6 +367,42 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
         },
         "candidates": records,
         "best": feasible[0] if feasible else None,
+    }
+
+
+def _threshold_only(reasons: list[str]) -> bool:
+    """True when a candidate failed only the user thresholds (headroom, minimum yaw), i.e. it can
+    hover level and steer every axis."""
+    return bool(reasons) and all(
+        r.startswith("headroom") or r.startswith("yaw authority") for r in reasons
+    )
+
+
+def sweep_diagnostics(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Why a grid produced few or no feasible rows: how many geometries are controllable at all,
+    the best headroom and yaw among them, and the most common reason among the near misses."""
+    controllable = [r for r in records if r["feasible"] or _threshold_only(r["reasons"])]
+    blocked = [r for r in controllable if not r["feasible"]]
+    counts: dict[str, int] = {}
+    near = blocked if blocked else [r for r in records if not r["feasible"]]
+    if near:
+        fewest = min(len(r["reasons"]) for r in near)
+        for r in near:
+            if len(r["reasons"]) == fewest:
+                for reason in r["reasons"]:
+                    key = reason.split(" (")[0]
+                    counts[key] = counts.get(key, 0) + 1
+    most_common = max(counts.items(), key=lambda kv: kv[1])[0] if counts else None
+    return {
+        "n_controllable": len(controllable),
+        "n_blocked_by_thresholds": len(blocked),
+        "best_headroom_controllable": (
+            max(r["headroom"] for r in controllable) if controllable else None
+        ),
+        "best_yaw_controllable": (
+            max((r["yaw_Nm"] or 0.0) for r in controllable) if controllable else None
+        ),
+        "most_common_reason_near_miss": most_common,
     }
 
 
