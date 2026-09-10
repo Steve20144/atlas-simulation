@@ -99,7 +99,19 @@ def test_gazebo_export(cad, tmp_path):
     pose = [float(v) for v in rotor0.find("pose").text.split()]
     expected = frd_to_flu(cad.effective_pos(cad.fans_sorted()[0]) - np.asarray(cad.mass.cg_frd_m))
     assert pose[:3] == pytest.approx(expected, abs=1e-4)
-    ET.parse(out["world_sdf"])  # well formed
+    # the gz bridge reads these four sensors from base_link (GZBridge.cpp v1.17.0); PX4 will not arm
+    # without the GPS one
+    base = next(link for link in model.findall("link") if link.get("name") == "base_link")
+    sensors = {s.get("name"): s.get("type") for s in base.findall("sensor")}
+    assert sensors == {
+        "imu_sensor": "imu",
+        "air_pressure_sensor": "air_pressure",
+        "magnetometer_sensor": "magnetometer",
+        "navsat_sensor": "navsat",
+    }
+    world = ET.parse(out["world_sdf"]).getroot()  # well formed
+    # PX4 spawns the vehicle itself; a second copy in the world sat inside the spawned one
+    assert world.findall(".//include") == []
     airframe = open(out["airframe"], encoding="utf-8").read()
     assert (
         f"CA_ROTOR0_AX {ca['CA_ROTOR0_AX']:.6g}" in airframe and "SIM_GZ_EC_FUNC10 110" in airframe

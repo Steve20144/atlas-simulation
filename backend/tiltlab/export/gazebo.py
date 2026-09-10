@@ -2,8 +2,10 @@
 
 Writes a model (SDF 1.9) with the airframe body and one rotor link per fan placed at the
 effective force point and pointed along the effective thrust direction (foil-aware), each driven
-by the gz MulticopterMotorModel plugin with the fan's effective thrust constant; a world that
-includes the model with the sensor systems PX4's gz bridge expects; a PX4 posix airframe file
+by the gz MulticopterMotorModel plugin with the fan's effective thrust constant, plus the IMU,
+barometer, magnetometer and GPS sensors PX4's gz bridge reads; a world with the matching sensor
+systems (PX4 spawns the model into it itself, so the world does not include it); a PX4 posix
+airframe file
 carrying the same CA_ROTOR* geometry so the allocator in SITL matches the exported params; and a
 README with the launch steps. Frames: FRD (x forward, y right, z down) becomes gz body FLU
 (x forward, y left, z up): (x, y, z) -> (x, -y, -z).
@@ -43,6 +45,11 @@ def axis_to_rpy(axis_flu: tuple[float, float, float]) -> tuple[float, float, flo
     pitch = math.atan2(x, math.hypot(y, z) if (y or z) else 1e-12)
     roll = math.atan2(-y, z)
     return (roll, pitch, 0.0)
+
+
+def _noise(stddev: float) -> str:
+    """Zero-mean gaussian sensor noise element in the sensor's own SI unit."""
+    return f'<noise type="gaussian"><mean>0.0</mean><stddev>{stddev:g}</stddev></noise>'
 
 
 def _inertia(scenario: Scenario) -> dict[str, float]:
@@ -89,13 +96,28 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
         f"      {body_visual}",
         '      <collision name="airframe_collision"><geometry><box><size>1.2 0.9 0.3</size></box>'
         "</geometry></collision>",
-        '      <sensor name="imu_sensor" type="imu"><always_on>1</always_on>'
-        "<update_rate>250</update_rate></sensor>",
-        '      <sensor name="air_pressure_sensor" type="air_pressure"><always_on>1</always_on>'
-        '<update_rate>50</update_rate><air_pressure><pressure><noise type="gaussian">'
-        "<mean>0</mean><stddev>0.01</stddev></noise></pressure></air_pressure></sensor>",
-        '      <sensor name="magnetometer_sensor" type="magnetometer"><always_on>1</always_on>'
-        "<update_rate>100</update_rate></sensor>",
+        # Sensor names, rates and noise mirror PX4-gazebo-models x500_base/model.sdf; the gz bridge
+        # subscribes to .../link/base_link/sensor/<name>/... (GZBridge.cpp v1.17.0, lines 218-310)
+        # and PX4's default preflight needs a GPS (navsat) before it will arm.
+        '      <sensor name="imu_sensor" type="imu"><gz_frame_id>base_link</gz_frame_id>'
+        "<always_on>1</always_on><update_rate>250</update_rate><imu><angular_velocity>"
+        + "".join(f"<{a}>{_noise(0.0008726646)}</{a}>" for a in "xyz")
+        + "</angular_velocity><linear_acceleration>"
+        + "".join(
+            f"<{a}>{_noise(s)}</{a}>"
+            for a, s in zip("xyz", (0.00637, 0.00637, 0.00686), strict=True)
+        )
+        + "</linear_acceleration></imu></sensor>",
+        '      <sensor name="air_pressure_sensor" type="air_pressure">'
+        "<gz_frame_id>base_link</gz_frame_id><always_on>1</always_on><update_rate>50</update_rate>"
+        f"<air_pressure><pressure>{_noise(3.0)}</pressure></air_pressure></sensor>",
+        '      <sensor name="magnetometer_sensor" type="magnetometer">'
+        "<gz_frame_id>base_link</gz_frame_id><always_on>1</always_on><update_rate>100</update_rate>"
+        "<magnetometer>"
+        + "".join(f"<{a}>{_noise(0.0001)}</{a}>" for a in "xyz")
+        + "</magnetometer></sensor>",
+        '      <sensor name="navsat_sensor" type="navsat"><gz_frame_id>base_link</gz_frame_id>'
+        "<always_on>1</always_on><update_rate>30</update_rate></sensor>",
         "    </link>",
     ]
     for fan in scenario.fans_sorted():
@@ -156,6 +178,7 @@ def world_sdf(name: str) -> str:
     <physics type="ode">
       <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>250</real_time_update_rate>
       </physics>
     <gravity>0 0 -9.80665</gravity>
     <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
@@ -205,7 +228,8 @@ def world_sdf(name: str) -> str:
           </visual>
           </link>
           </model>
-    <include><uri>model://{escape(name)}</uri><pose>0 0 0.3 0 0 0</pose></include>
+    <!-- The vehicle is not included here: PX4's px4-rc.gzsim spawns model://{escape(name)} itself
+         as <name>_0 and attaches the gz bridge to that instance. -->
   </world>
 </sdf>
 """
@@ -267,7 +291,19 @@ cp px4/airframes/{AIRFRAME_ID}_gz_{name} $PX4/ROMFS/px4fmu_common/init.d-posix/a
 cd $PX4 && make px4_sitl gz_{name}
 ```
 PX4's gz bridge (src/modules/simulation/gz_bridge) publishes `/{name}/command/motor_speed` and reads
-odometry, IMU, barometer and magnetometer from the model; QGroundControl connects on UDP 14550.
+odometry, IMU, barometer, magnetometer and GPS from the model; QGroundControl connects on UDP 14550.
+PX4 spawns the vehicle itself as `{name}_0` (px4-rc.gzsim), so the world must not include it too:
+a second copy would sit inside the first. The Gazebo entity tree should show one `{name}_0`.
+
+## Flying
+1. QGroundControl must be connected (PX4 refuses to arm with "No connection to the GCS"). PX4 SITL
+   talks to localhost only; from WSL2 to QGC on Windows start with `PX4_PARAM_MAV_0_BROADCAST=1`
+   exported (the WSL script does this) or type `param set MAV_0_BROADCAST 1` in the PX4 console.
+2. Wait for "Ready to fly" in QGC (the estimator needs GPS, baro and IMU; the log shows
+   `attitude_invalid` and `global_position_invalid` until then).
+3. In the PX4 console: `commander takeoff`, later `commander land`. Or use QGC's Takeoff slider,
+   then the virtual joystick (Application Settings > General > Virtual Joystick) or a USB gamepad.
+4. `commander status` and `listener actuator_motors` show the mode and the ten motor commands.
 
 ## PX4's gz bridge has only 8 ESC channels
 `src/modules/simulation/gz_bridge/module.yaml` declares `__max_num_servos: &max_num_servos 8`, so
