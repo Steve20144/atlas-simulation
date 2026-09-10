@@ -25,7 +25,7 @@ The allocator itself ran much faster than the logger. Compare replica output at 
 
 ## log_40_2026-9-9-15-09-54.ulg (62.7 s): vertical axes, KM-based yaw model, low collective on the rig
 - Rotors 0 to 7: AX = AY = 0, AZ = -1, CT = 5.6, KM = -0.15/+0.15 (0/1), -0.13/+0.13 (2/3), -0.10/+0.10 (4/5), -0.08/+0.08 (6/7). Rotors 8, 9: vertical, CT = 6.5, KM = 0.
-- Over the 69 status samples with |yaw torque setpoint| > 0.05: mean(|unallocated yaw| / |yaw sp|) = 0.778, sum ratio = 0.788 (the "78 percent unallocated yaw" fact).
+- Over the 69 status samples with |yaw torque setpoint| > 0.05 (linear interpolation of the setpoint to status time): mean(|unallocated yaw| / |yaw sp|) = 0.778, sum ratio = 0.788 (the "78 percent unallocated yaw" fact). With zero-order-hold pairing, as the allocator and the golden test use, the same selection gives 70 samples and 0.7896 for the logged data; the replica gives 0.7913.
 - Thrust setpoint z in [-0.218, 0]. Unallocated thrust z stays within [-3e-8, 0.021].
 - Rotors 0 to 7 all saturated low on only 2.9 percent of status samples (individual rotors saturate low far more often).
 - Attitude on the rig from vehicle_attitude: roll median -2.25 deg (5th to 95th percentile -5.5 to -1.2), pitch median +6.27 deg (5th to 95th percentile -3.2 to +6.9).

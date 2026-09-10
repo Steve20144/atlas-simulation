@@ -103,6 +103,8 @@ Single source of truth: a `Scenario` JSON (section 5). Everything (UI sliders, e
 
 Derived (never stored): AX/AY/AZ from tilt and azimuth; CT from `fan_curves[...].points` (thrust at cmd = 1.0); KM from the reaction-torque toggle.
 
+Implemented additions (M2, 2026-09-09): `fans[].km` holds the KM magnitude per fan (sign from spin) so the flown KM yaw model can be represented; `control.reaction_torque` is the toggle (default false, meaning KM = 0 everywhere); `control.px4_params_override` may carry `CA_ROTORn_CT` overrides so the flown scenarios reproduce the logged CT (6.5 / 5.6 N) instead of the fan-curve value. The model lives in `backend/tiltlab/scenario.py`.
+
 ---
 
 ## 6. Modules, in build order, each with its acceptance test
