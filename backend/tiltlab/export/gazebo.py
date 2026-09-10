@@ -285,7 +285,15 @@ def px4_airframe(scenario: Scenario, name: str) -> str:
         lines.append(f"param set-default SIM_GZ_EC_FUNC{i + 1} {101 + i}")
         lines.append(f"param set-default SIM_GZ_EC_MIN{i + 1} 150")
         lines.append(f"param set-default SIM_GZ_EC_MAX{i + 1} 1000")
-    lines += ["", "param set-default MPC_THR_HOVER 0.35", ""]
+    lines += [
+        "",
+        "param set-default MPC_THR_HOVER 0.35",
+        "",
+        "# SITL sends MAVLink to localhost only; broadcasting lets QGroundControl on the Windows",
+        "# host find a PX4 running inside WSL2 (harmless on a native Linux desktop).",
+        "param set-default MAV_0_BROADCAST 1",
+        "",
+    ]
     return "\n".join(lines)
 
 
@@ -352,8 +360,11 @@ write overruns the stack and glibc aborts PX4 (`__stack_chk_fail`, SIGABRT) a mo
 copy to 8 entries before building (the esc_status message is telemetry only):
 ```bash
 F=$PX4/src/modules/simulation/gz_bridge/GZMixingInterfaceESC.cpp
-sed -i 's/esc_status.esc_count = actuators.velocity_size();/esc_status.esc_count = actuators.velocity_size() < esc_status_s::CONNECTED_ESC_MAX ? actuators.velocity_size() : esc_status_s::CONNECTED_ESC_MAX;/' $F
-sed -i 's/for (int i = 0; i < actuators.velocity_size(); i++) {{/for (int i = 0; i < esc_status.esc_count; i++) {{/' $F
+sed -i 's/esc_status.esc_count = actuators.velocity_size();/'\\
+'esc_status.esc_count = actuators.velocity_size() < esc_status_s::CONNECTED_ESC_MAX'\\
+' ? actuators.velocity_size() : esc_status_s::CONNECTED_ESC_MAX;/' $F
+sed -i 's/for (int i = 0; i < actuators.velocity_size(); i++) {{/'\\
+'for (int i = 0; i < esc_status.esc_count; i++) {{/' $F
 ```
 The WSL helper script applies both patches when the model has more than 8 motors.
 
