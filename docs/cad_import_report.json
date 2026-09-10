@@ -2,23 +2,23 @@
  "doc": "PHASE_0.1_ASSY",
  "frame": {
   "cad_forward_axis": "+Z",
-  "cad_up_axis": "+Y",
+  "cad_up_axis": "-Y",
   "cad_units": "mm"
  },
  "bodies": 37,
  "cg_fusion_mm": [
-  0.0,
-  136.14,
-  145.32
+  -0.37,
+  133.71,
+  -67.21
  ],
  "fans": [
   {
    "rotor": 0,
-   "cad_body": "XFLY 80mm EDF:9",
+   "cad_body": "XFLY 80mm EDF(Mirror):7",
    "pos_frd_m": [
-    -0.305,
-    -0.371,
-    -0.1404
+    -0.0925,
+    -0.3706,
+    0.1428
    ],
    "cad_axis_frd": [
     1.0,
@@ -32,11 +32,11 @@
   },
   {
    "rotor": 1,
-   "cad_body": "XFLY 80mm EDF(Mirror):7",
+   "cad_body": "XFLY 80mm EDF:9",
    "pos_frd_m": [
-    -0.305,
-    0.371,
-    -0.1404
+    -0.0925,
+    0.3714,
+    0.1428
    ],
    "cad_axis_frd": [
     1.0,
@@ -50,11 +50,11 @@
   },
   {
    "rotor": 2,
-   "cad_body": "XFLY 80mm EDF:8",
+   "cad_body": "XFLY 80mm EDF(Mirror):6",
    "pos_frd_m": [
-    -0.255,
-    -0.284,
-    -0.0899
+    -0.0425,
+    -0.2836,
+    0.0923
    ],
    "cad_axis_frd": [
     1.0,
@@ -68,11 +68,11 @@
   },
   {
    "rotor": 3,
-   "cad_body": "XFLY 80mm EDF(Mirror):6",
+   "cad_body": "XFLY 80mm EDF:8",
    "pos_frd_m": [
-    -0.255,
-    0.284,
-    -0.0899
+    -0.0425,
+    0.2844,
+    0.0923
    ],
    "cad_axis_frd": [
     1.0,
@@ -86,11 +86,11 @@
   },
   {
    "rotor": 4,
-   "cad_body": "XFLY 80mm EDF:7",
+   "cad_body": "XFLY 80mm EDF(Mirror):5",
    "pos_frd_m": [
-    -0.205,
-    -0.197,
-    -0.0399
+    0.0075,
+    -0.1966,
+    0.0423
    ],
    "cad_axis_frd": [
     1.0,
@@ -104,11 +104,11 @@
   },
   {
    "rotor": 5,
-   "cad_body": "XFLY 80mm EDF(Mirror):5",
+   "cad_body": "XFLY 80mm EDF:7",
    "pos_frd_m": [
-    -0.205,
-    0.197,
-    -0.0399
+    0.0075,
+    0.1974,
+    0.0423
    ],
    "cad_axis_frd": [
     1.0,
@@ -122,11 +122,11 @@
   },
   {
    "rotor": 6,
-   "cad_body": "XFLY 80mm EDF:1",
+   "cad_body": "XFLY 80mm EDF(Mirror):1",
    "pos_frd_m": [
-    -0.155,
-    -0.11,
-    0.0101
+    0.0575,
+    -0.1096,
+    -0.0077
    ],
    "cad_axis_frd": [
     1.0,
@@ -140,11 +140,11 @@
   },
   {
    "rotor": 7,
-   "cad_body": "XFLY 80mm EDF(Mirror):1",
+   "cad_body": "XFLY 80mm EDF:1",
    "pos_frd_m": [
-    -0.155,
-    0.11,
-    0.0101
+    0.0575,
+    0.1104,
+    -0.0077
    ],
    "cad_axis_frd": [
     1.0,
@@ -160,14 +160,14 @@
    "rotor": 8,
    "cad_body": "XFLY 80mm EDF:5",
    "pos_frd_m": [
-    0.2114,
-    0.001,
-    0.0784
+    0.4239,
+    -0.0006,
+    -0.076
    ],
    "cad_axis_frd": [
     0.0,
     0.0,
-    -1.0
+    1.0
    ],
    "cad_tilt_deg": 0.0,
    "cad_azimuth_deg": 0.0,
@@ -178,14 +178,14 @@
    "rotor": 9,
    "cad_body": "XFLY 80mm EDF:6",
    "pos_frd_m": [
-    0.3214,
-    0.001,
-    0.0784
+    0.5339,
+    -0.0006,
+    -0.076
    ],
    "cad_axis_frd": [
     0.0,
     0.0,
-    -1.0
+    1.0
    ],
    "cad_tilt_deg": 0.0,
    "cad_azimuth_deg": 0.0,
@@ -195,17 +195,6 @@
  ],
  "foils": {
   "0": {
-   "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
-   "channel_points": 2526,
-   "duct_exit_mm_aft_of_motor": 57.2,
-   "centroid_fusion_mm": [
-    371.1,
-    280.2,
-    -245.5
-   ],
-   "centroid_mm_aft_of_motor": 85.9
-  },
-  "1": {
    "foil_body": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
    "channel_points": 2526,
    "duct_exit_mm_aft_of_motor": 57.2,
@@ -216,18 +205,18 @@
    ],
    "centroid_mm_aft_of_motor": 85.9
   },
-  "2": {
+  "1": {
    "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
-   "channel_points": 2728,
+   "channel_points": 2526,
    "duct_exit_mm_aft_of_motor": 57.2,
    "centroid_fusion_mm": [
-    290.5,
-    233.5,
-    -194.3
+    371.1,
+    280.2,
+    -245.5
    ],
-   "centroid_mm_aft_of_motor": 84.6
+   "centroid_mm_aft_of_motor": 85.9
   },
-  "3": {
+  "2": {
    "foil_body": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
    "channel_points": 2728,
    "duct_exit_mm_aft_of_motor": 57.2,
@@ -238,18 +227,18 @@
    ],
    "centroid_mm_aft_of_motor": 84.6
   },
-  "4": {
+  "3": {
    "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
-   "channel_points": 2717,
+   "channel_points": 2728,
    "duct_exit_mm_aft_of_motor": 57.2,
    "centroid_fusion_mm": [
-    203.6,
-    183.0,
-    -143.8
+    290.5,
+    233.5,
+    -194.3
    ],
-   "centroid_mm_aft_of_motor": 84.1
+   "centroid_mm_aft_of_motor": 84.6
   },
-  "5": {
+  "4": {
    "foil_body": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
    "channel_points": 2717,
    "duct_exit_mm_aft_of_motor": 57.2,
@@ -260,18 +249,18 @@
    ],
    "centroid_mm_aft_of_motor": 84.1
   },
-  "6": {
+  "5": {
    "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
-   "channel_points": 1458,
+   "channel_points": 2717,
    "duct_exit_mm_aft_of_motor": 57.2,
    "centroid_fusion_mm": [
-    113.6,
-    140.2,
-    -135.6
+    203.6,
+    183.0,
+    -143.8
    ],
-   "centroid_mm_aft_of_motor": 126.0
+   "centroid_mm_aft_of_motor": 84.1
   },
-  "7": {
+  "6": {
    "foil_body": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
    "channel_points": 1458,
    "duct_exit_mm_aft_of_motor": 57.2,
@@ -281,63 +270,80 @@
     -135.6
    ],
    "centroid_mm_aft_of_motor": 126.0
+  },
+  "7": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
+   "channel_points": 1458,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    113.6,
+    140.2,
+    -135.6
+   ],
+   "centroid_mm_aft_of_motor": 126.0
   }
  },
  "reference_cg_fusion_mm": [
+  -0.37,
+  133.71,
+  -67.21
+ ],
+ "reference_cg_source": "dashboard volume-weighted centroid (no weights)",
+ "params_fit_cg_fusion_mm": [
   0.0,
-  136.14,
+  266.14,
   145.32
  ],
  "residuals_vs_params_mm": [
   [
    -5.0,
    -1.0,
-   -0.4
+   150.4
   ],
   [
    -5.0,
    1.0,
-   -0.4
+   150.4
   ],
   [
    5.0,
    -4.0,
-   0.1
+   49.9
   ],
   [
    5.0,
    4.0,
-   0.1
+   49.9
   ],
   [
    -5.0,
    3.0,
-   0.1
+   -50.1
   ],
   [
    -5.0,
    -3.0,
-   0.1
+   -50.1
   ],
   [
    5.0,
    0.0,
-   0.1
+   -150.1
   ],
   [
    5.0,
    0.0,
-   0.1
+   -150.1
   ],
   [
    -238.6,
-   1.0,
-   -1.6
+   -1.0,
+   -288.4
   ],
   [
    -238.6,
-   1.0,
-   -1.6
+   -1.0,
+   -288.4
   ]
  ],
  "params_file": "20260909_1515_params_v4_rig_airmode.params"

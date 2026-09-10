@@ -1,13 +1,14 @@
 {
   "meta": {
     "name": "atlas_phase01_cad",
-    "created": "2026-09-10T07:53:07-07:00",
+    "created": "2026-09-10T08:19:45-07:00",
     "px4_version": "1.17.0",
-    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0."
+    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0.",
+    "cad_model": "atlas_phase01_cad.glb"
   },
   "frame": {
     "cad_forward_axis": "+Z",
-    "cad_up_axis": "+Y",
+    "cad_up_axis": "-Y",
     "cad_units": "mm"
   },
   "mass": {
@@ -260,16 +261,16 @@
       }
     ],
     "estimated": true,
-    "notes": "No component weights yet: export them from the Atlas Mass & CoG dashboard (Export button) and rerun scripts/import_cad_dashboard.py --weights. Total mass is the template placeholder; the CG used for fan positions is the reference CG fitted to the flown CA_ROTOR positions, Fusion mm [0.0, 136.1, 145.3]."
+    "notes": "No component weights yet: export them from the Atlas Mass & CoG dashboard (Export button) and rerun scripts/import_cad_dashboard.py --weights. Total mass is the template placeholder; the CG used for fan positions is the reference CG fitted to the flown CA_ROTOR positions, Fusion mm [-0.4, 133.7, -67.2]."
   },
   "fans": [
     {
       "id": 0,
       "output": "MAIN1",
       "pos_frd_m": [
-        -0.305,
-        -0.371,
-        -0.1404
+        -0.0925,
+        -0.3706,
+        0.1428
       ],
       "tilt_deg": 90.0,
       "azimuth_deg": 0.0,
@@ -282,9 +283,9 @@
       "id": 1,
       "output": "MAIN2",
       "pos_frd_m": [
-        -0.305,
-        0.371,
-        -0.1404
+        -0.0925,
+        0.3714,
+        0.1428
       ],
       "tilt_deg": 90.0,
       "azimuth_deg": 0.0,
@@ -297,9 +298,9 @@
       "id": 2,
       "output": "MAIN3",
       "pos_frd_m": [
-        -0.255,
-        -0.284,
-        -0.0899
+        -0.0425,
+        -0.2836,
+        0.0923
       ],
       "tilt_deg": 90.0,
       "azimuth_deg": 0.0,
@@ -312,9 +313,9 @@
       "id": 3,
       "output": "MAIN4",
       "pos_frd_m": [
-        -0.255,
-        0.284,
-        -0.0899
+        -0.0425,
+        0.2844,
+        0.0923
       ],
       "tilt_deg": 90.0,
       "azimuth_deg": 0.0,
@@ -327,9 +328,9 @@
       "id": 4,
       "output": "MAIN5",
       "pos_frd_m": [
-        -0.205,
-        -0.197,
-        -0.0399
+        0.0075,
+        -0.1966,
+        0.0423
       ],
       "tilt_deg": 90.0,
       "azimuth_deg": 0.0,
@@ -342,9 +343,9 @@
       "id": 5,
       "output": "MAIN6",
       "pos_frd_m": [
-        -0.205,
-        0.197,
-        -0.0399
+        0.0075,
+        0.1974,
+        0.0423
       ],
       "tilt_deg": 90.0,
       "azimuth_deg": 0.0,
@@ -357,9 +358,9 @@
       "id": 6,
       "output": "MAIN7",
       "pos_frd_m": [
-        -0.155,
-        -0.11,
-        0.0101
+        0.0575,
+        -0.1096,
+        -0.0077
       ],
       "tilt_deg": 90.0,
       "azimuth_deg": 0.0,
@@ -372,9 +373,9 @@
       "id": 7,
       "output": "MAIN8",
       "pos_frd_m": [
-        -0.155,
-        0.11,
-        0.0101
+        0.0575,
+        0.1104,
+        -0.0077
       ],
       "tilt_deg": 90.0,
       "azimuth_deg": 0.0,
@@ -387,9 +388,9 @@
       "id": 8,
       "output": "MAIN9",
       "pos_frd_m": [
-        0.2114,
-        0.001,
-        0.0784
+        0.4239,
+        -0.0006,
+        -0.076
       ],
       "tilt_deg": 0.0,
       "azimuth_deg": 0.0,
@@ -402,9 +403,9 @@
       "id": 9,
       "output": "MAIN10",
       "pos_frd_m": [
-        0.3214,
-        0.001,
-        0.0784
+        0.5339,
+        -0.0006,
+        -0.076
       ],
       "tilt_deg": 0.0,
       "azimuth_deg": 0.0,
@@ -484,24 +485,24 @@
       "per_fan_deflection_deg": {},
       "pressure_points_frd_m": {
         "0": [
-          -0.3909,
-          -0.3711,
-          -0.144
+          -0.1783,
+          -0.3707,
+          0.1465
         ],
         "2": [
-          -0.3396,
-          -0.2905,
-          -0.0974
+          -0.1271,
+          -0.2901,
+          0.0998
         ],
         "4": [
-          -0.2891,
-          -0.2036,
-          -0.0468
+          -0.0766,
+          -0.2033,
+          0.0493
         ],
         "6": [
-          -0.281,
-          -0.1136,
-          -0.0041
+          -0.0684,
+          -0.1132,
+          0.0065
         ]
       },
       "loss_at_90deg": 0.0,
@@ -520,24 +521,24 @@
       "per_fan_deflection_deg": {},
       "pressure_points_frd_m": {
         "1": [
-          -0.3909,
-          0.3711,
-          -0.144
+          -0.1783,
+          0.3714,
+          0.1465
         ],
         "3": [
-          -0.3396,
-          0.2905,
-          -0.0974
+          -0.1271,
+          0.2909,
+          0.0998
         ],
         "5": [
-          -0.2891,
-          0.2036,
-          -0.0469
+          -0.0766,
+          0.204,
+          0.0493
         ],
         "7": [
-          -0.281,
-          0.1136,
-          -0.0041
+          -0.0684,
+          0.1139,
+          0.0065
         ]
       },
       "loss_at_90deg": 0.0,

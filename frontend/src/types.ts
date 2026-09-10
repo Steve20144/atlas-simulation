@@ -19,6 +19,8 @@ export interface ScenarioMeta {
   created: string;
   px4_version: string;
   notes?: string;
+  /** File name of the airframe glTF binary served by /api/cad/model/{name}. */
+  cad_model?: string | null;
 }
 
 export interface FrameMapping {

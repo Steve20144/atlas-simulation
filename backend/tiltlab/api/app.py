@@ -212,3 +212,12 @@ def sweep_endpoint(req: SweepRequest) -> SweepResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     result["candidates"] = result["candidates"][: req.top]
     return SweepResponse(**result)
+
+
+@app.get("/api/cad/model/{name}", include_in_schema=False)
+def cad_model(name: str) -> Response:
+    """glTF binary of the airframe meshes written next to the scenario by the CAD import."""
+    path = _scenario_path(name).with_suffix(".glb")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="no CAD model for this scenario")
+    return FileResponse(path, media_type="model/gltf-binary")

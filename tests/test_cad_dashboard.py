@@ -13,11 +13,13 @@ from tiltlab.cad.fusion_dashboard import (
     Weights,
     build_scenario,
     detect_edfs,
+    export_glb,
     fit_reference_cg,
     load_dashboard,
     mass_properties,
     mesh_properties,
     order_edfs_px4,
+    volume_centroid_mm,
 )
 from tiltlab.core.params_px4 import read_params_file
 from tiltlab.scenario import Scenario
@@ -97,10 +99,30 @@ def test_frame_is_right_handed_and_matches_default():
     R = FusionFrame().rotation()
     assert np.linalg.det(R) == pytest.approx(1.0)
     assert np.allclose(R @ np.array([0, 0, 1.0]), [1, 0, 0])  # Fusion +z -> forward
-    assert np.allclose(R @ np.array([0, 1.0, 0]), [0, 0, -1])  # Fusion +y -> up (FRD -z)
-    R2 = FusionFrame(up="-y").rotation()
+    assert np.allclose(R @ np.array([0, 1.0, 0]), [0, 0, 1])  # Fusion +y -> down (up is -y)
+    assert np.allclose(R @ np.array([1.0, 0, 0]), [0, 1, 0])  # Fusion +x -> right
+    R2 = FusionFrame(up="+y").rotation()
     assert np.linalg.det(R2) == pytest.approx(1.0)
-    assert np.allclose(R2 @ np.array([0, 1.0, 0]), [0, 0, 1])
+    assert np.allclose(R2 @ np.array([0, 1.0, 0]), [0, 0, -1])
+
+
+def test_levels_match_the_aircraft_description(dash):
+    """Inner wing motors at the level of the front fans; each pair outward one step lower
+    (50 mm down per 87 mm outward, a 30 degree offset)."""
+    frame = FusionFrame()
+    edfs = order_edfs_px4(detect_edfs(dash), frame)
+    z = [frame.to_frd_m(e.body.com_mm)[2] for e in edfs]  # FRD z, down positive
+    y = [abs(frame.to_frd_m(e.body.com_mm)[1]) for e in edfs]
+    steps_down = [z[i] - z[i + 2] for i in (0, 2, 4)]  # outer minus next inner, per left fans
+    assert all(abs(s - 0.050) < 0.002 for s in steps_down)
+    steps_out = [y[i] - y[i + 2] for i in (0, 2, 4)]
+    assert all(abs(s - 0.087) < 0.002 for s in steps_out)
+    assert np.degrees(np.arctan2(0.050, 0.087)) == pytest.approx(30.0, abs=0.5)
+    # the front fans' duct bottom lies at the inner wing motors' centre height
+    front = edfs[8].body.vertices_mm
+    front_bottom_up = -front[:, 1].max()  # up = -y
+    inner_centre_up = -edfs[6].body.com_mm[1]
+    assert abs(front_bottom_up - inner_centre_up) < 0.015 * 1e3
 
 
 def test_ten_edfs_with_duct_axes(dash):
@@ -140,18 +162,30 @@ def test_px4_order_and_symmetry(dash):
     assert fx[1] - fx[0] == pytest.approx(0.110, abs=1e-3)
 
 
-def test_reference_cg_reproduces_flown_params(dash):
+def test_flown_params_have_the_vertical_axis_inverted(dash):
+    """With up = -y the lateral positions still match the flown CA_ROTOR file to the rounding, but
+    the vertical pattern is mirrored (the file was built with up = +y): the fit residual in z grows
+    outward instead of vanishing."""
     frame = FusionFrame()
     edfs = order_edfs_px4(detect_edfs(dash), frame)
     ca = {e.name: e.value for e in read_params_file(PARAMS).entries}
-    cg, res = fit_reference_cg(edfs, ca, frame)
-    # lateral and vertical wing-fan coordinates were measured off this CAD: sub-centimetre agreement
-    assert np.abs(res[:8, 1]).max() < 0.005  # params are rounded to 0.01 m
-    assert np.abs(res[:8, 2]).max() < 0.006
-    assert np.abs(res[:8, 0]).max() < 0.012
-    # the centreline fans sit about 0.24 m further aft in PHASE_0.1 than the parameter file assumed
-    assert res[8:, 0].mean() == pytest.approx(-0.24, abs=0.02)
-    assert cg[1] == pytest.approx(136, abs=6) and cg[2] == pytest.approx(150, abs=8)
+    _cg, res = fit_reference_cg(edfs, ca, frame)
+    assert np.abs(res[:8, 1]).max() < 0.005
+    assert np.abs(res[:8, 2]).max() > 0.1  # 0.14 m of the outer pair is on the wrong side
+    # in the flipped frame the residuals do vanish
+    _cg2, res2 = fit_reference_cg(edfs, ca, FusionFrame(up="+y"))
+    assert np.abs(res2[:8, 2]).max() < 0.006
+
+
+def test_volume_centroid_and_glb(dash, tmp_path):
+    vc = volume_centroid_mm(dash)
+    assert vc.shape == (3,) and abs(vc[0]) < 5  # symmetric aircraft: on the centreline
+    frame = FusionFrame()
+    front = frame.to_frd_m(dash.by_name("XFLY 80mm EDF:5").com_mm - vc)
+    assert 0.35 < front[0] < 0.5  # front fans well ahead of the reference point
+    glb = export_glb(dash, frame, vc, tmp_path / "m.glb")
+    assert glb.exists() and glb.stat().st_size > 100_000
+    assert glb.read_bytes()[:4] == b"glTF"
 
 
 def test_mass_properties_point_masses(dash):
@@ -194,7 +228,7 @@ def test_build_scenario_without_weights(dash, tmp_path):
         dash, frame, template, "t", "2026-09-09T00:00:00", reference_cg_fusion_mm=cg
     )
     assert len(sc.fans) == 10 and sc.mass.estimated
-    assert sc.frame.cad_forward_axis == "+Z" and sc.frame.cad_up_axis == "+Y"
+    assert sc.frame.cad_forward_axis == "+Z" and sc.frame.cad_up_axis == "-Y"
     assert len(sc.mass.bodies) == 37 and all(b.volume_m3 > 0 for b in sc.mass.bodies)
     assert [f["cad_tilt_deg"] for f in report["fans"][:8]] == [90.0] * 8
     assert all(f["cad_tilt_deg"] < 1.0 for f in report["fans"][8:])

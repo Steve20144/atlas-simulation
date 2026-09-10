@@ -28,9 +28,11 @@ from tiltlab.cad.fusion_dashboard import (
     Weights,
     build_scenario,
     detect_edfs,
+    export_glb,
     fit_reference_cg,
     load_dashboard,
     order_edfs_px4,
+    volume_centroid_mm,
 )
 from tiltlab.core.params_px4 import read_params_file
 from tiltlab.scenario import Scenario
@@ -56,8 +58,8 @@ def main() -> None:
     ap.add_argument("--forward", default="+z", help="Fusion axis that points forward (default +z)")
     ap.add_argument(
         "--up",
-        default="+y",
-        help="Fusion axis that points up (default +y; the dashboard display uses -y)",
+        default="-y",
+        help="Fusion axis that points up (default -y, the dashboard display frame)",
     )
     ap.add_argument("--name", default="atlas_phase01_cad")
     ap.add_argument("--out", default=str(ROOT / "scenarios" / "atlas_phase01_cad.json"))
@@ -71,12 +73,15 @@ def main() -> None:
     print(f"{dash.doc}: {len(dash.bodies)} bodies, {len(edfs)} EDF ducts detected")
 
     ca = {e.name: e.value for e in read_params_file(args.params).entries}
-    ref_cg, residuals = fit_reference_cg(edfs, ca, frame)
+    fit_cg, residuals = fit_reference_cg(edfs, ca, frame)
+    ref_cg = volume_centroid_mm(dash)
     print(
-        f"reference CG fitted to {Path(args.params).name} (rotors 0..7), "
-        f"Fusion mm: {np.round(ref_cg, 1).tolist()}"
+        f"reference point (no weights yet): dashboard volume-weighted centroid, Fusion mm "
+        f"{np.round(ref_cg, 1).tolist()}; a CG fitted to {Path(args.params).name} would sit at "
+        f"{np.round(fit_cg, 1).tolist()} (that file has the vertical axis inverted, so it is "
+        "reported only)"
     )
-    print("residual CAD minus params per rotor, mm (FRD):")
+    print("residual CAD minus params per rotor with the fitted CG, mm (FRD):")
     for i, r in enumerate(residuals):
         print(f"  rotor {i}: {np.round(r * 1e3, 1).tolist()}")
 
@@ -103,8 +108,15 @@ def main() -> None:
             f"pressure points FRD m: {pts}"
         )
     report["reference_cg_fusion_mm"] = np.round(ref_cg, 2).tolist()
+    report["reference_cg_source"] = "dashboard volume-weighted centroid (no weights)"
+    report["params_fit_cg_fusion_mm"] = np.round(fit_cg, 2).tolist()
     report["residuals_vs_params_mm"] = np.round(residuals * 1e3, 1).tolist()
     report["params_file"] = Path(args.params).name
+    glb = export_glb(dash, frame, ref_cg, Path(args.out).with_suffix(".glb"))
+    scenario = scenario.model_copy(
+        update={"meta": scenario.meta.model_copy(update={"cad_model": glb.name})}
+    )
+    print(f"CAD meshes: {glb} ({glb.stat().st_size / 1e6:.1f} MB)")
 
     print("\nfans (FRD, relative to CG):")
     print(

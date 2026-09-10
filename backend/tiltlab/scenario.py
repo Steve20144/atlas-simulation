@@ -72,6 +72,8 @@ class Meta(BaseModel):
     created: str
     px4_version: str = "1.17.0"
     notes: str = ""
+    # glTF binary of the airframe meshes (FRD metres relative to the CG); GET /api/cad/model/{name}
+    cad_model: str | None = None
 
 
 class Frame(BaseModel):

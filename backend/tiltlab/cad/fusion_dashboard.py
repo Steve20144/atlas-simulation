@@ -13,13 +13,12 @@ them as JSON
 to
 :func:`mass_properties`.
 
-Frames. Fusion assembly frame (mm) -> PX4 FRD body frame (m). The mapping is a user-confirmed choice
-(:class:`FusionFrame`); the default ``forward="+z", up="+y"`` reproduces the CA_ROTOR positions of
-the flown
-parameter files (lateral and vertical coordinates match to the millimetre). The dashboard's own
-display frame
-uses ``up = -y`` and labels the model "shown inverted"; flip ``up`` if the vehicle turns out to be
-anhedral.
+Frames. Fusion assembly frame (mm) -> PX4 FRD body frame (m). The mapping is a user-confirmed
+choice (:class:`FusionFrame`). The default ``forward="+z", up="-y"`` is the dashboard's own
+display frame and matches the aircraft: the inner wing motors sit at the level of the front
+fans and each pair outward is one step lower (50 mm down per 87 mm outward, a 30 degree
+offset); the nose clamp is at +z. The flown parameter files have the vertical coordinates
+upside down relative to this (they were built with up = +y).
 Right-handedness is enforced: right = down x forward.
 """
 
@@ -145,6 +144,7 @@ class CadBody:
     mesh_centroid_mm: np.ndarray
     mesh_inertia_origin_mm5: np.ndarray  # unit density, about the Fusion origin
     vertices_mm: np.ndarray = field(repr=False)
+    meshes_mm: list[tuple[np.ndarray, np.ndarray]] = field(default_factory=list, repr=False)
 
     @property
     def volume_m3(self) -> float:
@@ -170,6 +170,7 @@ def load_dashboard(path: str | Path) -> Dashboard:
     for t in data["types"]:
         for inst in t["instances"]:
             vol_tot, first, inertia, chunks = 0.0, np.zeros(3), np.zeros((3, 3)), []
+            meshes: list[tuple[np.ndarray, np.ndarray]] = []
             for m in inst.get("meshes", []):
                 if not m.get("v") or not m.get("i"):
                     continue
@@ -177,7 +178,9 @@ def load_dashboard(path: str | Path) -> Dashboard:
                 vol_tot += vol
                 first += vol * cen
                 inertia += ine
-                chunks.append(np.asarray(m["v"], dtype=float).reshape(-1, 3))
+                verts = np.asarray(m["v"], dtype=float).reshape(-1, 3)
+                chunks.append(verts)
+                meshes.append((verts, np.asarray(m["i"], dtype=np.int64).reshape(-1, 3)))
             centroid = first / vol_tot if vol_tot > 1e-9 else np.asarray(inst["com"], dtype=float)
             bodies.append(
                 CadBody(
@@ -191,9 +194,38 @@ def load_dashboard(path: str | Path) -> Dashboard:
                     mesh_centroid_mm=centroid,
                     mesh_inertia_origin_mm5=inertia,
                     vertices_mm=np.vstack(chunks) if chunks else np.zeros((0, 3)),
+                    meshes_mm=meshes,
                 )
             )
     return Dashboard(doc=str(data.get("doc", "")), bodies=bodies)
+
+
+def volume_centroid_mm(dash: Dashboard) -> np.ndarray:
+    """The dashboard's own reference point without weights: the volume-weighted centroid of all
+    bodies (Fusion mm). Not the mass CG; use it only until the component weights exist."""
+    vol = np.array([b.vol_cm3 for b in dash.bodies], dtype=float)
+    com = np.array([b.com_mm for b in dash.bodies], dtype=float)
+    return (vol[:, None] * com).sum(0) / vol.sum()
+
+
+def export_glb(
+    dash: Dashboard, frame: FusionFrame, cg_fusion_mm: np.ndarray, path: str | Path
+) -> Path:
+    """Write every body mesh as one glTF binary, vertices in FRD metres relative to the CG, one node
+    per body (named after the CAD instance) so the viewer can show the real airframe."""
+    import trimesh
+
+    R = frame.rotation()
+    scene = trimesh.Scene()
+    for b in dash.bodies:
+        for k, (verts, faces) in enumerate(b.meshes_mm):
+            v_frd = ((verts - cg_fusion_mm) @ R.T) * 1e-3
+            mesh = trimesh.Trimesh(vertices=v_frd, faces=faces, process=False)
+            scene.add_geometry(mesh, node_name=f"{b.name}#{k}", geom_name=f"{b.name}#{k}")
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    scene.export(str(out), file_type="glb")
+    return out
 
 
 # ---------------------------------------------------------------- frame
@@ -205,7 +237,7 @@ class FusionFrame:
     right-handed."""
 
     forward: str = "+z"
-    up: str = "+y"
+    up: str = "-y"
 
     @staticmethod
     def _unit(spec: str) -> np.ndarray:

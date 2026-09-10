@@ -1,8 +1,10 @@
 import { Grid, Line, OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
+import { useState } from "react";
 import { frdToScene } from "../geometry";
 import { useTiltlabStore } from "../store";
 import type { Vec3 } from "../types";
+import CadModel, { CadErrorBoundary } from "./CadModel";
 import FanMarkers from "./FanMarkers";
 
 const AXIS_LEN_M = 0.3;
@@ -28,6 +30,10 @@ function AxesTriad() {
 export default function Viewer3D() {
   const fans = useTiltlabStore((s) => s.scenario.fans);
   const foils = useTiltlabStore((s) => s.scenario.foils);
+  const scenarioName = useTiltlabStore((s) => s.scenario.meta.name);
+  const cadModel = useTiltlabStore((s) => s.scenario.meta.cad_model);
+  const [showCad, setShowCad] = useState(true);
+  const [cadError, setCadError] = useState<string | null>(null);
   const cg = useTiltlabStore((s) => s.scenario.mass.cg_frd_m);
   const u = useTiltlabStore((s) => s.metrics?.hover?.u);
 
@@ -51,6 +57,11 @@ export default function Viewer3D() {
           <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.4} />
         </mesh>
         <FanMarkers fans={fans} foils={foils} u={u} />
+        {cadModel && showCad && (
+          <CadErrorBoundary key={scenarioName} onError={setCadError}>
+            <CadModel url={`/api/cad/model/${encodeURIComponent(scenarioName)}`} onError={setCadError} />
+          </CadErrorBoundary>
+        )}
         <OrbitControls makeDefault enableDamping dampingFactor={0.1} />
       </Canvas>
       <div className="pointer-events-none absolute left-2 top-2 rounded bg-slate-900/70 px-2 py-1 text-[10px] leading-snug text-slate-300">
@@ -63,6 +74,13 @@ export default function Viewer3D() {
           jet into the foil; arrows start where the force acts and point where it pushes the aircraft,
           scaled by hover u.
         </div>
+        {cadModel && (
+          <label className="pointer-events-auto mt-1 flex items-center gap-1">
+            <input type="checkbox" checked={showCad} onChange={(e) => setShowCad(e.target.checked)} />
+            show CAD airframe
+          </label>
+        )}
+        {cadError && <div className="text-rose-300">CAD model failed to load: {cadError}</div>}
       </div>
     </section>
   );
