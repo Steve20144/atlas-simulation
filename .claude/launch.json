@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tiltlab-backend",
+      "runtimeExecutable": "C:\\Users\\stefa\\.local\\bin\\uv.exe",
+      "runtimeArgs": ["run", "--project", "backend", "uvicorn", "tiltlab.api.app:app", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}

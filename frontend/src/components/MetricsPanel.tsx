@@ -110,7 +110,7 @@ export default function MetricsPanel() {
         <Group title="Composite">
           <div className="flex items-center gap-2 text-xs">
             <span className="text-2xl font-semibold tabular-nums">{fmt(metrics.score.value, 1)}</span>
-            <Badge label={metrics.score.value >= 0.7 ? "good" : metrics.score.value >= 0.4 ? "weak" : "none"} />
+            <Badge label={metrics.score.value >= 0.7 ? "good" : metrics.score.value >= 0.4 ? "fair" : "low"} />
           </div>
           <p className="mt-1 text-[10px] text-slate-500">
             weights{" "}

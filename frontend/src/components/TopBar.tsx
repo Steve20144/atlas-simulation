@@ -16,7 +16,7 @@ export default function TopBar() {
   const scenarioNames = useTiltlabStore((s) => s.scenarioNames);
   const concept = useTiltlabStore((s) => s.concept);
   const collective = useTiltlabStore((s) => s.collective);
-  const hoverU = useTiltlabStore((s) => s.metrics?.hover?.u);
+  const collectiveHover = useTiltlabStore((s) => s.metrics?.collective_hover);
   const loading = useTiltlabStore((s) => s.loading);
   const error = useTiltlabStore((s) => s.error);
   const { loadScenarioNames, loadScenario, saveScenario, setConcept, setCollective, applyPreset } =
@@ -26,8 +26,8 @@ export default function TopBar() {
     void loadScenarioNames();
   }, [loadScenarioNames]);
 
-  const hoverMean = hoverU && hoverU.length ? hoverU.reduce((a, b) => a + b, 0) / hoverU.length : 0.5;
-  const sliderValue = collective ?? hoverMean;
+  // In hover mode the slider sits where the backend's hover solution is (fraction of Fz_max).
+  const sliderValue = collective ?? collectiveHover ?? 0.5;
 
   return (
     <header className="flex flex-wrap items-center gap-4 border-b border-slate-700 bg-slate-900 px-4 py-2">

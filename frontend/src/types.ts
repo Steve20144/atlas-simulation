@@ -178,6 +178,8 @@ export interface Metrics {
   concept: ControlConcept;
   controlled_axes: string[];
   collective: number;
+  /** Collective (fraction of Fz_max) at which the backend's hover solution sits. */
+  collective_hover?: number;
   hover: HoverMetrics;
   authority: AuthorityMetrics;
   coupling: CouplingMetrics;
