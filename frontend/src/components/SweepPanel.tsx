@@ -32,8 +32,15 @@ export default function SweepPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const tilts = range(start, stop, step);
+  const lo = Math.min(start, stop);
+  const hi = Math.max(start, stop);
+  const tilts = range(lo, hi, step > 0 ? step : 5);
   const count = perPair ? Math.pow(tilts.length, 4) : tilts.length;
+  const topReason = (r: SweepResponse) => {
+    const counts = new Map<string, number>();
+    for (const c of r.candidates) for (const reason of c.reasons) counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+  };
 
   const run = async () => {
     setBusy(true);
@@ -56,7 +63,7 @@ export default function SweepPanel() {
     <div className="flex flex-col gap-1 rounded border border-slate-800 p-2" data-testid="sweep-panel">
       <h3 className="text-xs font-semibold">Tilt sweep</h3>
       <div className="flex flex-wrap items-center gap-1 text-[11px]">
-        <span>tilt</span>
+        <span>tilt from</span>
         <input className={input} type="number" value={start} min={0} max={90} onChange={(e) => setStart(Number(e.target.value))} aria-label="sweep start" />
         <span>to</span>
         <input className={input} type="number" value={stop} min={0} max={90} onChange={(e) => setStop(Number(e.target.value))} aria-label="sweep stop" />
@@ -78,8 +85,13 @@ export default function SweepPanel() {
       {result && (
         <>
           <p className="text-[10px] text-slate-400">
-            {result.n_feasible} of {result.n_evaluated} feasible, {fmt(result.elapsed_ms, 0)} ms, ranked by hover power.
+            {result.n_feasible} of {result.n_evaluated} geometries can hover and control every axis under this concept, {fmt(result.elapsed_ms, 0)} ms. Feasible rows first, ranked by hover power.
           </p>
+          {result.n_feasible === 0 && (
+            <p className="text-[10px] text-rose-300">
+              No feasible geometry in this grid. Most common reason: {topReason(result)}. Try another azimuth mode (alternating fore-aft) or per-pair angles.
+            </p>
+          )}
           <table className="w-full text-[10px] tabular-nums">
             <thead>
               <tr className="text-slate-400"><th className="text-left">pair tilts</th><th>W</th><th>headroom</th><th>yaw N m</th><th>roll N m</th><th>score</th><th></th></tr>
@@ -93,7 +105,10 @@ export default function SweepPanel() {
                   <td className="text-right">{c.yaw_Nm === null ? "-" : fmt(c.yaw_Nm, 2)}</td>
                   <td className="text-right">{c.roll_Nm === null ? "-" : fmt(c.roll_Nm, 2)}</td>
                   <td className="text-right">{fmt(c.score, 2)}</td>
-                  <td><button className={btn} onClick={() => applyFanAngles(c.tilts_deg, c.azimuths_deg)}>apply</button></td>
+                  <td>
+                    <button className={btn} onClick={() => applyFanAngles(c.tilts_deg, c.azimuths_deg)}>apply</button>
+                    {!c.feasible && <span className="ml-1 text-[9px] text-rose-300">{c.reasons[0]?.split(" (")[0]}</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>

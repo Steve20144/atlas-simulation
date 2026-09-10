@@ -58,7 +58,9 @@ export default function Viewer3D() {
           <span className="text-blue-400">Z</span> down (FRD)
         </div>
         <div>
-          <span className="text-amber-300">CG</span> marker, thrust vectors scaled by hover u
+          <span className="text-amber-300">CG</span> marker. Arrows show the thrust direction (force on the
+          airframe) scaled by hover u; exhaust leaves the duct the opposite way. Tilt 45, azimuth 0 = thrust up
+          and forward.
         </div>
       </div>
     </section>
