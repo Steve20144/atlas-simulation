@@ -142,6 +142,10 @@ Fields (see `PLAN.md` section 5 and `backend/tiltlab/scenario.py`): `meta`, `fra
 
 The **Gazebo** button in the Export panel (or `POST /api/export/gazebo`) writes `exports/gazebo/<scenario>/` with a gz sim model (SDF 1.9: airframe body with the scenario mass and inertia and the CAD glTF, one rotor link per fan at the foil pressure point pointing along the effective thrust, each driven by the `MulticopterMotorModel` plugin scaled to the fan's effective CT), a world with the sensor systems PX4's gz bridge needs, a PX4 posix airframe file (`4010_gz_<scenario>`) carrying the same `CA_ROTOR*` geometry, and a README with the install and launch steps for a PX4 v1.17 checkout on Linux (`make px4_sitl gz_<scenario>`). It is generated, not run here; the README lists what to check first. It models the rotors as point thrusters at the effective directions; the foil aerodynamics and the Coanda turning are baked into those directions, not simulated.
 
+### Hardware-in-the-loop with the Pixhawk (Gazebo Classic)
+
+PX4 HITL runs over MAVLink HIL messages on the Pixhawk's USB port, which only the Gazebo Classic `mavlink_interface` plugin speaks (the new gz sim bridge has no HITL mode). The **HITL** button in the Export panel (or `POST /api/export/gazebo_hitl`) writes `exports/gazebo_hitl/<scenario>_hitl/`: a Gazebo Classic model mirroring PX4's `iris_hitl` with one rotor per fan at the effective direction, the sensor plugins, the MAVLink interface in HIL serial mode with ten control channels, a world, a QGroundControl parameter file that puts the Pixhawk into HITL with this geometry (`SYS_AUTOSTART 1001`, `SYS_HITL 1`, `CA_ROTOR*`, `HIL_ACT_FUNC1..10`), and a README with the full procedure. Two facts verified in the pinned PX4 tree: HITL needs the `pwm_out_sim` module (`rcS` starts `pwm_out_sim start -m hil` when `SYS_HITL` is set) and no fmu-v6x board configuration compiles it, so one custom firmware build with `CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y` is required. Fans and ESCs must be unpowered for every HITL session.
+
 ## API
 
 | Method and path | Purpose |

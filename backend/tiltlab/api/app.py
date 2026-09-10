@@ -261,3 +261,15 @@ def export_gazebo_endpoint(req: FoilSheetRequest) -> dict[str, Any]:
     if not SCENARIO_NAME_RE.match(req.scenario.meta.name):
         raise HTTPException(status_code=400, detail="invalid scenario name")
     return export_gazebo(req.scenario, EXPORTS_DIR / "gazebo")
+
+
+# ---------------------------------------------------------------- gazebo classic HITL harness
+from tiltlab.export.gazebo_classic_hitl import export_gazebo_classic_hitl  # noqa: E402
+
+
+@app.post("/api/export/gazebo_hitl")
+def export_gazebo_hitl_endpoint(req: FoilSheetRequest) -> dict[str, Any]:
+    """Gazebo Classic model, world, HITL parameter file and README under exports/gazebo_hitl/."""
+    if not SCENARIO_NAME_RE.match(req.scenario.meta.name):
+        raise HTTPException(status_code=400, detail="invalid scenario name")
+    return export_gazebo_classic_hitl(req.scenario, EXPORTS_DIR / "gazebo_hitl")

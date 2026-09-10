@@ -30,6 +30,13 @@ export default function ExportPanel() {
         >
           Gazebo
         </button>
+        <button
+          className={btn}
+          title="Gazebo Classic HITL model, world, QGC parameter file and step-by-step README under exports/gazebo_hitl/<name>_hitl/"
+          onClick={() => void api.exportGazeboHitl(scenario).then((r) => setStatus(`wrote HITL harness to ${r.root} (read its README.md)`)).catch((e: Error) => setStatus(e.message))}
+        >
+          HITL
+        </button>
       </div>
       {status && <p className="break-all text-[10px] text-slate-400">{status}</p>}
     </div>
