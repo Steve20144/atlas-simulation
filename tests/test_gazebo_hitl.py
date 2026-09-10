@@ -65,6 +65,8 @@ def test_export(cad, tmp_path):
     expected = frd_to_flu(cad.effective_pos(cad.fans_sorted()[0]) - np.asarray(cad.mass.cg_frd_m))
     assert pose[:3] == pytest.approx(expected, abs=1e-4)
     ET.parse(out["world"])
+    for key in ("model_sdf", "world"):  # .params keeps CRLF like the QGC-written flown files
+        assert b"\r" not in open(out[key], "rb").read(), key
     pf = read_params_file(out["params"])
     d = pf.to_dict()
     assert d["SYS_HITL"] == 1 and d["HIL_ACT_FUNC10"] == 110 and d["CA_ROTOR_COUNT"] == 10

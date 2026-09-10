@@ -267,6 +267,25 @@ cd $PX4 && make px4_sitl gz_{name}
 PX4's gz bridge (src/modules/simulation/gz_bridge) publishes `/{name}/command/motor_speed` and reads
 odometry, IMU, barometer and magnetometer from the model; QGroundControl connects on UDP 14550.
 
+## PX4's gz bridge has only 8 ESC channels
+`src/modules/simulation/gz_bridge/module.yaml` declares `__max_num_servos: &max_num_servos 8`, so
+`SIM_GZ_EC_FUNC9` and `SIM_GZ_EC_FUNC10` do not exist and PX4 publishes at most 8 motor speeds.
+Gazebo then prints `MulticopterMotorModel ... You tried to access index N of the Actuator velocity
+array which is of size M` for every motor beyond M. Before building, raise the limit:
+```bash
+sed -i 's/^__max_num_servos: &max_num_servos 8/__max_num_servos: \\&max_num_servos 12/' \\
+  $PX4/src/modules/simulation/gz_bridge/module.yaml
+```
+The velocity array PX4 sends has as many entries as there are *consecutive* configured functions
+from `SIM_GZ_EC_FUNC1`; a size of 4 means `SIM_GZ_EC_FUNC5` is unset (airframe not applied, or a
+saved parameter file from an earlier run of this autostart id under
+`build/px4_sitl_default/rootfs`). Check with `param show SIM_GZ_EC_FUNC*` in the PX4 shell.
+
+## Line endings
+PX4's `sh` sources the airframe line by line. If the file arrives with Windows CRLF endings every
+`param set-default` fails silently and PX4 runs on defaults (`CA_ROTOR_COUNT 4`, four ESC outputs).
+tiltlab writes LF; if you edit or copy the files on Windows, run `sed -i 's/\\r$//'` on them in WSL.
+
 ## What to check first
 1. `gz topic -l` shows `/model/{name}/command/motor_speed`; PX4 prints `INFO [gz_bridge] connected`.
 2. In Stabilized on the ground, raising the throttle spins rotors 8 and 9 (centreline) and the
@@ -299,7 +318,9 @@ def export_gazebo(
             shutil.copy(src, model_dir / "meshes" / src.name)
             mesh_uri = f"model://{name}/meshes/{src.name}"
 
-    (model_dir / "model.sdf").write_text(model_sdf(scenario, name, mesh_uri), encoding="utf-8")
+    (model_dir / "model.sdf").write_text(
+        model_sdf(scenario, name, mesh_uri), encoding="utf-8", newline="\n"
+    )
     (model_dir / "model.config").write_text(
         f'<?xml version="1.0"?>\n<model>\n  <name>{escape(name)}</name>\n  <version>1.0</version>\n'
         f'  <sdf version="1.9">model.sdf</sdf>\n  <author><name>tiltlab</name></author>\n'
@@ -307,10 +328,10 @@ def export_gazebo(
         "</model>\n",
         encoding="utf-8",
     )
-    (root / "worlds" / f"{name}.sdf").write_text(world_sdf(name), encoding="utf-8")
+    (root / "worlds" / f"{name}.sdf").write_text(world_sdf(name), encoding="utf-8", newline="\n")
     airframe = root / "px4" / "airframes" / f"{AIRFRAME_ID}_gz_{name}"
-    airframe.write_text(px4_airframe(scenario, name), encoding="utf-8")
-    (root / "README.md").write_text(readme(scenario, name), encoding="utf-8")
+    airframe.write_text(px4_airframe(scenario, name), encoding="utf-8", newline="\n")
+    (root / "README.md").write_text(readme(scenario, name), encoding="utf-8", newline="\n")
     return {
         "root": str(root),
         "model_sdf": str(model_dir / "model.sdf"),

@@ -442,7 +442,7 @@ def export_gazebo_classic_hitl(
                 (model_dir / "meshes").mkdir(exist_ok=True)
 
     (model_dir / "model.sdf").write_text(
-        model_sdf(scenario, name, mesh_uri, serial), encoding="utf-8"
+        model_sdf(scenario, name, mesh_uri, serial), encoding="utf-8", newline="\n"
     )
     (model_dir / "model.config").write_text(
         f'<?xml version="1.0"?>\n<model>\n  <name>{escape(name)}</name>\n  <version>1.0</version>\n'
@@ -452,7 +452,9 @@ def export_gazebo_classic_hitl(
         "</model>\n",
         encoding="utf-8",
     )
-    (root / "worlds" / f"hitl_{name}.world").write_text(world_sdf(name), encoding="utf-8")
+    (root / "worlds" / f"hitl_{name}.world").write_text(
+        world_sdf(name), encoding="utf-8", newline="\n"
+    )
     params = hitl_params(scenario)
     types = {k: PARAM_TYPE_INT32 for k in params if isinstance(params[k], int)}
     pf = params_file_from_dict(
@@ -465,7 +467,7 @@ def export_gazebo_classic_hitl(
     )
     params_path = root / "px4" / f"{name}.params"
     write_params_file(pf, params_path)
-    (root / "README.md").write_text(readme(scenario, name, serial), encoding="utf-8")
+    (root / "README.md").write_text(readme(scenario, name, serial), encoding="utf-8", newline="\n")
     return {
         "root": str(root),
         "model_sdf": str(model_dir / "model.sdf"),

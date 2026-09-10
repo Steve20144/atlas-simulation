@@ -104,6 +104,10 @@ def test_gazebo_export(cad, tmp_path):
     assert (
         f"CA_ROTOR0_AX {ca['CA_ROTOR0_AX']:.6g}" in airframe and "SIM_GZ_EC_FUNC10 110" in airframe
     )
+    # PX4's sh sources the airframe line by line; a CRLF file makes every "param set-default" fail
+    # silently and PX4 runs on defaults (4 ESC outputs), so the files must be LF even from Windows.
+    for key in ("airframe", "model_sdf", "world_sdf"):
+        assert b"\r" not in open(out[key], "rb").read(), key
     assert "meshes" in out["mesh"]
     client = TestClient(app)
     r = client.post("/api/export/gazebo", json={"scenario": cad.model_dump(mode="json")})
