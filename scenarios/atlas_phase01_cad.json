@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "atlas_phase01_cad",
-    "created": "2026-09-10T08:19:45-07:00",
+    "created": "2026-09-10T10:49:00-07:00",
     "px4_version": "1.17.0",
     "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0.",
     "cad_model": "atlas_phase01_cad.glb"
@@ -9,7 +9,12 @@
   "frame": {
     "cad_forward_axis": "+Z",
     "cad_up_axis": "-Y",
-    "cad_units": "mm"
+    "cad_units": "mm",
+    "cad_origin": [
+      -0.375,
+      133.705,
+      -67.206
+    ]
   },
   "mass": {
     "total_kg": 12.0,

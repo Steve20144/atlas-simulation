@@ -27,6 +27,8 @@ export interface FrameMapping {
   cad_forward_axis: Axis;
   cad_up_axis: Axis;
   cad_units: CadUnits;
+  /** CAD coordinates (cad_units) of the FRD origin, the reference CG. */
+  cad_origin?: Vec3 | null;
 }
 
 export interface CadReportedMass {
@@ -282,4 +284,24 @@ export interface SweepResponse {
   objective: string;
   candidates: SweepCandidate[];
   best: SweepCandidate | null;
+}
+
+/** One row of the foil design sheet (backend/tiltlab/export/angle_sheet.py). Extra keys hold the
+ * CAD coordinates, named motor_centre_cad_<units>, duct_exit_cad_<units>, pressure_point_cad_<units>. */
+export interface FoilSheetRow {
+  rotor: number;
+  output: string;
+  foil: string;
+  side: "left" | "right";
+  deflection_deg: number;
+  change_from_as_built_deg: number;
+  exhaust_angle_below_fore_aft_deg: number;
+  thrust_dir_frd: string;
+  thrust_dir_cad: string;
+  exhaust_dir_frd: string;
+  exhaust_dir_cad: string;
+  pressure_point_frd_m: number[];
+  thrust_scale: number;
+  ct_effective_N: number;
+  [cadCoordinate: string]: unknown;
 }

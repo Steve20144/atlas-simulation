@@ -1,6 +1,7 @@
 import { clampTilt, describeAxis, effectiveFan, wrapAzimuth } from "../geometry";
 import { useTiltlabStore } from "../store";
 import FoilCard from "./FoilCard";
+import FoilSheet from "./FoilSheet";
 
 const num = "w-16 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-right tabular-nums";
 
@@ -79,6 +80,7 @@ export default function FoilPanel() {
           </table>
         </div>
       )}
+      <FoilSheet />
       <p className="text-[10px] leading-snug text-slate-500">
         FRD body frame: X forward, Y right, Z down. Positions come from the CAD; the PX4 rotor
         geometry exported below uses the foil pressure points and the deflected directions.

@@ -81,6 +81,9 @@ class Frame(BaseModel):
     cad_forward_axis: str = "+X"
     cad_up_axis: str = "+Z"
     cad_units: Literal["mm", "m", "in"] = "mm"
+    # CAD coordinates (in cad_units) of the scenario's FRD origin (the reference CG), so that
+    # FRD positions can be reported back in the CAD frame for modelling.
+    cad_origin: Vec3 | None = None
 
 
 class CadReported(BaseModel):

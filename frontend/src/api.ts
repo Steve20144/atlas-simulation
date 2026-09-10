@@ -1,4 +1,4 @@
-import type { ControlConcept, Metrics, Scenario, SweepRequestBody, SweepResponse } from "./types";
+import type { ControlConcept, FoilSheetRow, Metrics, Scenario, SweepRequestBody, SweepResponse } from "./types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -36,4 +36,8 @@ export const api = {
   exportCsv: (rows: Record<string, unknown>[], stem: string) =>
     post<{ path: string }>("/api/export/csv", { rows, stem }),
   sweep: (body: SweepRequestBody) => post<SweepResponse>("/api/sweep", body),
+  foilSheet: (scenario: Scenario) =>
+    post<{ rows: FoilSheetRow[]; markdown: string }>("/api/foil_sheet", { scenario }),
+  exportFoilSheet: (scenario: Scenario) =>
+    post<{ csv_path: string; md_path: string }>("/api/export/foil_sheet", { scenario }),
 };

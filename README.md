@@ -74,6 +74,14 @@ In the scenario this is the `foils` section: `left` and `right`, each with its m
 
 In the UI the left column becomes **Geometry**: one slider per foil (linked by default), the resulting thrust direction in words, optional per-motor angles for a segmented foil, the turning loss, and the centreline fans. The 3D view draws the motors as grey ducts along the fuselage, a dotted jet to the pressure point, and the force arrow from there.
 
+### From a sweep result to the Fusion model: the foil design sheet
+
+Open **Foil design sheet (for the CAD)** at the bottom of the Geometry panel. For every wing motor it lists the chosen deflection, the change from the as-built 45 degree foil (the rotation to apply to that foil segment about the lateral axis, positive turns the exit further down and forward), the exhaust direction as a unit vector in the Fusion frame, and the Fusion coordinates (mm) of the motor centre and of the pressure point where the turned jet acts. Model each foil segment so its exit plane sends the jet along that exhaust direction. "Export sheet" writes the same table as timestamped Markdown and CSV into `exports/`. The Fusion coordinates use the frame and origin recorded in the scenario (`frame.cad_origin`, the reference point of the import), so they land on the dashboard's own coordinates.
+
+### Airflow animation
+
+The 3D view animates particles that follow the air into each duct, through the foil channel to the pressure point and out along the deflected exhaust. Colour and speed follow the jet intensity at hover using the CFD "turbo" scale: blue is idle, red is the fan-curve maximum; the legend shows the thrust and the momentum-theory jet velocity (T = rho A v squared with the 80 mm duct area) at the two ends. Change a foil angle and the exhaust turns with it. This is a kinematic illustration of where the air goes and how hard each motor works, not a CFD solution; it does not model mixing, losses or interaction between jets.
+
 ### Foil sweep: find the most efficient deflection automatically
 
 The sweep panel (right column, below the metrics) tries every foil deflection in a grid, keeps the geometries that can hover level and steer every controlled axis, and ranks them by hover power. Choose the deflection range and step, the grouping (one angle for both foils, a segmented foil with one angle per motor pair, or left and right independent), the minimum hover headroom and minimum yaw authority, then click run. Each row shows the deflections outer to inner, hover power, headroom, yaw and roll authority and the score; grey rows are infeasible with the reason beside them. Click apply to load a row into the geometry panel and the 3D view. For scenarios without foils the same panel sweeps raw fan tilt. From the shell:

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { frdToScene } from "../geometry";
 import { useTiltlabStore } from "../store";
 import type { Vec3 } from "../types";
+import { turboGradient } from "../colormap";
+import Airflow, { jetVelocity } from "./Airflow";
 import CadModel, { CadErrorBoundary } from "./CadModel";
 import FanMarkers from "./FanMarkers";
 
@@ -33,7 +35,14 @@ export default function Viewer3D() {
   const scenarioName = useTiltlabStore((s) => s.scenario.meta.name);
   const cadModel = useTiltlabStore((s) => s.scenario.meta.cad_model);
   const [showCad, setShowCad] = useState(true);
+  const [showFlow, setShowFlow] = useState(true);
   const [cadError, setCadError] = useState<string | null>(null);
+  const thrustN = useTiltlabStore((s) => s.metrics?.hover?.thrust_N);
+  const fanCurves = useTiltlabStore((s) => s.scenario.fan_curves);
+  const maxThrustN = Math.max(
+    1,
+    ...Object.values(fanCurves).map((c) => c.points[c.points.length - 1]?.thrust_N ?? 0),
+  );
   const cg = useTiltlabStore((s) => s.scenario.mass.cg_frd_m);
   const u = useTiltlabStore((s) => s.metrics?.hover?.u);
 
@@ -57,6 +66,9 @@ export default function Viewer3D() {
           <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.4} />
         </mesh>
         <FanMarkers fans={fans} foils={foils} u={u} />
+        {showFlow && fans.length > 0 && (
+          <Airflow fans={fans} foils={foils} thrustN={thrustN} maxThrustN={maxThrustN} />
+        )}
         {cadModel && showCad && (
           <CadErrorBoundary key={scenarioName} onError={setCadError}>
             <CadModel url={`/api/cad/model/${encodeURIComponent(scenarioName)}`} onError={setCadError} />
@@ -81,6 +93,22 @@ export default function Viewer3D() {
           </label>
         )}
         {cadError && <div className="text-rose-300">CAD model failed to load: {cadError}</div>}
+        <label className="pointer-events-auto mt-1 flex items-center gap-1">
+          <input type="checkbox" checked={showFlow} onChange={(e) => setShowFlow(e.target.checked)} />
+          animate airflow (particles follow the jet through the duct and foil)
+        </label>
+        {showFlow && (
+          <div className="mt-1">
+            <div className="flex justify-between">
+              <span>0 N, 0 m/s</span>
+              <span>jet thrust and velocity (momentum theory)</span>
+              <span>
+                {maxThrustN.toFixed(0)} N, {jetVelocity(maxThrustN).toFixed(0)} m/s
+              </span>
+            </div>
+            <div className="h-2 w-full rounded" style={{ background: turboGradient() }} />
+          </div>
+        )}
       </div>
     </section>
   );

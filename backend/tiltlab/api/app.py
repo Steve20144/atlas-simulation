@@ -221,3 +221,30 @@ def cad_model(name: str) -> Response:
     if not path.exists():
         raise HTTPException(status_code=404, detail="no CAD model for this scenario")
     return FileResponse(path, media_type="model/gltf-binary")
+
+
+# ---------------------------------------------------------------- foil design sheet
+from tiltlab.api.foil_schemas import (  # noqa: E402
+    FoilSheetExportResponse,
+    FoilSheetRequest,
+    FoilSheetResponse,
+)
+from tiltlab.export.angle_sheet import (  # noqa: E402
+    angle_sheet_markdown,
+    export_angle_sheet,
+    foil_angle_sheet,
+)
+
+
+@app.post("/api/foil_sheet", response_model=FoilSheetResponse)
+def foil_sheet_endpoint(req: FoilSheetRequest) -> FoilSheetResponse:
+    """Per-motor foil deflection translated into CAD-frame angles and coordinates."""
+    rows = foil_angle_sheet(req.scenario)
+    return FoilSheetResponse(rows=rows, markdown=angle_sheet_markdown(req.scenario, rows))
+
+
+@app.post("/api/export/foil_sheet", response_model=FoilSheetExportResponse)
+def export_foil_sheet_endpoint(req: FoilSheetRequest) -> FoilSheetExportResponse:
+    """Write the foil design sheet as timestamped CSV and Markdown into exports/."""
+    csv_path, md_path = export_angle_sheet(req.scenario, EXPORTS_DIR)
+    return FoilSheetExportResponse(csv_path=str(csv_path), md_path=str(md_path))

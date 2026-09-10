@@ -678,7 +678,12 @@ def build_scenario(
                     ).strip(),
                 }
             ),
-            "frame": template.frame.model_copy(update=frame.as_scenario_frame()),
+            "frame": template.frame.model_copy(
+                update={
+                    **frame.as_scenario_frame(),
+                    "cad_origin": tuple(np.round(cg_fusion, 3).tolist()),
+                }
+            ),
             "mass": mass,
             "fans": fans,
         }
