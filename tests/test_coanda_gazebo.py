@@ -116,6 +116,9 @@ def test_gazebo_export(cad, tmp_path):
     assert (
         f"CA_ROTOR0_AX {ca['CA_ROTOR0_AX']:.6g}" in airframe and "SIM_GZ_EC_FUNC10 110" in airframe
     )
+    # the header names the deflection set so two exports of one scenario can be told apart
+    assert "#   rotor 0: tilt 90 az 0, foil 45 deg (effective 45 deg, attached)" in airframe
+    assert "rotor 8: tilt 0 az 0, no foil, thrust axis FRD (+0.000, +0.000, -1.000)" in airframe
     # PX4's sh sources the airframe line by line; a CRLF file makes every "param set-default" fail
     # silently and PX4 runs on defaults (4 ESC outputs), so the files must be LF even from Windows.
     for key in ("airframe", "model_sdf", "world_sdf"):
