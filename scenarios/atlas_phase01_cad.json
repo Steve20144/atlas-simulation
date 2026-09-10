@@ -1,9 +1,9 @@
 {
   "meta": {
     "name": "atlas_phase01_cad",
-    "created": "2026-09-09T20:18:58-07:00",
+    "created": "2026-09-09T21:25:23-07:00",
     "px4_version": "1.17.0",
-    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Geometry as flown in log_40_2026-9-9-15-09-54.ulg: vertical axes, KM yaw model (+-0.15/0.13/0.10/0.08), CT 5.6 on rotors 0..7 and 6.5 on 8, 9 kept as CA_ROTORn_CT overrides. Source 20260909_1515_params_v4_rig_airmode.params."
+    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Fans start vertical as flown; use the Tilt sweep (per pair) to explore tilt geometries."
   },
   "frame": {
     "cad_forward_axis": "+Z",
@@ -276,7 +276,7 @@
       "spin": "CW",
       "mirror_of": 1,
       "curve_ref": "xfly80_3280",
-      "km": 0.15
+      "km": 0.0
     },
     {
       "id": 1,
@@ -288,10 +288,10 @@
       ],
       "tilt_deg": 0.0,
       "azimuth_deg": 0.0,
-      "spin": "CCW",
+      "spin": "CW",
       "mirror_of": 0,
       "curve_ref": "xfly80_3280",
-      "km": 0.15
+      "km": 0.0
     },
     {
       "id": 2,
@@ -306,7 +306,7 @@
       "spin": "CW",
       "mirror_of": 3,
       "curve_ref": "xfly80_3280",
-      "km": 0.13
+      "km": 0.0
     },
     {
       "id": 3,
@@ -318,10 +318,10 @@
       ],
       "tilt_deg": 0.0,
       "azimuth_deg": 0.0,
-      "spin": "CCW",
+      "spin": "CW",
       "mirror_of": 2,
       "curve_ref": "xfly80_3280",
-      "km": 0.13
+      "km": 0.0
     },
     {
       "id": 4,
@@ -336,7 +336,7 @@
       "spin": "CW",
       "mirror_of": 5,
       "curve_ref": "xfly80_3280",
-      "km": 0.1
+      "km": 0.0
     },
     {
       "id": 5,
@@ -348,10 +348,10 @@
       ],
       "tilt_deg": 0.0,
       "azimuth_deg": 0.0,
-      "spin": "CCW",
+      "spin": "CW",
       "mirror_of": 4,
       "curve_ref": "xfly80_3280",
-      "km": 0.1
+      "km": 0.0
     },
     {
       "id": 6,
@@ -366,7 +366,7 @@
       "spin": "CW",
       "mirror_of": 7,
       "curve_ref": "xfly80_3280",
-      "km": 0.08
+      "km": 0.0
     },
     {
       "id": 7,
@@ -378,10 +378,10 @@
       ],
       "tilt_deg": 0.0,
       "azimuth_deg": 0.0,
-      "spin": "CCW",
+      "spin": "CW",
       "mirror_of": 6,
       "curve_ref": "xfly80_3280",
-      "km": 0.08
+      "km": 0.0
     },
     {
       "id": 8,
@@ -439,19 +439,8 @@
     "concept": "stock",
     "blend": 0.0,
     "ca_method": 2,
-    "reaction_torque": true,
-    "px4_params_override": {
-      "CA_ROTOR0_CT": 5.599999904632568,
-      "CA_ROTOR1_CT": 5.599999904632568,
-      "CA_ROTOR2_CT": 5.599999904632568,
-      "CA_ROTOR3_CT": 5.599999904632568,
-      "CA_ROTOR4_CT": 5.599999904632568,
-      "CA_ROTOR5_CT": 5.599999904632568,
-      "CA_ROTOR6_CT": 5.599999904632568,
-      "CA_ROTOR7_CT": 5.599999904632568,
-      "CA_ROTOR8_CT": 6.5,
-      "CA_ROTOR9_CT": 6.5
-    }
+    "reaction_torque": false,
+    "px4_params_override": {}
   },
   "rig": {
     "enabled": true,

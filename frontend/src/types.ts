@@ -192,3 +192,47 @@ export interface Metrics {
 }
 
 export type MetricGroup = "hover" | "authority" | "coupling" | "conditioning" | "composite";
+
+/** One geometry evaluated by POST /api/sweep (backend/tiltlab/core/sweep.py). */
+export interface SweepCandidate {
+  tilts_deg: number[];
+  azimuths_deg: number[];
+  pair_tilts_deg: number[];
+  centreline_tilt_deg: number;
+  power_W: number;
+  headroom: number;
+  roll_Nm: number | null;
+  pitch_Nm: number | null;
+  yaw_Nm: number | null;
+  fz_up_N: number | null;
+  yaw_Nm_per_kW: number | null;
+  coupling_max: number | null;
+  condition_number: number | null;
+  score: number;
+  estimated: boolean;
+  feasible: boolean;
+  reasons: string[];
+}
+
+export interface SweepRequestBody {
+  scenario: Scenario;
+  concept: ControlConcept;
+  collective?: number;
+  tilts_deg: number[];
+  azimuth_mode: "inward" | "outward" | "forward" | "aft";
+  per_pair: boolean;
+  centreline_tilts_deg?: number[];
+  min_headroom: number;
+  min_yaw_Nm: number;
+  top: number;
+}
+
+export interface SweepResponse {
+  n_evaluated: number;
+  n_feasible: number;
+  truncated: boolean;
+  elapsed_ms: number;
+  objective: string;
+  candidates: SweepCandidate[];
+  best: SweepCandidate | null;
+}

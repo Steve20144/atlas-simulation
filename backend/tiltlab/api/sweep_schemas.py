@@ -1,0 +1,34 @@
+"""Request and response models for POST /api/sweep."""
+
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+from tiltlab.scenario import Scenario
+
+
+class SweepRequest(BaseModel):
+    scenario: Scenario
+    concept: Literal["stock", "fully_actuated"] = "stock"
+    collective: float | None = Field(default=None, ge=0.0, le=1.0)
+    tilts_deg: list[float] = Field(default_factory=lambda: [float(t) for t in range(0, 50, 5)])
+    azimuth_mode: Literal["inward", "outward", "forward", "aft"] = "inward"
+    per_pair: bool = False
+    centreline_tilts_deg: list[float] = Field(default_factory=lambda: [0.0])
+    centreline_azimuth_deg: float = Field(default=0.0, ge=0.0, le=360.0)
+    min_headroom: float = Field(default=0.2, ge=0.0, le=1.0)
+    min_yaw_Nm: float = Field(default=0.0, ge=0.0)
+    top: int = Field(default=25, ge=1, le=5000)
+
+
+class SweepResponse(BaseModel):
+    n_evaluated: int
+    n_feasible: int
+    truncated: bool
+    elapsed_ms: float
+    objective: str
+    spec: dict[str, Any]
+    candidates: list[dict[str, Any]]
+    best: dict[str, Any] | None

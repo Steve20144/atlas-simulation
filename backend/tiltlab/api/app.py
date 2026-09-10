@@ -181,3 +181,31 @@ def index() -> Response:
 
 if FRONTEND_ASSETS.is_dir():
     app.mount("/assets", StaticFiles(directory=FRONTEND_ASSETS), name="assets")
+
+
+# ---------------------------------------------------------------- tilt sweep
+from tiltlab.api.sweep_schemas import SweepRequest, SweepResponse  # noqa: E402
+from tiltlab.core.sweep import SweepSpec, run_sweep  # noqa: E402
+
+
+@app.post("/api/sweep", response_model=SweepResponse)
+def sweep_endpoint(req: SweepRequest) -> SweepResponse:
+    """Grid sweep over wing-fan tilt; candidates ranked by hover power among those that keep
+    control."""
+    try:
+        spec = SweepSpec(
+            tilts_deg=req.tilts_deg,
+            azimuth_mode=req.azimuth_mode,
+            per_pair=req.per_pair,
+            centreline_tilts_deg=req.centreline_tilts_deg,
+            centreline_azimuth_deg=req.centreline_azimuth_deg,
+            concept=req.concept,
+            collective=req.collective,
+            min_headroom=req.min_headroom,
+            min_yaw_Nm=req.min_yaw_Nm,
+        )
+        result = run_sweep(req.scenario, spec)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result["candidates"] = result["candidates"][: req.top]
+    return SweepResponse(**result)

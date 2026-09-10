@@ -64,6 +64,8 @@ export interface TiltlabState {
   setMirrorLock: (id: number, on: boolean) => void;
   setConcept: (concept: ControlConcept) => void;
   setCollective: (collective: number | null) => void;
+  /** Set tilt and azimuth of every fan by index (from a sweep candidate) and refresh metrics. */
+  applyFanAngles: (tilts_deg: number[], azimuths_deg: number[]) => void;
   toggleGroup: (group: MetricGroup) => void;
   applyPreset: (preset: PresetId) => Promise<void>;
   loadScenarioNames: () => Promise<void>;
@@ -134,6 +136,14 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     setCollective: (collective) => {
       set({ collective });
       schedule();
+    },
+
+    applyFanAngles: (tilts_deg, azimuths_deg) => {
+      const { scenario } = get();
+      const fans = scenario.fans.map((f, i) =>
+        i < tilts_deg.length ? { ...f, tilt_deg: tilts_deg[i], azimuth_deg: azimuths_deg[i] ?? f.azimuth_deg } : f,
+      );
+      setScenarioAndRefresh({ ...scenario, fans });
     },
 
     toggleGroup: (group) =>

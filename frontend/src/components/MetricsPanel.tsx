@@ -6,6 +6,7 @@ import CouplingTable from "./CouplingTable";
 import ExportPanel from "./ExportPanel";
 import { fmt } from "./format";
 import ParamsPreview from "./ParamsPreview";
+import SweepPanel from "./SweepPanel";
 
 const GROUPS: { id: MetricGroup; label: string }[] = [
   { id: "hover", label: "Hover" },
@@ -121,6 +122,7 @@ export default function MetricsPanel() {
         </Group>
       )}
 
+      {metrics && <SweepPanel />}
       <ParamsPreview />
       <ExportPanel />
     </section>

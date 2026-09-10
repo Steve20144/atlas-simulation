@@ -66,6 +66,16 @@ make docker  # docker compose build (not run on the development machine)
 
 The 3D view is a stick model: cylinders at the fan positions oriented along the thrust axis, thrust vectors scaled by hover `u`, CG marker, FRD axes. Orbit with the mouse.
 
+### Tilt sweep: find the most efficient geometry automatically
+
+The Tilt sweep panel (right column, below the metrics) evaluates a grid of wing-fan tilt angles and ranks them by hover power among the candidates that keep control. Set the tilt range and step, the azimuth mode (inward, outward, forward, aft), the minimum hover headroom and minimum yaw authority, then click run. Each row shows the tilt of the four wing pairs (outer to inner), hover power, headroom, yaw and roll authority and the score; grey rows are infeasible and their tooltip says why. Click apply on a row to load that geometry into the fan table and the 3D view. The same sweep runs from the shell:
+
+```bash
+uv run --project backend python scripts/sweep_tilt.py scenarios/atlas_phase01_cad.json --tilts 0,10,20,30,40 --per-pair --min-headroom 0.12 --csv exports
+```
+
+What the sweep found on the CAD layout: the eight wing fans sit on a straight line, so one shared tilt for all pairs makes roll, yaw and lateral force linearly dependent (rank 4 at every angle) and stock PX4 cannot separate roll from yaw. Tick "per pair" so each pair gets its own angle; alternating tilts such as 10/0/10/0 degrees (outer to inner) restore independent yaw at almost no hover-power cost. A candidate marked "PX4 allocator collapsed" is one where the PX4 pseudo-inverse became numerically unstable (near-dependent rows, for example with the KM yaw model on top of an inward tilt); treat those geometries as unusable on the real controller.
+
 ### Replace the two placeholders before trusting absolute numbers
 
 Every scenario currently carries an amber "estimated" banner because two inputs are placeholders:

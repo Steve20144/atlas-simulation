@@ -1,4 +1,4 @@
-import type { ControlConcept, Metrics, Scenario } from "./types";
+import type { ControlConcept, Metrics, Scenario, SweepRequestBody, SweepResponse } from "./types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -35,4 +35,5 @@ export const api = {
     post<{ path: string }>("/api/export/params", { scenario, concept }),
   exportCsv: (rows: Record<string, unknown>[], stem: string) =>
     post<{ path: string }>("/api/export/csv", { rows, stem }),
+  sweep: (body: SweepRequestBody) => post<SweepResponse>("/api/sweep", body),
 };
