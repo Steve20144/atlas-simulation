@@ -219,7 +219,14 @@ export interface SweepRequestBody {
   concept: ControlConcept;
   collective?: number;
   tilts_deg: number[];
-  azimuth_mode: "inward" | "outward" | "forward" | "aft";
+  azimuth_mode:
+    | "inward"
+    | "outward"
+    | "forward"
+    | "aft"
+    | "alternating"
+    | "outer_fwd_inner_aft"
+    | "outer_aft_inner_fwd";
   per_pair: boolean;
   centreline_tilts_deg?: number[];
   min_headroom: number;

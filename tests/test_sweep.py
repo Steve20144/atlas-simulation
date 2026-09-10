@@ -77,6 +77,29 @@ def test_infeasible_reasons_reported(scenario):
     assert result["best"] is None
 
 
+def test_alternating_fore_aft_gives_yaw_under_stock_px4(scenario):
+    """Opposite fore-aft directions across pairs cancel Fx and yield yaw from differential thrust."""
+    result = run_sweep(
+        scenario, SweepSpec(tilts_deg=[15, 45], azimuth_mode="alternating", min_headroom=0.05)
+    )
+    assert result["n_feasible"] == 2
+    by_tilt = {c["pair_tilts_deg"][0]: c for c in result["candidates"]}
+    assert by_tilt[45.0]["yaw_Nm"] > by_tilt[15.0]["yaw_Nm"] > 1.0
+    assert by_tilt[45.0]["power_W"] > by_tilt[15.0]["power_W"]
+    angles = list(
+        candidate_angles(scenario, SweepSpec(tilts_deg=[15], azimuth_mode="alternating"))
+    )[0]
+    assert angles[0][1] == 0.0 and angles[2][1] == 180.0  # outer pair forward, next pair aft
+
+
+def test_same_direction_forward_has_no_level_trim(scenario):
+    result = run_sweep(
+        scenario, SweepSpec(tilts_deg=[45], azimuth_mode="forward", min_headroom=0.0)
+    )
+    c = result["candidates"][0]
+    assert not c["feasible"] and any("no level-attitude hover trim" in r for r in c["reasons"])
+
+
 def test_spec_validation():
     with pytest.raises(ValueError):
         SweepSpec(tilts_deg=[95])
@@ -96,4 +119,4 @@ def test_sweep_endpoint(scenario):
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["n_evaluated"] == 2 and len(data["candidates"]) == 1
-    assert data["spec"]["azimuth_mode"] == "inward"
+    assert data["spec"]["azimuth_mode"] == "forward"

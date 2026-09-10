@@ -14,7 +14,15 @@ class SweepRequest(BaseModel):
     concept: Literal["stock", "fully_actuated"] = "stock"
     collective: float | None = Field(default=None, ge=0.0, le=1.0)
     tilts_deg: list[float] = Field(default_factory=lambda: [float(t) for t in range(0, 50, 5)])
-    azimuth_mode: Literal["inward", "outward", "forward", "aft"] = "inward"
+    azimuth_mode: Literal[
+        "inward",
+        "outward",
+        "forward",
+        "aft",
+        "alternating",
+        "outer_fwd_inner_aft",
+        "outer_aft_inner_fwd",
+    ] = "forward"
     per_pair: bool = False
     centreline_tilts_deg: list[float] = Field(default_factory=lambda: [0.0])
     centreline_azimuth_deg: float = Field(default=0.0, ge=0.0, le=360.0)

@@ -74,7 +74,14 @@ The Tilt sweep panel (right column, below the metrics) evaluates a grid of wing-
 uv run --project backend python scripts/sweep_tilt.py scenarios/atlas_phase01_cad.json --tilts 0,10,20,30,40 --per-pair --min-headroom 0.12 --csv exports
 ```
 
-What the sweep found on the CAD layout: the eight wing fans sit on a straight line, so one shared tilt for all pairs makes roll, yaw and lateral force linearly dependent (rank 4 at every angle) and stock PX4 cannot separate roll from yaw. Tick "per pair" so each pair gets its own angle; alternating tilts such as 10/0/10/0 degrees (outer to inner) restore independent yaw at almost no hover-power cost. A candidate marked "PX4 allocator collapsed" is one where the PX4 pseudo-inverse became numerically unstable (near-dependent rows, for example with the KM yaw model on top of an inward tilt); treat those geometries as unusable on the real controller.
+Azimuth modes: `forward` and `aft` vector every wing fan the same way in the fore-aft plane (the as-built vehicle has all eight at 45 degrees forward); `alternating`, `outer_fwd_inner_aft` and `outer_aft_inner_fwd` give pairs opposite fore-aft directions; `inward` and `outward` tilt in the lateral plane.
+
+What the sweep found on the CAD layout (placeholder mass and fan curve, so read the numbers relatively):
+
+- **All wing fans vectored the same way (forward or aft, any angle) has no level-attitude hover trim.** Only the two centreline fans point up, so nothing cancels the fore-aft force of the eight wing fans. Stock PX4 drives the wing fans to zero (this is the log 36 behaviour) and even a fully-actuated allocator finds no level trim. Flying it means the body pitches to cancel the force, which the static metrics do not model.
+- **Opposite directions across pairs fix it and give large yaw.** With `alternating` (outer pair forward, next aft, and so on) and the same tilt on all pairs: 15 degrees hovers at 8825 W with 4.65 N m yaw, 30 degrees at 9376 W with 9.7 N m, 45 degrees at 10528 W with 15.2 N m, against 8658 W and no yaw at all for vertical fans. Yaw comes from differential fore-aft thrust at the wing span, and the net fore-aft force cancels between pairs. Per-pair grids find cheaper mixes such as 15/15/0/0.
+- **One shared lateral (inward) tilt never works** because the eight fans sit on a straight line, which makes roll, yaw and lateral force linearly dependent (rank 4). Per-pair inward tilts such as 10/0/10/0 restore yaw, but only about 0.4 N m.
+- A row marked "PX4 allocator collapsed" is one where the PX4 pseudo-inverse became numerically unstable (near-dependent rows, for example the KM yaw model on top of an inward tilt); treat those geometries as unusable on the real controller.
 
 ### Replace the two placeholders before trusting absolute numbers
 

@@ -40,6 +40,21 @@ PAIR_AZIMUTHS: dict[str, tuple[float, float]] = {
     "forward": (0.0, 0.0),
     "aft": (180.0, 180.0),
 }
+# Modes whose direction changes from pair to pair (pair index 0 = outermost): they cancel the net
+# fore-aft force between pairs and give yaw from differential fore-aft thrust.
+ALTERNATING_MODES: dict[str, tuple[str, ...]] = {
+    "alternating": ("forward", "aft", "forward", "aft"),
+    "outer_fwd_inner_aft": ("forward", "forward", "aft", "aft"),
+    "outer_aft_inner_fwd": ("aft", "aft", "forward", "forward"),
+}
+AZIMUTH_MODES: tuple[str, ...] = tuple(PAIR_AZIMUTHS) + tuple(ALTERNATING_MODES)
+
+
+def pair_azimuths(mode: str, pair_index: int) -> tuple[float, float]:
+    """(left, right) azimuth in degrees for wing pair ``pair_index`` (0 is outermost)."""
+    if mode in ALTERNATING_MODES:
+        return PAIR_AZIMUTHS[ALTERNATING_MODES[mode][pair_index]]
+    return PAIR_AZIMUTHS[mode]
 
 
 @dataclass
@@ -56,8 +71,8 @@ class SweepSpec:
     max_candidates: int = 5000
 
     def __post_init__(self) -> None:
-        if self.azimuth_mode not in PAIR_AZIMUTHS:
-            raise ValueError(f"azimuth_mode must be one of {sorted(PAIR_AZIMUTHS)}")
+        if self.azimuth_mode not in AZIMUTH_MODES:
+            raise ValueError(f"azimuth_mode must be one of {list(AZIMUTH_MODES)}")
         if not self.tilts_deg:
             raise ValueError("tilts_deg is empty")
         for t in list(self.tilts_deg) + list(self.centreline_tilts_deg):
@@ -77,7 +92,6 @@ def candidate_angles(
     scenario: Scenario, spec: SweepSpec
 ) -> Iterator[dict[int, tuple[float, float]]]:
     """Yield {rotor id: (tilt_deg, azimuth_deg)} for every grid point."""
-    az_left, az_right = PAIR_AZIMUTHS[spec.azimuth_mode]
     pair_lr = [_left_right(scenario, p) for p in WING_PAIRS]
     if spec.per_pair:
         pair_grids: Iterator[tuple[float, ...]] = itertools.product(
@@ -88,7 +102,8 @@ def candidate_angles(
     for pair_tilts in pair_grids:
         for ct in spec.centreline_tilts_deg:
             angles: dict[int, tuple[float, float]] = {}
-            for (left, right), tilt in zip(pair_lr, pair_tilts, strict=True):
+            for pi, ((left, right), tilt) in enumerate(zip(pair_lr, pair_tilts, strict=True)):
+                az_left, az_right = pair_azimuths(spec.azimuth_mode, pi)
                 angles[left] = (float(tilt), az_left)
                 angles[right] = (float(tilt), az_right)
             for rid in CENTRELINE:
@@ -128,11 +143,17 @@ def evaluate_candidate(
     cond = m["conditioning"].get("condition_number")
     if hover.get("exact") is False:
         collapsed = max(hover["u"]) <= 1e-6
-        cond_txt = f" (B condition number {cond:.0f})" if isinstance(cond, int | float) else ""
-        reasons.append(
-            ("PX4 allocator collapsed to zero thrust" if collapsed else "hover trim not exact")
-            + cond_txt
-        )
+        fz_ok = _min_authority(auth, "Fz") is not None
+        if collapsed and not fz_ok:
+            reasons.append(
+                "no level-attitude hover trim: the tilted fans' net Fx or Fy cannot be zeroed"
+            )
+        else:
+            cond_txt = f" (B condition number {cond:.0f})" if isinstance(cond, int | float) else ""
+            reasons.append(
+                ("PX4 allocator collapsed to zero thrust" if collapsed else "hover trim not exact")
+                + cond_txt
+            )
     if float(hover["headroom"]) < spec.min_headroom:
         reasons.append(f"headroom {float(hover['headroom']):.2f} below {spec.min_headroom:.2f}")
     yaw = _min_authority(auth, "yaw")

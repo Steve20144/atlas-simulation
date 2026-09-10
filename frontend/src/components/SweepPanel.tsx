@@ -6,7 +6,7 @@ import { fmt } from "./format";
 
 const btn = "rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700 disabled:opacity-40";
 const input = "w-14 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-xs tabular-nums";
-const MODES = ["inward", "outward", "forward", "aft"] as const;
+const MODES = ["forward", "aft", "alternating", "outer_fwd_inner_aft", "outer_aft_inner_fwd", "inward", "outward"] as const;
 
 function range(start: number, stop: number, step: number): number[] {
   const out: number[] = [];
@@ -24,7 +24,7 @@ export default function SweepPanel() {
   const [start, setStart] = useState(0);
   const [stop, setStop] = useState(45);
   const [step, setStep] = useState(5);
-  const [mode, setMode] = useState<(typeof MODES)[number]>("inward");
+  const [mode, setMode] = useState<(typeof MODES)[number]>("forward");
   const [perPair, setPerPair] = useState(false);
   const [minHeadroom, setMinHeadroom] = useState(0.2);
   const [minYaw, setMinYaw] = useState(0);

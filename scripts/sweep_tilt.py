@@ -14,7 +14,7 @@ import argparse
 import json
 from pathlib import Path
 
-from tiltlab.core.sweep import SweepSpec, run_sweep, sweep_table
+from tiltlab.core.sweep import AZIMUTH_MODES, SweepSpec, run_sweep, sweep_table
 from tiltlab.export.csv_export import export_metrics_csv
 from tiltlab.scenario import Scenario
 
@@ -36,7 +36,7 @@ def main() -> None:
     )
     ap.add_argument("scenario")
     ap.add_argument("--tilts", default="0:45:5")
-    ap.add_argument("--mode", default="inward", choices=["inward", "outward", "forward", "aft"])
+    ap.add_argument("--mode", default="forward", choices=list(AZIMUTH_MODES))
     ap.add_argument("--per-pair", action="store_true")
     ap.add_argument("--centre", default="0")
     ap.add_argument("--concept", default="stock", choices=["stock", "fully_actuated"])
