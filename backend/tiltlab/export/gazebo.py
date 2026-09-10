@@ -26,7 +26,9 @@ from tiltlab.scenario import Scenario
 
 MAX_ROT_VELOCITY = 1000.0  # rad/s at full command; motorConstant maps it onto the fan CT
 ROTOR_MASS_KG = 0.32  # XFly 80 mm EDF unit
-AIRFRAME_ID = 4010
+# Must not share its numeric prefix with any stock posix airframe: rcS sources every file matching
+# `<SYS_AUTOSTART>_*` and keeps the last; v1.17 ships 4010_gz_x500_mono_cam (4001..4021 are used).
+AIRFRAME_ID = 4500
 
 
 def frd_to_flu(v: tuple[float, float, float] | np.ndarray) -> tuple[float, float, float]:
