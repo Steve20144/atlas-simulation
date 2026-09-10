@@ -16,7 +16,6 @@ Generated, not run here (Gazebo needs a Linux host); see the README for the chec
 from __future__ import annotations
 
 import math
-import shutil
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
@@ -50,6 +49,28 @@ def axis_to_rpy(axis_flu: tuple[float, float, float]) -> tuple[float, float, flo
 def _noise(stddev: float) -> str:
     """Zero-mean gaussian sensor noise element in the sensor's own SI unit."""
     return f'<noise type="gaussian"><mean>0.0</mean><stddev>{stddev:g}</stddev></noise>'
+
+
+def airframe_stl(src_glb: Path, dst_stl: Path) -> bool:
+    """Convert the scenario GLB (FRD metres about the CG) to a binary STL in gz body FLU.
+
+    The GLB keeps raw FRD vertices with no root transform. Gazebo's glTF loader draws those as-is
+    in its Z-up body frame, which shows the airframe upside down and mirrored (the wing dihedral
+    appears to rise outward). STL has no up-axis convention, so FRD (x, y, z) -> FLU (x, -y, -z)
+    is applied to the vertices explicitly. Returns False when the conversion is not possible.
+    """
+    try:
+        import trimesh
+
+        scene = trimesh.load(str(src_glb), force="scene")
+        merged = trimesh.util.concatenate(list(scene.dump()))
+        merged.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
+        dst_stl.parent.mkdir(parents=True, exist_ok=True)
+        merged.export(str(dst_stl))
+        return True
+    except Exception:  # noqa: BLE001 - the mesh is cosmetic; the model must still export
+        dst_stl.unlink(missing_ok=True)
+        return False
 
 
 def _inertia(scenario: Scenario) -> dict[str, float]:
@@ -278,7 +299,8 @@ MulticopterMotorModel maps full command (maxRotVelocity {MAX_ROT_VELOCITY:.0f} r
 effective CT, so the thrust seen by gz equals the CA_ROTOR*_CT in the airframe file.
 
 ## Files
-- `models/{name}/model.sdf`, `model.config`, `meshes/` (airframe glTF when the scenario has one)
+- `models/{name}/model.sdf`, `model.config`, `meshes/airframe.stl` (the CAD converted to the gz
+  body frame FLU; the blue discs are the rotor links at the foil pressure points, not the ducts)
 - `worlds/{name}.sdf`
 - `px4/airframes/{AIRFRAME_ID}_gz_{name}` (posix airframe with the CA_ROTOR* geometry)
 
@@ -299,6 +321,10 @@ a second copy would sit inside the first. The Gazebo entity tree should show one
 1. QGroundControl must be connected (PX4 refuses to arm with "No connection to the GCS"). PX4 SITL
    talks to localhost only; from WSL2 to QGC on Windows start with `PX4_PARAM_MAV_0_BROADCAST=1`
    exported (the WSL script does this) or type `param set MAV_0_BROADCAST 1` in the PX4 console.
+   If QGC still shows "Disconnected", add a link by hand: QGC > Application Settings > Comm Links >
+   Add, type UDP, listening port 14550, server `<WSL IP>:18570` (the script prints the WSL IP;
+   `hostname -I` in WSL). QGC then sends the first packet and PX4 answers that address directly,
+   which works in WSL2's default NAT networking without any broadcast.
 2. Wait for "Ready to fly" in QGC (the estimator needs GPS, baro and IMU; the log shows
    `attitude_invalid` and `global_position_invalid` until then).
 3. In the PX4 console: `commander takeoff`, later `commander land`. Or use QGC's Takeoff slider,
@@ -352,9 +378,8 @@ def export_gazebo(
     mesh_uri = None
     if scenario.meta.cad_model:
         src = Path(__file__).resolve().parents[3] / "scenarios" / scenario.meta.cad_model
-        if src.is_file():
-            shutil.copy(src, model_dir / "meshes" / src.name)
-            mesh_uri = f"model://{name}/meshes/{src.name}"
+        if src.is_file() and airframe_stl(src, model_dir / "meshes" / "airframe.stl"):
+            mesh_uri = f"model://{name}/meshes/airframe.stl"
 
     (model_dir / "model.sdf").write_text(
         model_sdf(scenario, name, mesh_uri), encoding="utf-8", newline="\n"

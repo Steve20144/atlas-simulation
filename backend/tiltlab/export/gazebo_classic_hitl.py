@@ -16,7 +16,6 @@ plugins).
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
@@ -29,7 +28,7 @@ from tiltlab.core.params_px4 import (
     params_file_from_dict,
     write_params_file,
 )
-from tiltlab.export.gazebo import _inertia, axis_to_rpy, frd_to_flu
+from tiltlab.export.gazebo import _inertia, airframe_stl, axis_to_rpy, frd_to_flu
 from tiltlab.export.params import ca_geometry_params
 from tiltlab.scenario import Scenario
 
@@ -427,19 +426,8 @@ def export_gazebo_classic_hitl(
     if scenario.meta.cad_model:
         src = Path(__file__).resolve().parents[3] / "scenarios" / scenario.meta.cad_model
         if src.is_file():
-            try:
-                import trimesh
-
-                scene = trimesh.load(str(src), force="scene")
-                merged = trimesh.util.concatenate(list(scene.dump()))
-                # glTF is y-up; the export wrote FRD metres, so undo the loader's axis convention
-                # and go to FLU: FRD (x, y, z) -> FLU (x, -y, -z)
-                merged.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
-                merged.export(str(model_dir / "meshes" / "airframe.stl"))
+            if airframe_stl(src, model_dir / "meshes" / "airframe.stl"):
                 mesh_uri = f"model://{name}/meshes/airframe.stl"
-            except Exception:  # noqa: BLE001 - the mesh is cosmetic; the model must still export
-                shutil.rmtree(model_dir / "meshes", ignore_errors=True)
-                (model_dir / "meshes").mkdir(exist_ok=True)
 
     (model_dir / "model.sdf").write_text(
         model_sdf(scenario, name, mesh_uri, serial), encoding="utf-8", newline="\n"
