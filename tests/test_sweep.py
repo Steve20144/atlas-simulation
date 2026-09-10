@@ -78,7 +78,7 @@ def test_infeasible_reasons_reported(scenario):
 
 
 def test_alternating_fore_aft_gives_yaw_under_stock_px4(scenario):
-    """Opposite fore-aft directions across pairs cancel Fx and yield yaw from differential thrust."""
+    """Opposite fore-aft directions across pairs cancel Fx and give yaw from differential thrust."""
     result = run_sweep(
         scenario, SweepSpec(tilts_deg=[15, 45], azimuth_mode="alternating", min_headroom=0.05)
     )
