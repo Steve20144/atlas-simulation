@@ -289,9 +289,22 @@ def px4_airframe(scenario: Scenario, name: str) -> str:
         "",
         "param set-default MPC_THR_HOVER 0.35",
         "",
-        "# SITL sends MAVLink to localhost only; broadcasting lets QGroundControl on the Windows",
-        "# host find a PX4 running inside WSL2 (harmless on a native Linux desktop).",
+        "# SITL sends MAVLink to localhost only. Inside WSL2 broadcasts never reach Windows (tested:",
+        "# unicast to the host does, subnet and limited broadcasts do not), so the GCS link is started",
+        "# here, before rc.mavlink, aimed at the Windows host (WSL's default gateway) on QGC's port.",
+        "# rc.mavlink then finds port 18570 occupied and this stays the only GCS link. Override with",
+        "# PX4_GCS_HOST / PX4_GCS_PORT; skipped outside WSL unless PX4_GCS_HOST is set.",
         "param set-default MAV_0_BROADCAST 1",
+        'if [ -n "${PX4_GCS_HOST}" ] || grep -qi microsoft /proc/version 2>/dev/null',
+        "then",
+        "\tgcs_host=${PX4_GCS_HOST:-$(ip route show default 2>/dev/null | awk '{print $3}' | head -n 1)}",
+        "\tgcs_port=${PX4_GCS_PORT:-14550}",
+        '\tif [ -n "${gcs_host}" ]',
+        "\tthen",
+        '\t\techo "INFO  [init] tiltlab: MAVLink GCS link to ${gcs_host}:${gcs_port} (WSL2 host)"',
+        "\t\tmavlink start -x -u 18570 -r 4000000 -f -t ${gcs_host} -o ${gcs_port}",
+        "\tfi",
+        "fi",
         "",
     ]
     return "\n".join(lines)
@@ -327,12 +340,14 @@ a second copy would sit inside the first. The Gazebo entity tree should show one
 
 ## Flying
 1. QGroundControl must be connected (PX4 refuses to arm with "No connection to the GCS"). PX4 SITL
-   talks to localhost only; from WSL2 to QGC on Windows start with `PX4_PARAM_MAV_0_BROADCAST=1`
-   exported (the WSL script does this) or type `param set MAV_0_BROADCAST 1` in the PX4 console.
-   If QGC still shows "Disconnected", add a link by hand: QGC > Application Settings > Comm Links >
-   Add, type UDP, listening port 14550, server `<WSL IP>:18570` (the script prints the WSL IP;
-   `hostname -I` in WSL). QGC then sends the first packet and PX4 answers that address directly,
-   which works in WSL2's default NAT networking without any broadcast.
+   talks to localhost only, and inside WSL2 (default NAT networking) UDP broadcasts never reach
+   Windows while unicast in both directions does. The airframe therefore starts the GCS MAVLink
+   link aimed at the Windows host (WSL's default gateway) on UDP 14550, so QGC's default
+   auto-connect link picks the vehicle up with no configuration. `PX4_GCS_HOST` and
+   `PX4_GCS_PORT` override the target; the console prints `tiltlab: MAVLink GCS link to ...`.
+   Fallback by hand: QGC > Application Settings > Comm Links > Add, type UDP, listening port
+   14551 (not 14550, which QGC's auto-connect already holds), server `<WSL IP>:18570`
+   (`hostname -I` in WSL). QGC sends the first packet and PX4 answers that address directly.
 2. Wait for "Ready to fly" in QGC (the estimator needs GPS, baro and IMU; the log shows
    `attitude_invalid` and `global_position_invalid` until then).
 3. In the PX4 console: `commander takeoff`, later `commander land`. Or use QGC's Takeoff slider,
