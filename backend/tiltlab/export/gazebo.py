@@ -345,6 +345,18 @@ from `SIM_GZ_EC_FUNC1`; a size of 4 means `SIM_GZ_EC_FUNC5` is unset (airframe n
 saved parameter file from an earlier run of this autostart id under
 `build/px4_sitl_default/rootfs`). Check with `param show SIM_GZ_EC_FUNC*` in the PX4 shell.
 
+A second, hidden limit follows: `GZMixingInterfaceESC::motorSpeedCallback` copies every motor
+speed into `esc_status.esc[]`, which has `CONNECTED_ESC_MAX = 8` entries. With ten motors the
+write overruns the stack and glibc aborts PX4 (`__stack_chk_fail`, SIGABRT) a moment after
+`INFO [gz_bridge] world: ..., model: ..._0`; QGroundControl then never sees a vehicle. Clamp the
+copy to 8 entries before building (the esc_status message is telemetry only):
+```bash
+F=$PX4/src/modules/simulation/gz_bridge/GZMixingInterfaceESC.cpp
+sed -i 's/esc_status.esc_count = actuators.velocity_size();/esc_status.esc_count = actuators.velocity_size() < esc_status_s::CONNECTED_ESC_MAX ? actuators.velocity_size() : esc_status_s::CONNECTED_ESC_MAX;/' $F
+sed -i 's/for (int i = 0; i < actuators.velocity_size(); i++) {{/for (int i = 0; i < esc_status.esc_count; i++) {{/' $F
+```
+The WSL helper script applies both patches when the model has more than 8 motors.
+
 ## Line endings
 PX4's `sh` sources the airframe line by line. If the file arrives with Windows CRLF endings every
 `param set-default` fails silently and PX4 runs on defaults (`CA_ROTOR_COUNT 4`, four ESC outputs).
