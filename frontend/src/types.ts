@@ -1,7 +1,8 @@
 /**
- * Scenario data model, mirroring PLAN.md section 5 (scenarios/*.json).
- * Frames: FRD body, NED world. SI units internally; degrees only for tilt,
- * azimuth and attitude offsets, exactly as they appear in the stored JSON.
+ * Scenario data model, mirroring PLAN.md section 5 (scenarios/*.json) and
+ * backend/tiltlab/scenario.py. Frames: FRD body, NED world. SI units
+ * internally; degrees only for tilt, azimuth and attitude offsets, exactly as
+ * they appear in the stored JSON.
  */
 
 export type Vec3 = [number, number, number];
@@ -17,6 +18,7 @@ export interface ScenarioMeta {
   name: string;
   created: string;
   px4_version: string;
+  notes?: string;
 }
 
 export interface FrameMapping {
@@ -41,19 +43,24 @@ export interface MassProperties {
   total_kg: number;
   cg_frd_m: Vec3;
   inertia_frd_kgm2: Mat3;
-  cad_reported: CadReportedMass;
+  cad_reported: CadReportedMass | null;
   bodies: MassBody[];
+  estimated?: boolean;
+  notes?: string;
 }
 
 export interface Fan {
   id: number;
   output: string;
+  /** Thrust application point, metres, FRD body frame. */
   pos_frd_m: Vec3;
   tilt_deg: number;
   azimuth_deg: number;
   spin: SpinDirection;
   mirror_of: number | null;
   curve_ref: string;
+  /** KM magnitude (N m per N); sign comes from spin. */
+  km?: number;
 }
 
 export interface FanCurvePoint {
@@ -68,12 +75,14 @@ export interface FanCurve {
   lag_s: number;
   max_continuous_A: number;
   notes: string;
+  estimated?: boolean;
 }
 
 export interface ControlSettings {
   concept: ControlConcept;
   blend: number;
   ca_method: number;
+  reaction_torque?: boolean;
   px4_params_override: Record<string, number>;
 }
 
@@ -112,3 +121,72 @@ export interface Scenario {
   environment: EnvironmentSettings;
   outputs: OutputSelection;
 }
+
+/* ---------- Metrics returned by POST /api/metrics (M4 contract) ---------- */
+
+export interface HoverMetrics {
+  /** Normalised actuator commands 0..1, one per fan. */
+  u: number[];
+  /** Thrust per fan in N. */
+  thrust_N: number[];
+  power_W: number;
+  headroom: number;
+}
+
+/** One controlled axis: attainable authority plus/minus in `unit` (N m or N) at the trim. */
+export interface AuthorityAxis {
+  plus: number;
+  minus: number;
+  unit: string;
+  plus_per_W: number | null;
+  minus_per_W: number | null;
+  plus_attainable?: boolean;
+  minus_attainable?: boolean;
+  /** "stock_px4" or "needs_fully_actuated_controller". */
+  badge: string;
+}
+
+/** Backend axis names (core/metrics.py AXIS_NAMES): forces are capitalised. */
+export type AuthorityKey = "roll" | "pitch" | "yaw" | "Fx" | "Fy" | "Fz";
+export type AuthorityMetrics = Partial<Record<AuthorityKey, AuthorityAxis>>;
+
+/** Leakage matrix: rows are commanded controlled axes, columns the controlled axes. */
+export interface CouplingMetrics {
+  axes: string[];
+  leakage_fraction: number[][];
+  max_offaxis_fraction?: number;
+  badge?: string;
+}
+
+export interface ConditioningMetrics {
+  axes: string[];
+  singular_values: number[];
+  rank: number;
+  null_space_dim: number;
+  condition_number?: number;
+}
+
+export interface ScoreMetrics {
+  value: number;
+  weights: Record<string, number>;
+  normalised?: Record<string, number>;
+}
+
+/** POST /api/metrics response (backend/tiltlab/api/schemas.py MetricsResponse). */
+export interface Metrics {
+  scenario_name: string;
+  concept: ControlConcept;
+  controlled_axes: string[];
+  collective: number;
+  hover: HoverMetrics;
+  authority: AuthorityMetrics;
+  coupling: CouplingMetrics;
+  conditioning: ConditioningMetrics;
+  score: ScoreMetrics;
+  badges: Record<string, string>;
+  estimated: boolean;
+  estimated_sources: string[];
+  notes: string[];
+}
+
+export type MetricGroup = "hover" | "authority" | "coupling" | "conditioning" | "composite";

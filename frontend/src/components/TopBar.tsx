@@ -1,0 +1,109 @@
+import { useEffect } from "react";
+import { PRESETS } from "../presets";
+import { useTiltlabStore } from "../store";
+import type { ControlConcept } from "../types";
+
+const CONCEPTS: { id: ControlConcept; label: string }[] = [
+  { id: "stock", label: "Stock" },
+  { id: "fully_actuated", label: "Fully actuated" },
+];
+
+const btn = "rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-700";
+const btnActive = "rounded border border-sky-400 bg-sky-900 px-2 py-1 text-xs";
+
+export default function TopBar() {
+  const scenarioName = useTiltlabStore((s) => s.scenario.meta.name);
+  const scenarioNames = useTiltlabStore((s) => s.scenarioNames);
+  const concept = useTiltlabStore((s) => s.concept);
+  const collective = useTiltlabStore((s) => s.collective);
+  const hoverU = useTiltlabStore((s) => s.metrics?.hover?.u);
+  const loading = useTiltlabStore((s) => s.loading);
+  const error = useTiltlabStore((s) => s.error);
+  const { loadScenarioNames, loadScenario, saveScenario, setConcept, setCollective, applyPreset } =
+    useTiltlabStore.getState();
+
+  useEffect(() => {
+    void loadScenarioNames();
+  }, [loadScenarioNames]);
+
+  const hoverMean = hoverU && hoverU.length ? hoverU.reduce((a, b) => a + b, 0) / hoverU.length : 0.5;
+  const sliderValue = collective ?? hoverMean;
+
+  return (
+    <header className="flex flex-wrap items-center gap-4 border-b border-slate-700 bg-slate-900 px-4 py-2">
+      <h1 className="text-lg font-semibold tracking-tight">tiltlab</h1>
+
+      <label className="flex items-center gap-2 text-xs">
+        Scenario
+        <select
+          aria-label="Scenario"
+          className="rounded border border-slate-600 bg-slate-800 px-2 py-1"
+          value={scenarioNames.includes(scenarioName) ? scenarioName : ""}
+          onChange={(e) => e.target.value && void loadScenario(e.target.value)}
+        >
+          {!scenarioNames.includes(scenarioName) && <option value="">{scenarioName}</option>}
+          {scenarioNames.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+        <button className={btn} onClick={() => void saveScenario()} title="POST /api/scenarios/{name}">
+          Save
+        </button>
+      </label>
+
+      <div className="flex items-center gap-1 text-xs" role="group" aria-label="Concept">
+        {CONCEPTS.map((c) => (
+          <button
+            key={c.id}
+            className={c.id === concept ? btnActive : btn}
+            aria-pressed={c.id === concept}
+            onClick={() => setConcept(c.id)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      <label className="flex items-center gap-2 text-xs">
+        Collective
+        <input
+          aria-label="Collective"
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={sliderValue}
+          onChange={(e) => setCollective(Number(e.target.value))}
+        />
+        <span className="w-10 tabular-nums">{sliderValue.toFixed(2)}</span>
+        <button
+          className={collective === null ? btnActive : btn}
+          onClick={() => setCollective(null)}
+          title="Let the backend solve for hover"
+        >
+          hover
+        </button>
+      </label>
+
+      <div className="flex items-center gap-1 text-xs" role="group" aria-label="Presets">
+        <span className="text-slate-400">Presets</span>
+        {PRESETS.map((p) => (
+          <button key={p.id} className={btn} title={p.title} onClick={() => void applyPreset(p.id)}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="ml-auto text-xs">
+        {loading && <span className="text-slate-400">computing...</span>}
+        {error && (
+          <span className="text-rose-400" role="alert">
+            {error}
+          </span>
+        )}
+      </div>
+    </header>
+  );
+}

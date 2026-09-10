@@ -1,7 +1,13 @@
 import { create } from "zustand";
-import type { Scenario, Vec3 } from "./types";
+import { api } from "./api";
+import { mirrorAzimuth } from "./geometry";
+import { DIHEDRAL_SCENARIO_NAME, presetOmni, presetVertical, type PresetId } from "./presets";
+import type { ControlConcept, Fan, MetricGroup, Metrics, Scenario, Vec3 } from "./types";
 
 const zero3 = (): Vec3 => [0, 0, 0];
+
+/** Debounce for POST /api/metrics and /api/px4_params_preview after a scenario edit. */
+export const REFRESH_DEBOUNCE_MS = 50;
 
 /** Empty scenario used before one is loaded from the backend. */
 export function emptyScenario(): Scenario {
@@ -12,12 +18,12 @@ export function emptyScenario(): Scenario {
       total_kg: 0,
       cg_frd_m: zero3(),
       inertia_frd_kgm2: [zero3(), zero3(), zero3()],
-      cad_reported: { mass_kg: 0, cg_m: zero3() },
+      cad_reported: null,
       bodies: [],
     },
     fans: [],
     fan_curves: {},
-    control: { concept: "stock", blend: 0, ca_method: 0, px4_params_override: {} },
+    control: { concept: "stock", blend: 0, ca_method: 2, px4_params_override: {} },
     rig: {
       enabled: false,
       lock_position: true,
@@ -27,27 +33,178 @@ export function emptyScenario(): Scenario {
       attitude_offset_deg: zero3(),
     },
     environment: { air_density: 1.225, wind_ned_mps: zero3(), gravity: 9.80665 },
-    outputs: {
-      params: true,
-      csv: true,
-      report: true,
-      plots: true,
-      sdf: false,
-      angle_sheet: true,
-    },
+    outputs: { params: true, csv: true, report: true, plots: true, sdf: false, angle_sheet: true },
   };
 }
 
-export interface ScenarioState {
+/** Mirror lock defaults to on for every fan that has a partner (PLAN.md section 3). */
+function defaultMirrorLock(scenario: Scenario): Record<number, boolean> {
+  const lock: Record<number, boolean> = {};
+  for (const f of scenario.fans) lock[f.id] = f.mirror_of !== null && f.mirror_of !== undefined;
+  return lock;
+}
+
+export type FanPatch = Partial<Pick<Fan, "tilt_deg" | "azimuth_deg" | "output" | "spin">>;
+
+export interface TiltlabState {
   scenario: Scenario;
+  scenarioNames: string[];
+  concept: ControlConcept;
+  /** Collective command 0..1; null means "hover" (backend solves for hover). */
+  collective: number | null;
+  metrics: Metrics | null;
+  paramsLines: string[];
+  loading: boolean;
+  error: string | null;
+  mirrorLock: Record<number, boolean>;
+  visibleGroups: Record<MetricGroup, boolean>;
+
   setScenario: (scenario: Scenario) => void;
-  updateScenario: (patch: Partial<Scenario>) => void;
+  updateFan: (id: number, patch: FanPatch) => void;
+  setMirrorLock: (id: number, on: boolean) => void;
+  setConcept: (concept: ControlConcept) => void;
+  setCollective: (collective: number | null) => void;
+  toggleGroup: (group: MetricGroup) => void;
+  applyPreset: (preset: PresetId) => Promise<void>;
+  loadScenarioNames: () => Promise<void>;
+  loadScenario: (name: string) => Promise<void>;
+  saveScenario: () => Promise<void>;
+  refresh: () => Promise<void>;
   reset: () => void;
 }
 
-export const useScenarioStore = create<ScenarioState>((set) => ({
-  scenario: emptyScenario(),
-  setScenario: (scenario) => set({ scenario }),
-  updateScenario: (patch) => set((s) => ({ scenario: { ...s.scenario, ...patch } })),
-  reset: () => set({ scenario: emptyScenario() }),
-}));
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let refreshSeq = 0;
+
+export const useTiltlabStore = create<TiltlabState>((set, get) => {
+  const schedule = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      void get().refresh();
+    }, REFRESH_DEBOUNCE_MS);
+  };
+
+  const setScenarioAndRefresh = (scenario: Scenario) => {
+    set({ scenario });
+    schedule();
+  };
+
+  return {
+    scenario: emptyScenario(),
+    scenarioNames: [],
+    concept: "stock",
+    collective: null,
+    metrics: null,
+    paramsLines: [],
+    loading: false,
+    error: null,
+    mirrorLock: {},
+    visibleGroups: { hover: true, authority: true, coupling: true, conditioning: true, composite: true },
+
+    setScenario: (scenario) => {
+      set({ scenario, concept: scenario.control.concept, mirrorLock: defaultMirrorLock(scenario) });
+      schedule();
+    },
+
+    updateFan: (id, patch) => {
+      const { scenario, mirrorLock } = get();
+      const fan = scenario.fans.find((f) => f.id === id);
+      if (!fan) return;
+      const partnerId = mirrorLock[id] ? fan.mirror_of : null;
+      const partnerPatch: FanPatch = {};
+      if (patch.tilt_deg !== undefined) partnerPatch.tilt_deg = patch.tilt_deg;
+      if (patch.azimuth_deg !== undefined) partnerPatch.azimuth_deg = mirrorAzimuth(patch.azimuth_deg);
+      const fans = scenario.fans.map((f) => {
+        if (f.id === id) return { ...f, ...patch };
+        if (partnerId !== null && f.id === partnerId) return { ...f, ...partnerPatch };
+        return f;
+      });
+      setScenarioAndRefresh({ ...scenario, fans });
+    },
+
+    setMirrorLock: (id, on) => set((s) => ({ mirrorLock: { ...s.mirrorLock, [id]: on } })),
+
+    setConcept: (concept) => {
+      const { scenario } = get();
+      set({ concept });
+      setScenarioAndRefresh({ ...scenario, control: { ...scenario.control, concept } });
+    },
+
+    setCollective: (collective) => {
+      set({ collective });
+      schedule();
+    },
+
+    toggleGroup: (group) =>
+      set((s) => ({ visibleGroups: { ...s.visibleGroups, [group]: !s.visibleGroups[group] } })),
+
+    applyPreset: async (preset) => {
+      const { scenario, loadScenario } = get();
+      if (preset === "dihedral30") return loadScenario(DIHEDRAL_SCENARIO_NAME);
+      setScenarioAndRefresh(preset === "vertical" ? presetVertical(scenario) : presetOmni(scenario));
+    },
+
+    loadScenarioNames: async () => {
+      try {
+        set({ scenarioNames: await api.listScenarios(), error: null });
+      } catch (e) {
+        set({ error: (e as Error).message });
+      }
+    },
+
+    loadScenario: async (name) => {
+      set({ loading: true });
+      try {
+        get().setScenario(await api.getScenario(name));
+        set({ error: null });
+      } catch (e) {
+        set({ error: (e as Error).message, loading: false });
+      }
+    },
+
+    saveScenario: async () => {
+      const { scenario } = get();
+      try {
+        await api.saveScenario(scenario.meta.name, scenario);
+        set({ error: null });
+        await get().loadScenarioNames();
+      } catch (e) {
+        set({ error: (e as Error).message });
+      }
+    },
+
+    refresh: async () => {
+      const seq = ++refreshSeq;
+      const { scenario, concept, collective } = get();
+      if (scenario.fans.length === 0) return;
+      set({ loading: true });
+      try {
+        const [metrics, preview] = await Promise.all([
+          api.metrics(scenario, concept, collective),
+          api.paramsPreview(scenario, concept),
+        ]);
+        if (seq !== refreshSeq) return; // a newer edit superseded this response
+        set({ metrics, paramsLines: preview.lines, loading: false, error: null });
+      } catch (e) {
+        if (seq !== refreshSeq) return;
+        set({ loading: false, error: (e as Error).message });
+      }
+    },
+
+    reset: () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = null;
+      set({
+        scenario: emptyScenario(),
+        concept: "stock",
+        collective: null,
+        metrics: null,
+        paramsLines: [],
+        loading: false,
+        error: null,
+        mirrorLock: {},
+      });
+    },
+  };
+});

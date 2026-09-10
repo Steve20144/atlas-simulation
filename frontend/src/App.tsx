@@ -1,15 +1,19 @@
-import { useScenarioStore } from "./store";
+import FanTable from "./components/FanTable";
+import MetricsPanel from "./components/MetricsPanel";
+import TopBar from "./components/TopBar";
+import Viewer3D from "./components/Viewer3D";
 
 export const APP_NAME = "tiltlab";
 
 export default function App() {
-  const scenarioName = useScenarioStore((s) => s.scenario.meta.name);
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-2 p-8">
-      <h1 className="text-3xl font-semibold tracking-tight">{APP_NAME}</h1>
-      <p className="text-sm text-slate-400">
-        Scenario: <span data-testid="scenario-name">{scenarioName}</span>
-      </p>
-    </main>
+    <div className="flex h-screen flex-col">
+      <TopBar />
+      <main className="grid min-h-0 flex-1 grid-cols-[380px_minmax(0,1fr)_400px]">
+        <FanTable />
+        <Viewer3D />
+        <MetricsPanel />
+      </main>
+    </div>
   );
 }
