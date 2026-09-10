@@ -3,9 +3,19 @@ import { PRESETS } from "../presets";
 import { useTiltlabStore } from "../store";
 import type { ControlConcept } from "../types";
 
-const CONCEPTS: { id: ControlConcept; label: string }[] = [
-  { id: "stock", label: "Stock" },
-  { id: "fully_actuated", label: "Fully actuated" },
+const CONCEPTS: { id: ControlConcept; label: string; title: string }[] = [
+  {
+    id: "stock",
+    label: "Stock",
+    title:
+      "PX4 as it ships: the controller asks the fans only for roll, pitch, yaw and vertical thrust and moves by tilting the aircraft. Fans that push forward or sideways at level hover fight the allocator. Achievable with today's firmware.",
+  },
+  {
+    id: "fully_actuated",
+    label: "Fully actuated",
+    title:
+      "A modified controller that commands all six axes (three torques plus forward, sideways and vertical force), so the aircraft can translate while level. Needs a patched PX4 or an offboard controller; shows what the airframe could do, not what it does now.",
+  },
 ];
 
 const btn = "rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-700";
@@ -59,6 +69,7 @@ export default function TopBar() {
             key={c.id}
             className={c.id === concept ? btnActive : btn}
             aria-pressed={c.id === concept}
+            title={c.title}
             onClick={() => setConcept(c.id)}
           >
             {c.label}
