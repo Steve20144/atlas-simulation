@@ -1,0 +1,251 @@
+{
+  "meta": {
+    "name": "baseline_dihedral30",
+    "created": "2026-09-09T19:00:04-07:00",
+    "px4_version": "1.17.0",
+    "notes": "Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0."
+  },
+  "frame": {
+    "cad_forward_axis": "+X",
+    "cad_up_axis": "+Z",
+    "cad_units": "mm"
+  },
+  "mass": {
+    "total_kg": 12.0,
+    "cg_frd_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "inertia_frd_kgm2": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "cad_reported": null,
+    "bodies": [],
+    "estimated": true,
+    "notes": "No CAD mass is available yet; 12.0 kg is a placeholder estimate. Replace when the aircraft STEP exists."
+  },
+  "fans": [
+    {
+      "id": 0,
+      "output": "MAIN1",
+      "pos_frd_m": [
+        -0.3,
+        -0.37,
+        -0.14
+      ],
+      "tilt_deg": 30.0,
+      "azimuth_deg": 90.0,
+      "spin": "CW",
+      "mirror_of": 1,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 1,
+      "output": "MAIN2",
+      "pos_frd_m": [
+        -0.3,
+        0.37,
+        -0.14
+      ],
+      "tilt_deg": 30.0,
+      "azimuth_deg": 270.0,
+      "spin": "CW",
+      "mirror_of": 0,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 2,
+      "output": "MAIN3",
+      "pos_frd_m": [
+        -0.26,
+        -0.28,
+        -0.09
+      ],
+      "tilt_deg": 30.0,
+      "azimuth_deg": 90.0,
+      "spin": "CW",
+      "mirror_of": 3,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 3,
+      "output": "MAIN4",
+      "pos_frd_m": [
+        -0.26,
+        0.28,
+        -0.09
+      ],
+      "tilt_deg": 30.0,
+      "azimuth_deg": 270.0,
+      "spin": "CW",
+      "mirror_of": 2,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 4,
+      "output": "MAIN5",
+      "pos_frd_m": [
+        -0.2,
+        -0.2,
+        -0.04
+      ],
+      "tilt_deg": 30.0,
+      "azimuth_deg": 90.0,
+      "spin": "CW",
+      "mirror_of": 5,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 5,
+      "output": "MAIN6",
+      "pos_frd_m": [
+        -0.2,
+        0.2,
+        -0.04
+      ],
+      "tilt_deg": 30.0,
+      "azimuth_deg": 270.0,
+      "spin": "CW",
+      "mirror_of": 4,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 6,
+      "output": "MAIN7",
+      "pos_frd_m": [
+        -0.16,
+        -0.11,
+        0.01
+      ],
+      "tilt_deg": 30.0,
+      "azimuth_deg": 90.0,
+      "spin": "CW",
+      "mirror_of": 7,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 7,
+      "output": "MAIN8",
+      "pos_frd_m": [
+        -0.16,
+        0.11,
+        0.01
+      ],
+      "tilt_deg": 30.0,
+      "azimuth_deg": 270.0,
+      "spin": "CW",
+      "mirror_of": 6,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 8,
+      "output": "MAIN9",
+      "pos_frd_m": [
+        0.45,
+        0.0,
+        0.08
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CW",
+      "mirror_of": null,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 9,
+      "output": "MAIN10",
+      "pos_frd_m": [
+        0.56,
+        0.0,
+        0.08
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CW",
+      "mirror_of": null,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    }
+  ],
+  "fan_curves": {
+    "xfly80_3280": {
+      "cells": 6,
+      "points": [
+        {
+          "cmd": 0.0,
+          "thrust_N": 0.0,
+          "power_W": 0.0
+        },
+        {
+          "cmd": 1.0,
+          "thrust_N": 33.3,
+          "power_W": 2450.0
+        }
+      ],
+      "lag_s": 0.15,
+      "max_continuous_A": 100.0,
+      "notes": "manufacturer max only; replace with thrust stand data",
+      "estimated": true
+    }
+  },
+  "control": {
+    "concept": "stock",
+    "blend": 0.0,
+    "ca_method": 2,
+    "reaction_torque": false,
+    "px4_params_override": {}
+  },
+  "rig": {
+    "enabled": true,
+    "lock_position": true,
+    "lock_roll": true,
+    "lock_pitch": false,
+    "lock_yaw": false,
+    "attitude_offset_deg": [
+      -2.25,
+      6.27,
+      0.0
+    ]
+  },
+  "environment": {
+    "air_density": 1.225,
+    "wind_ned_mps": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "gravity": 9.80665
+  },
+  "outputs": {
+    "params": true,
+    "csv": true,
+    "report": true,
+    "plots": true,
+    "sdf": false,
+    "angle_sheet": true
+  }
+}
