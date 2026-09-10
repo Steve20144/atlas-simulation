@@ -125,9 +125,7 @@ def test_export_endpoints_write_into_exports_dir(
     monkeypatch.setattr(app_module, "EXPORTS_DIR", out)
     scenario = scenario_json("baseline_dihedral30")
 
-    r = client.post(
-        "/api/export/params", json={"scenario": scenario, "concept": "fully_actuated"}
-    )
+    r = client.post("/api/export/params", json={"scenario": scenario, "concept": "fully_actuated"})
     assert r.status_code == 200, r.text
     path = Path(r.json()["path"])
     assert path.parent == out and path.suffix == ".params"

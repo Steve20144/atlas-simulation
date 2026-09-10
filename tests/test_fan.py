@@ -75,8 +75,9 @@ def test_lag_reaches_step_after_five_tau() -> None:
 
 
 def test_battery_current_and_voltage() -> None:
-    bat = Battery(cells=6, cell_full_v=4.2, cell_nominal_v=3.7, cell_resistance_ohm=0.003,
-                  capacity_ah=10.0)
+    bat = Battery(
+        cells=6, cell_full_v=4.2, cell_nominal_v=3.7, cell_resistance_ohm=0.003, capacity_ah=10.0
+    )
     assert bat.nominal_pack_v == pytest.approx(22.2)
     assert bat.open_circuit_voltage() == pytest.approx(25.2)
     power = np.array([0.0, 500.0, 2220.0])
@@ -102,15 +103,29 @@ def test_battery_current_and_voltage() -> None:
 def test_scenario_dict_round_trip(curve: FanCurve) -> None:
     d = curve.to_scenario_curve()
     assert d["estimated"] is True
-    assert set(d) == {"cells", "points", "lag_s", "max_continuous_A", "notes", "estimated",
-                      "rotor_inertia_kgm2"}
+    assert set(d) == {
+        "cells",
+        "points",
+        "lag_s",
+        "max_continuous_A",
+        "notes",
+        "estimated",
+        "rotor_inertia_kgm2",
+    }
     back = FanCurve.from_scenario_curve(d)
     assert back.to_scenario_curve() == d
     np.testing.assert_array_equal(back.cmd, curve.cmd)
     # PLAN.md section 5 example (no estimated key) loads as measured
-    plan = {"cells": 6, "points": [{"cmd": 0.0, "thrust_N": 0, "power_W": 0},
-                                   {"cmd": 1.0, "thrust_N": 33.3, "power_W": 2450}],
-            "lag_s": 0.15, "max_continuous_A": 100, "notes": "manufacturer max only"}
+    plan = {
+        "cells": 6,
+        "points": [
+            {"cmd": 0.0, "thrust_N": 0, "power_W": 0},
+            {"cmd": 1.0, "thrust_N": 33.3, "power_W": 2450},
+        ],
+        "lag_s": 0.15,
+        "max_continuous_A": 100,
+        "notes": "manufacturer max only",
+    }
     c = FanCurve.from_scenario_curve(plan)
     assert c.estimated is False and c.rotor_inertia_kgm2 is None
     assert c.ct_for_px4() == pytest.approx(33.3)
@@ -118,8 +133,10 @@ def test_scenario_dict_round_trip(curve: FanCurve) -> None:
 
 
 def test_validation_rejects_bad_points() -> None:
-    good = [{"cmd": 0.0, "thrust_N": 0.0, "power_W": 0.0},
-            {"cmd": 1.0, "thrust_N": 10.0, "power_W": 100.0}]
+    good = [
+        {"cmd": 0.0, "thrust_N": 0.0, "power_W": 0.0},
+        {"cmd": 1.0, "thrust_N": 10.0, "power_W": 100.0},
+    ]
     FanCurve.from_points(good)
     with pytest.raises(ValueError):
         FanCurve.from_points([good[1], good[0]])  # unsorted
@@ -128,8 +145,13 @@ def test_validation_rejects_bad_points() -> None:
     with pytest.raises(ValueError):
         FanCurve.from_points([good[0], {"cmd": 1.0, "thrust_N": -1.0, "power_W": 100.0}])
     with pytest.raises(ValueError):
-        FanCurve.from_points([good[0], {"cmd": 0.5, "thrust_N": 5.0, "power_W": 50.0},
-                              {"cmd": 1.0, "thrust_N": 4.0, "power_W": 100.0}])
+        FanCurve.from_points(
+            [
+                good[0],
+                {"cmd": 0.5, "thrust_N": 5.0, "power_W": 50.0},
+                {"cmd": 1.0, "thrust_N": 4.0, "power_W": 100.0},
+            ]
+        )
     with pytest.raises(ValueError):
         FanCurve.from_points([good[0]])
     # a deadband (flat start) is allowed; zero thrust inverts to the end of the deadband

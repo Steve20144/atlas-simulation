@@ -1,0 +1,254 @@
+{
+ "doc": "PHASE_0.1_ASSY",
+ "frame": {
+  "cad_forward_axis": "+Z",
+  "cad_up_axis": "+Y",
+  "cad_units": "mm"
+ },
+ "bodies": 37,
+ "cg_fusion_mm": [
+  0.0,
+  136.14,
+  145.32
+ ],
+ "fans": [
+  {
+   "rotor": 0,
+   "cad_body": "XFLY 80mm EDF:9",
+   "pos_frd_m": [
+    -0.305,
+    -0.371,
+    -0.1404
+   ],
+   "cad_axis_frd": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "cad_tilt_deg": 90.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.1
+  },
+  {
+   "rotor": 1,
+   "cad_body": "XFLY 80mm EDF(Mirror):7",
+   "pos_frd_m": [
+    -0.305,
+    0.371,
+    -0.1404
+   ],
+   "cad_axis_frd": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "cad_tilt_deg": 90.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.1
+  },
+  {
+   "rotor": 2,
+   "cad_body": "XFLY 80mm EDF:8",
+   "pos_frd_m": [
+    -0.255,
+    -0.284,
+    -0.0899
+   ],
+   "cad_axis_frd": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "cad_tilt_deg": 90.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.1
+  },
+  {
+   "rotor": 3,
+   "cad_body": "XFLY 80mm EDF(Mirror):6",
+   "pos_frd_m": [
+    -0.255,
+    0.284,
+    -0.0899
+   ],
+   "cad_axis_frd": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "cad_tilt_deg": 90.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.1
+  },
+  {
+   "rotor": 4,
+   "cad_body": "XFLY 80mm EDF:7",
+   "pos_frd_m": [
+    -0.205,
+    -0.197,
+    -0.0399
+   ],
+   "cad_axis_frd": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "cad_tilt_deg": 90.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.1
+  },
+  {
+   "rotor": 5,
+   "cad_body": "XFLY 80mm EDF(Mirror):5",
+   "pos_frd_m": [
+    -0.205,
+    0.197,
+    -0.0399
+   ],
+   "cad_axis_frd": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "cad_tilt_deg": 90.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.1
+  },
+  {
+   "rotor": 6,
+   "cad_body": "XFLY 80mm EDF:1",
+   "pos_frd_m": [
+    -0.155,
+    -0.11,
+    0.0101
+   ],
+   "cad_axis_frd": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "cad_tilt_deg": 90.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.1
+  },
+  {
+   "rotor": 7,
+   "cad_body": "XFLY 80mm EDF(Mirror):1",
+   "pos_frd_m": [
+    -0.155,
+    0.11,
+    0.0101
+   ],
+   "cad_axis_frd": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "cad_tilt_deg": 90.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.1
+  },
+  {
+   "rotor": 8,
+   "cad_body": "XFLY 80mm EDF:5",
+   "pos_frd_m": [
+    0.2114,
+    0.001,
+    0.0784
+   ],
+   "cad_axis_frd": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "cad_tilt_deg": 0.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.2
+  },
+  {
+   "rotor": 9,
+   "cad_body": "XFLY 80mm EDF:6",
+   "pos_frd_m": [
+    0.3214,
+    0.001,
+    0.0784
+   ],
+   "cad_axis_frd": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "cad_tilt_deg": 0.0,
+   "cad_azimuth_deg": 0.0,
+   "duct_radius_mm": 51.6,
+   "length_mm": 130.2
+  }
+ ],
+ "reference_cg_fusion_mm": [
+  0.0,
+  136.14,
+  145.32
+ ],
+ "residuals_vs_params_mm": [
+  [
+   -5.0,
+   -1.0,
+   -0.4
+  ],
+  [
+   -5.0,
+   1.0,
+   -0.4
+  ],
+  [
+   5.0,
+   -4.0,
+   0.1
+  ],
+  [
+   5.0,
+   4.0,
+   0.1
+  ],
+  [
+   -5.0,
+   3.0,
+   0.1
+  ],
+  [
+   -5.0,
+   -3.0,
+   0.1
+  ],
+  [
+   5.0,
+   0.0,
+   0.1
+  ],
+  [
+   5.0,
+   0.0,
+   0.1
+  ],
+  [
+   -238.6,
+   1.0,
+   -1.6
+  ],
+  [
+   -238.6,
+   1.0,
+   -1.6
+  ]
+ ],
+ "params_file": "20260909_1515_params_v4_rig_airmode.params"
+}

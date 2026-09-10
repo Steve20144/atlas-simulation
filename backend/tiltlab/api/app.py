@@ -106,9 +106,7 @@ def px4_params_preview(scenario: Scenario, concept: str) -> Px4ParamsPreviewResp
     if "CA_METHOD" in extras:
         params["CA_METHOD"] = extras.pop("CA_METHOD")
     merged = {**params, **extras}
-    lines = [
-        f"{name}\t{format_param_value(v, _param_type(name))}" for name, v in merged.items()
-    ]
+    lines = [f"{name}\t{format_param_value(v, _param_type(name))}" for name, v in merged.items()]
     return Px4ParamsPreviewResponse(concept=concept, params=params, extras=extras, lines=lines)
 
 

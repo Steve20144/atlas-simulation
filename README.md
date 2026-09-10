@@ -75,6 +75,21 @@ Every scenario currently carries an amber "estimated" banner because two inputs 
 
 Until then, read ratios between axes and between scenarios, not absolute N, N m or W.
 
+### CAD geometry from the Atlas Mass & CoG dashboard
+
+`tests/fixtures/cog_dashboard_full_8.html` is the Fusion 360 dashboard export of `PHASE_0.1_ASSY`: 37 bodies with exact centroids, volumes and meshes, including the 10 XFly EDFs. `scripts/import_cad_dashboard.py` turns it into a scenario:
+
+```bash
+uv run --project backend python scripts/import_cad_dashboard.py tests/fixtures/cog_dashboard_full_8.html
+```
+
+This writes `scenarios/atlas_phase01_cad.json` (fan positions from the CAD, PX4 rotor numbering: 0 to 7 wing fans in pairs from the outside in, left first; 8 and 9 centreline fans, rearmost first) and `docs/cad_import_report.json` (per-fan CAD axes, residuals against the flown parameter file).
+
+- **Frame**: Fusion +z is forward and +y is up by default (`--forward`, `--up`). That choice reproduces the flown CA_ROTOR lateral and vertical positions to within 5 mm. The dashboard's own display uses up = -y and calls the model "shown inverted"; if the vehicle is anhedral rather than dihedral, rerun with `--up -y`.
+- **Weights are not in the HTML.** The dashboard keeps them in the browser and exports them with its Export button as JSON (`weights_by_type` in grams). Pass that file with `--weights` to get the real total mass, CG and inertia tensor. Without it the script fits a reference CG to the flown parameter file and keeps the placeholder mass, flagged `estimated`.
+- **Fan orientation is not taken from the CAD.** As modelled, the eight wing EDF ducts lie along the fore-aft axis and the two centreline EDFs are vertical; the mounts are adjustable, so tilt and azimuth come from the template scenario (`--template`, default all vertical). The as-modelled axes are listed in the report.
+- **Known discrepancy**: the two centreline fans sit about 0.24 m further aft in this CAD than the flown parameter file assumed (`CA_ROTOR8_PX 0.45`, `CA_ROTOR9_PX 0.56` versus 0.21 and 0.32 from the CAD with the fitted CG). The exported params from `atlas_phase01_cad` use the CAD positions.
+
 ### Scenario JSON
 
 Fields (see `PLAN.md` section 5 and `backend/tiltlab/scenario.py`): `meta`, `frame`, `mass`, `fans` (10 entries: `pos_frd_m`, `tilt_deg`, `azimuth_deg`, `spin`, `mirror_of`, `curve_ref`, `km`), `fan_curves`, `control` (`concept`, `ca_method`, `reaction_torque`, `px4_params_override`), `rig`, `environment`, `outputs`. Fan positions are metres in FRD relative to the CG; they came from the CA_ROTOR parameters measured off the CAD. Thrust direction is derived, never stored: `a = (sin t cos p, sin t sin p, -cos t)`.

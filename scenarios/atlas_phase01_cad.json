@@ -1,0 +1,485 @@
+{
+  "meta": {
+    "name": "atlas_phase01_cad",
+    "created": "2026-09-09T20:18:58-07:00",
+    "px4_version": "1.17.0",
+    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Geometry as flown in log_40_2026-9-9-15-09-54.ulg: vertical axes, KM yaw model (+-0.15/0.13/0.10/0.08), CT 5.6 on rotors 0..7 and 6.5 on 8, 9 kept as CA_ROTORn_CT overrides. Source 20260909_1515_params_v4_rig_airmode.params."
+  },
+  "frame": {
+    "cad_forward_axis": "+Z",
+    "cad_up_axis": "+Y",
+    "cad_units": "mm"
+  },
+  "mass": {
+    "total_kg": 12.0,
+    "cg_frd_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "inertia_frd_kgm2": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "cad_reported": null,
+    "bodies": [
+      {
+        "name": "Avionics_Bay:1",
+        "volume_m3": 7.560999999999999e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "BATTER PACK:1",
+        "volume_m3": 0.00158907,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "BATTERY GRID:1",
+        "volume_m3": 0.00014633500000000001,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_FOILROOT_L:1",
+        "volume_m3": 4.4987e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_FOILROOT_R:1",
+        "volume_m3": 4.4987e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_HUB_CENTER:1",
+        "volume_m3": 5.6918e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_HUB_NOSE:1",
+        "volume_m3": 6.7022e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_HUB_TIP_L:1",
+        "volume_m3": 9.3998e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_HUB_TIP_R:1",
+        "volume_m3": 9.3998e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_X_B37-B41_R:1",
+        "volume_m3": 3.8403e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_X_B38-B39_R:1",
+        "volume_m3": 3.7326e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_X_B38-B41_R:1",
+        "volume_m3": 3.7993999999999996e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_X_B44-B42_L:1",
+        "volume_m3": 3.8403e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_X_B45-B39_L:1",
+        "volume_m3": 3.7326e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "CLAMP_X_B45-B42_L:1",
+        "volume_m3": 3.7993999999999996e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "FRONT JET_ASSY:1",
+        "volume_m3": 0.000362158,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "FRONT JET_ASSY:2",
+        "volume_m3": 0.000362158,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
+        "volume_m3": 0.001856094,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "PHASE_0.1_JET_FOIL_V2:1",
+        "volume_m3": 0.001856101,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "PID RIG MOUNT:1",
+        "volume_m3": 0.000629065,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "Rod Body37",
+        "volume_m3": 2.4146999999999998e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "Rod Body38",
+        "volume_m3": 4.6181e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "Rod Body39",
+        "volume_m3": 3.3828e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "Rod Body41",
+        "volume_m3": 4.7124e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "Rod Body42",
+        "volume_m3": 4.7124e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "Rod Body44",
+        "volume_m3": 2.4146999999999998e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "Rod Body45",
+        "volume_m3": 4.6181e-05,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF(Mirror):1",
+        "volume_m3": 0.000105843,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF(Mirror):5",
+        "volume_m3": 0.000105843,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF(Mirror):6",
+        "volume_m3": 0.000105843,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF(Mirror):7",
+        "volume_m3": 0.000105843,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF:1",
+        "volume_m3": 0.000105846,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF:5",
+        "volume_m3": 0.000105846,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF:6",
+        "volume_m3": 0.000105846,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF:7",
+        "volume_m3": 0.000105846,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF:8",
+        "volume_m3": 0.000105846,
+        "mass_kg": 0.0,
+        "source": "user"
+      },
+      {
+        "name": "XFLY 80mm EDF:9",
+        "volume_m3": 0.000105846,
+        "mass_kg": 0.0,
+        "source": "user"
+      }
+    ],
+    "estimated": true,
+    "notes": "No component weights yet: export them from the Atlas Mass & CoG dashboard (Export button) and rerun scripts/import_cad_dashboard.py --weights. Total mass is the template placeholder; the CG used for fan positions is the reference CG fitted to the flown CA_ROTOR positions, Fusion mm [0.0, 136.1, 145.3]."
+  },
+  "fans": [
+    {
+      "id": 0,
+      "output": "MAIN1",
+      "pos_frd_m": [
+        -0.305,
+        -0.371,
+        -0.1404
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CW",
+      "mirror_of": 1,
+      "curve_ref": "xfly80_3280",
+      "km": 0.15
+    },
+    {
+      "id": 1,
+      "output": "MAIN2",
+      "pos_frd_m": [
+        -0.305,
+        0.371,
+        -0.1404
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CCW",
+      "mirror_of": 0,
+      "curve_ref": "xfly80_3280",
+      "km": 0.15
+    },
+    {
+      "id": 2,
+      "output": "MAIN3",
+      "pos_frd_m": [
+        -0.255,
+        -0.284,
+        -0.0899
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CW",
+      "mirror_of": 3,
+      "curve_ref": "xfly80_3280",
+      "km": 0.13
+    },
+    {
+      "id": 3,
+      "output": "MAIN4",
+      "pos_frd_m": [
+        -0.255,
+        0.284,
+        -0.0899
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CCW",
+      "mirror_of": 2,
+      "curve_ref": "xfly80_3280",
+      "km": 0.13
+    },
+    {
+      "id": 4,
+      "output": "MAIN5",
+      "pos_frd_m": [
+        -0.205,
+        -0.197,
+        -0.0399
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CW",
+      "mirror_of": 5,
+      "curve_ref": "xfly80_3280",
+      "km": 0.1
+    },
+    {
+      "id": 5,
+      "output": "MAIN6",
+      "pos_frd_m": [
+        -0.205,
+        0.197,
+        -0.0399
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CCW",
+      "mirror_of": 4,
+      "curve_ref": "xfly80_3280",
+      "km": 0.1
+    },
+    {
+      "id": 6,
+      "output": "MAIN7",
+      "pos_frd_m": [
+        -0.155,
+        -0.11,
+        0.0101
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CW",
+      "mirror_of": 7,
+      "curve_ref": "xfly80_3280",
+      "km": 0.08
+    },
+    {
+      "id": 7,
+      "output": "MAIN8",
+      "pos_frd_m": [
+        -0.155,
+        0.11,
+        0.0101
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CCW",
+      "mirror_of": 6,
+      "curve_ref": "xfly80_3280",
+      "km": 0.08
+    },
+    {
+      "id": 8,
+      "output": "MAIN9",
+      "pos_frd_m": [
+        0.2114,
+        0.001,
+        0.0784
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CW",
+      "mirror_of": null,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    },
+    {
+      "id": 9,
+      "output": "MAIN10",
+      "pos_frd_m": [
+        0.3214,
+        0.001,
+        0.0784
+      ],
+      "tilt_deg": 0.0,
+      "azimuth_deg": 0.0,
+      "spin": "CW",
+      "mirror_of": null,
+      "curve_ref": "xfly80_3280",
+      "km": 0.0
+    }
+  ],
+  "fan_curves": {
+    "xfly80_3280": {
+      "cells": 6,
+      "points": [
+        {
+          "cmd": 0.0,
+          "thrust_N": 0.0,
+          "power_W": 0.0
+        },
+        {
+          "cmd": 1.0,
+          "thrust_N": 33.3,
+          "power_W": 2450.0
+        }
+      ],
+      "lag_s": 0.15,
+      "max_continuous_A": 100.0,
+      "notes": "manufacturer max only; replace with thrust stand data",
+      "estimated": true
+    }
+  },
+  "control": {
+    "concept": "stock",
+    "blend": 0.0,
+    "ca_method": 2,
+    "reaction_torque": true,
+    "px4_params_override": {
+      "CA_ROTOR0_CT": 5.599999904632568,
+      "CA_ROTOR1_CT": 5.599999904632568,
+      "CA_ROTOR2_CT": 5.599999904632568,
+      "CA_ROTOR3_CT": 5.599999904632568,
+      "CA_ROTOR4_CT": 5.599999904632568,
+      "CA_ROTOR5_CT": 5.599999904632568,
+      "CA_ROTOR6_CT": 5.599999904632568,
+      "CA_ROTOR7_CT": 5.599999904632568,
+      "CA_ROTOR8_CT": 6.5,
+      "CA_ROTOR9_CT": 6.5
+    }
+  },
+  "rig": {
+    "enabled": true,
+    "lock_position": true,
+    "lock_roll": true,
+    "lock_pitch": false,
+    "lock_yaw": false,
+    "attitude_offset_deg": [
+      -2.25,
+      6.27,
+      0.0
+    ]
+  },
+  "environment": {
+    "air_density": 1.225,
+    "wind_ned_mps": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "gravity": 9.80665
+  },
+  "outputs": {
+    "params": true,
+    "csv": true,
+    "report": true,
+    "plots": true,
+    "sdf": false,
+    "angle_sheet": true
+  }
+}
