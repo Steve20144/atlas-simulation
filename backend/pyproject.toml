@@ -1,0 +1,48 @@
+[project]
+name = "tiltlab"
+version = "0.1.0"
+description = "Tilt-fan multicopter analysis, PX4 allocator replica and simulation workbench."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "numpy",
+    "scipy",
+    "fastapi",
+    "uvicorn[standard]",
+    "websockets",
+    "pydantic>=2",
+    "python-multipart",
+    "pyulog",
+    "pymavlink",
+    "pyserial",
+    "cadquery-ocp",
+    "trimesh",
+    "fast-simplification",
+    "pygltflib",
+    "matplotlib",
+    "jinja2",
+    "markdown",
+    "httpx",
+]
+
+[project.optional-dependencies]
+pdf = ["weasyprint"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "mypy",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tiltlab"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true

@@ -1,0 +1,22 @@
+# Keep LF in the working copy on every platform (bash scripts and Makefiles break with CRLF).
+* text=auto eol=lf
+*.sh text eol=lf
+Makefile text eol=lf
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ps1 text eol=crlf
+# PX4 parameter files are CRLF by specification; store them untouched.
+*.params -text
+# Binary fixtures.
+*.ulg binary
+*.stp binary
+*.step binary
+*.stl binary
+*.glb binary
+*.png binary

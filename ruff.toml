@@ -1,0 +1,11 @@
+# Single ruff configuration for backend/ and tests/ (run from the repo root).
+line-length = 100
+target-version = "py311"
+src = ["backend", "tests"]
+extend-exclude = ["third_party", "frontend", "backend/.venv"]
+
+[lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+
+[lint.isort]
+known-first-party = ["tiltlab"]

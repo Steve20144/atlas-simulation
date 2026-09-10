@@ -1,0 +1,37 @@
+{
+  "name": "tiltlab-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "plotly.js-dist-min": "^2.35.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.170.0",
+    "uplot": "^1.6.31",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/three": "^0.170.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.5"
+  }
+}
