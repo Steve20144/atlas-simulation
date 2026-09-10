@@ -13,6 +13,14 @@ const GROUPINGS: { id: NonNullable<SweepRequestBody["foil_grouping"]>; label: st
   { id: "left_right", label: "left and right foil independent", pow: 2 },
 ];
 
+const RANKS: { id: NonNullable<SweepRequestBody["rank_by"]>; label: string }[] = [
+  { id: "power", label: "lowest hover power" },
+  { id: "yaw", label: "most yaw authority" },
+  { id: "yaw_per_kW", label: "most yaw per kW" },
+  { id: "headroom", label: "most headroom" },
+  { id: "score", label: "composite score" },
+];
+
 function range(start: number, stop: number, step: number): number[] {
   const out: number[] = [];
   for (let t = start; t <= stop + 1e-9 && out.length < 200; t += step) out.push(Math.round(t * 100) / 100);
@@ -40,6 +48,7 @@ export default function SweepPanel() {
   const [perPair, setPerPair] = useState(false);
   const [minHeadroom, setMinHeadroom] = useState(0.1);
   const [minYaw, setMinYaw] = useState(0);
+  const [rankBy, setRankBy] = useState<NonNullable<SweepRequestBody["rank_by"]>>("power");
   const [result, setResult] = useState<SweepResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +65,7 @@ export default function SweepPanel() {
         await api.sweep({
           scenario, concept, collective: collective ?? undefined, tilts_deg: values,
           variable: hasFoils ? "foil" : "tilt", foil_grouping: grouping, azimuth_mode: mode, per_pair: perPair,
-          min_headroom: minHeadroom, min_yaw_Nm: minYaw, top: 12,
+          min_headroom: minHeadroom, min_yaw_Nm: minYaw, rank_by: rankBy, top: 12,
         }),
       );
     } catch (e) {
@@ -97,6 +106,10 @@ export default function SweepPanel() {
         <input className={input} type="number" value={minHeadroom} min={0} max={1} step={0.05} onChange={(e) => setMinHeadroom(Number(e.target.value))} aria-label="min headroom" />
         <span>min yaw N m</span>
         <input className={input} type="number" value={minYaw} min={0} step={0.1} onChange={(e) => setMinYaw(Number(e.target.value))} aria-label="min yaw" />
+        <span>rank by</span>
+        <select className={input + " w-36"} value={rankBy} onChange={(e) => setRankBy(e.target.value as typeof rankBy)} aria-label="rank by">
+          {RANKS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+        </select>
         <button className={btn} disabled={busy || count === 0 || count > 5000} onClick={() => void run()}>
           {busy ? "running" : `run ${count} candidates`}
         </button>
@@ -105,7 +118,7 @@ export default function SweepPanel() {
       {result && (
         <>
           <p className="text-[10px] text-slate-400">
-            {result.n_feasible} of {result.n_evaluated} geometries can hover and control every axis under this concept, {fmt(result.elapsed_ms, 0)} ms. Feasible rows first, ranked by hover power.
+            {result.n_feasible} of {result.n_evaluated} geometries can hover and control every axis under this concept, {fmt(result.elapsed_ms, 0)} ms. Feasible rows first, ranked by {RANKS.find((r) => r.id === rankBy)?.label}.
           </p>
           {result.n_feasible === 0 && (
             <p className="text-[10px] text-rose-300">

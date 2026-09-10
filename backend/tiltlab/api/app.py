@@ -205,6 +205,7 @@ def sweep_endpoint(req: SweepRequest) -> SweepResponse:
             collective=req.collective,
             min_headroom=req.min_headroom,
             min_yaw_Nm=req.min_yaw_Nm,
+            rank_by=req.rank_by,
         )
         result = run_sweep(req.scenario, spec)
     except ValueError as exc:

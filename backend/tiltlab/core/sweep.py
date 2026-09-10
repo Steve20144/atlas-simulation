@@ -48,6 +48,27 @@ ALTERNATING_MODES: dict[str, tuple[str, ...]] = {
 AZIMUTH_MODES: tuple[str, ...] = tuple(PAIR_AZIMUTHS) + tuple(ALTERNATING_MODES)
 VARIABLES: tuple[str, ...] = ("auto", "foil", "tilt")
 FOIL_GROUPINGS: tuple[str, ...] = ("same", "left_right", "per_pair")
+RANK_OBJECTIVES: dict[str, str] = {
+    "power": "hover power_W ascending among feasible candidates (most efficient hover)",
+    "yaw": "yaw authority N m descending among feasible candidates (most yaw)",
+    "yaw_per_kW": "yaw authority per kW of hover power descending (yaw bought cheapest)",
+    "headroom": "hover headroom descending (most control margin)",
+    "score": "composite score descending (weighted mix of headroom, power, authority, coupling)",
+}
+
+
+def rank_key(r: dict[str, Any], rank_by: str) -> tuple[float, ...]:
+    """Sort key (ascending) for one record under the chosen objective; ties break on power."""
+    yaw = r["yaw_Nm"] or 0.0
+    if rank_by == "yaw":
+        return (-yaw, r["power_W"])
+    if rank_by == "yaw_per_kW":
+        return (-(r["yaw_Nm_per_kW"] or 0.0), r["power_W"])
+    if rank_by == "headroom":
+        return (-r["headroom"], r["power_W"])
+    if rank_by == "score":
+        return (-r["score"], r["power_W"])
+    return (r["power_W"], -yaw)
 
 
 def pair_azimuths(mode: str, pair_index: int) -> tuple[float, float]:
@@ -70,6 +91,7 @@ class SweepSpec:
     collective: float | None = None
     min_headroom: float = 0.2
     min_yaw_Nm: float = 0.0
+    rank_by: str = "power"  # power | yaw | yaw_per_kW | headroom | score
     max_candidates: int = 5000
 
     def __post_init__(self) -> None:
@@ -79,6 +101,8 @@ class SweepSpec:
             raise ValueError(f"foil_grouping must be one of {list(FOIL_GROUPINGS)}")
         if self.azimuth_mode not in AZIMUTH_MODES:
             raise ValueError(f"azimuth_mode must be one of {list(AZIMUTH_MODES)}")
+        if self.rank_by not in RANK_OBJECTIVES:
+            raise ValueError(f"rank_by must be one of {list(RANK_OBJECTIVES)}")
         if not self.tilts_deg:
             raise ValueError("tilts_deg is empty")
         for t in list(self.tilts_deg) + list(self.centreline_tilts_deg):
@@ -318,7 +342,7 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
                 truncated = True
                 break
             records.append(evaluate_candidate(scenario, angles, spec))
-    records.sort(key=lambda r: (not r["feasible"], r["power_W"], -(r["yaw_Nm"] or 0.0)))
+    records.sort(key=lambda r: (not r["feasible"], *rank_key(r, spec.rank_by)))
     feasible = [r for r in records if r["feasible"]]
     return {
         "variable": variable,
@@ -326,7 +350,7 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
         "n_feasible": len(feasible),
         "truncated": truncated,
         "elapsed_ms": (time.perf_counter() - t0) * 1e3,
-        "objective": "hover power_W ascending among feasible candidates",
+        "objective": RANK_OBJECTIVES[spec.rank_by],
         "spec": {
             "variable": variable,
             "tilts_deg": list(spec.tilts_deg),
@@ -338,6 +362,7 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
             "collective": spec.collective,
             "min_headroom": spec.min_headroom,
             "min_yaw_Nm": spec.min_yaw_Nm,
+            "rank_by": spec.rank_by,
         },
         "candidates": records,
         "best": feasible[0] if feasible else None,

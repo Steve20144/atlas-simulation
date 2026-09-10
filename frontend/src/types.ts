@@ -258,6 +258,7 @@ export interface SweepRequestBody {
   centreline_tilts_deg?: number[];
   min_headroom: number;
   min_yaw_Nm: number;
+  rank_by?: "power" | "yaw" | "yaw_per_kW" | "headroom" | "score";
   top: number;
 }
 

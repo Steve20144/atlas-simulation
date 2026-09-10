@@ -111,6 +111,17 @@ def test_same_direction_forward_has_no_level_trim(scenario):
     assert not c["feasible"] and any("no level-attitude hover trim" in r for r in c["reasons"])
 
 
+def test_rank_by_orders_feasible_candidates(scenario):
+    spec = dict(tilts_deg=[15, 30, 45], azimuth_mode="alternating", min_headroom=0.05)
+    by_power = run_sweep(scenario, SweepSpec(**spec, rank_by="power"))["candidates"]
+    by_yaw = run_sweep(scenario, SweepSpec(**spec, rank_by="yaw"))["candidates"]
+    assert [c["power_W"] for c in by_power] == sorted(c["power_W"] for c in by_power)
+    assert [c["yaw_Nm"] for c in by_yaw] == sorted((c["yaw_Nm"] for c in by_yaw), reverse=True)
+    assert by_yaw[0]["pair_tilts_deg"][0] == 45.0 and by_power[0]["pair_tilts_deg"][0] == 15.0
+    with pytest.raises(ValueError):
+        SweepSpec(tilts_deg=[0], rank_by="colour")
+
+
 def test_spec_validation():
     with pytest.raises(ValueError):
         SweepSpec(tilts_deg=[190])

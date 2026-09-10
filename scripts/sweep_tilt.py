@@ -50,6 +50,9 @@ def main() -> None:
     ap.add_argument("--collective", type=float, default=None)
     ap.add_argument("--min-headroom", type=float, default=0.2)
     ap.add_argument("--min-yaw", type=float, default=0.0)
+    ap.add_argument(
+        "--rank-by", default="power", choices=["power", "yaw", "yaw_per_kW", "headroom", "score"]
+    )
     ap.add_argument("--top", type=int, default=15)
     ap.add_argument("--csv", default=None, help="directory for the timestamped CSV")
     args = ap.parse_args()
@@ -66,6 +69,7 @@ def main() -> None:
         collective=args.collective,
         min_headroom=args.min_headroom,
         min_yaw_Nm=args.min_yaw,
+        rank_by=args.rank_by,
     )
     result = run_sweep(scenario, spec)
     print(
