@@ -33,7 +33,16 @@ from typing import Any
 
 import numpy as np
 
-from tiltlab.scenario import NUM_FANS, Body, CadReported, Fan, Mass, Scenario, axis_to_tilt_azimuth
+from tiltlab.scenario import (
+    NUM_FANS,
+    Body,
+    CadReported,
+    Fan,
+    Foil,
+    Mass,
+    Scenario,
+    axis_to_tilt_azimuth,
+)
 
 AXES = {"x": 0, "y": 1, "z": 2}
 EDF_NAME_PATTERN = re.compile(r"EDF", re.IGNORECASE)
@@ -420,6 +429,49 @@ def fit_reference_cg(
     return R.T @ (cg_frd * 1e3), residuals
 
 
+# ---------------------------------------------------------------- foils
+
+
+FOIL_NAME_PATTERN = re.compile(r"FOIL", re.IGNORECASE)
+FOIL_CHANNEL_LENGTH_MM = 200.0
+FOIL_CHANNEL_RADIUS_MM = 70.0
+
+
+def foil_pressure_point(
+    dash: Dashboard, edf: EdfBody, frame: FusionFrame, cg_fusion_mm: np.ndarray
+) -> tuple[np.ndarray, dict[str, Any]] | None:
+    """Where the redirected jet of one motor acts: the centroid of the foil-channel vertices in a
+    tube of radius FOIL_CHANNEL_RADIUS_MM that starts at the motor's aft duct exit and runs
+    FOIL_CHANNEL_LENGTH_MM aft. Returns (FRD metres relative to the CG, report) or None."""
+    aft_fusion = -(frame.rotation().T @ np.array([1.0, 0.0, 0.0]))  # FRD -X expressed in Fusion
+    c = edf.body.com_mm
+    exit_s = float(((edf.body.vertices_mm - c) @ aft_fusion).max())
+    best: tuple[int, np.ndarray, str] | None = None
+    for body in dash.bodies:
+        if not FOIL_NAME_PATTERN.search(body.name) or len(body.vertices_mm) < 100:
+            continue
+        rel = body.vertices_mm - c
+        s = rel @ aft_fusion
+        perp = np.linalg.norm(rel - np.outer(s, aft_fusion), axis=1)
+        sel = body.vertices_mm[
+            (s > exit_s) & (s < exit_s + FOIL_CHANNEL_LENGTH_MM) & (perp < FOIL_CHANNEL_RADIUS_MM)
+        ]
+        if len(sel) > 50 and (best is None or len(sel) > best[0]):
+            best = (len(sel), sel, body.name)
+    if best is None:
+        return None
+    n, sel, name = best
+    centroid = sel.mean(0)
+    report = {
+        "foil_body": name,
+        "channel_points": int(n),
+        "duct_exit_mm_aft_of_motor": round(exit_s, 1),
+        "centroid_fusion_mm": np.round(centroid, 1).tolist(),
+        "centroid_mm_aft_of_motor": round(float((centroid - c) @ aft_fusion), 1),
+    }
+    return frame.to_frd_m(centroid - cg_fusion_mm), report
+
+
 # ---------------------------------------------------------------- scenario
 
 
@@ -432,14 +484,18 @@ def build_scenario(
     weights: Weights | None = None,
     reference_cg_fusion_mm: np.ndarray | None = None,
     fan_tilt_azimuth: list[tuple[float, float]] | None = None,
+    foils: bool = True,
+    foil_deflection_deg: float = 45.0,
 ) -> tuple[Scenario, dict[str, Any]]:
     """Scenario with fan positions from the CAD and mass properties from the weights.
 
-    Fan orientation is NOT taken from the CAD (the CAD models the wing fans horizontal along the
-    fore-aft axis
-    and the centreline fans vertical; the vehicle's mounts are adjustable). It comes from
-    ``fan_tilt_azimuth``
-    or the template. The as-modelled CAD axes are returned in the report for reference."""
+    With ``foils`` (default) the eight wing motors are modelled as they are built: horizontal
+    ducts blowing aft (motor axis tilt 90, azimuth 0) into a left and a right foil that turns the
+    jet down by ``foil_deflection_deg``. The force on the airframe then acts at the centroid of
+    the foil channel behind each motor (measured from the CAD meshes) along the deflected
+    direction. The centreline fans stay as the template has them. With ``foils=False`` fan
+    orientation comes from ``fan_tilt_azimuth`` or the template. The as-modelled CAD duct axes
+    are returned in the report for reference."""
     edfs = order_edfs_px4(detect_edfs(dash), frame)
     if len(edfs) != NUM_FANS:
         raise ValueError(f"expected {NUM_FANS} EDF bodies, found {len(edfs)}")
@@ -503,7 +559,9 @@ def build_scenario(
     for idx, e in enumerate(edfs):
         pos = frame.to_frd_m(e.body.com_mm - cg_fusion)
         axis_frd = frame.rotation() @ e.axis_fusion
-        if fan_tilt_azimuth is not None:
+        if foils and idx < 8:
+            tilt, az = 90.0, 0.0  # horizontal motor, thrust axis forward, exhaust aft into the foil
+        elif fan_tilt_azimuth is not None:
             tilt, az = fan_tilt_azimuth[idx]
         else:
             tilt, az = template.fans[idx].tilt_deg, template.fans[idx].azimuth_deg
@@ -543,8 +601,41 @@ def build_scenario(
         )
     report["fans"] = cad_axes
 
+    foils_out: list[Foil] = []
+    if foils:
+        pressure: dict[int, tuple[float, float, float]] = {}
+        channel_report: dict[str, Any] = {}
+        for idx, e in enumerate(edfs[:8]):
+            pp = foil_pressure_point(dash, e, frame, cg_fusion)
+            if pp is None:
+                raise ValueError(f"no foil channel found behind {e.body.name}")
+            pressure[idx] = tuple(np.round(pp[0], 4).tolist())
+            channel_report[str(idx)] = pp[1]
+        left = [i for i in pressure if fans[i].pos_frd_m[1] < 0]
+        right = [i for i in pressure if fans[i].pos_frd_m[1] >= 0]
+        note = (
+            "Motors are horizontal and blow aft into the foil (motor axis tilt 90, azimuth 0). "
+            f"Deflection {foil_deflection_deg:g} deg as built (thrust up and forward), not read "
+            "from the CAD. Pressure points are the centroid of the foil channel behind each motor "
+            "measured on the CAD meshes. Turning loss is not measured (0)."
+        )
+        for fid, ids in (("left", left), ("right", right)):
+            foils_out.append(
+                Foil(
+                    id=fid,
+                    fan_ids=sorted(ids),
+                    deflection_deg=foil_deflection_deg,
+                    pressure_points_frd_m={i: pressure[i] for i in ids},
+                    loss_at_90deg=0.0,
+                    estimated=True,
+                    notes=note,
+                )
+            )
+        report["foils"] = channel_report
+
     scenario = template.model_copy(
         update={
+            "foils": foils_out,
             "meta": template.meta.model_copy(
                 update={
                     "name": name,

@@ -18,15 +18,23 @@ SCENARIOS = FIXTURES.parent.parent / "scenarios"
 
 @pytest.fixture(scope="module")
 def scenario() -> Scenario:
-    return Scenario.model_validate(json.loads((SCENARIOS / "atlas_phase01_cad.json").read_text()))
+    """The CAD scenario as a raw-tilt problem: foils removed, every fan vertical."""
+    sc = Scenario.model_validate(json.loads((SCENARIOS / "atlas_phase01_cad.json").read_text()))
+    fans = [f.model_copy(update={"tilt_deg": 0.0, "azimuth_deg": 0.0}) for f in sc.fans]
+    return sc.model_copy(update={"fans": fans, "foils": []})
 
 
 def test_grid_shared_and_per_pair(scenario):
-    shared = list(candidate_angles(scenario, SweepSpec(tilts_deg=[0, 10, 20])))
+    shared = list(
+        candidate_angles(scenario, SweepSpec(tilts_deg=[0, 10, 20], azimuth_mode="inward"))
+    )
     assert len(shared) == 3
     per_pair = list(
         candidate_angles(
-            scenario, SweepSpec(tilts_deg=[0, 10], per_pair=True, centreline_tilts_deg=[0, 5])
+            scenario,
+            SweepSpec(
+                tilts_deg=[0, 10], per_pair=True, centreline_tilts_deg=[0, 5], azimuth_mode="inward"
+            ),
         )
     )
     assert len(per_pair) == 2**4 * 2
@@ -57,7 +65,10 @@ def test_shared_tilt_on_a_straight_fan_line_cannot_separate_roll_from_yaw(scenar
 
 
 def test_per_pair_sweep_ranks_feasible_by_power(scenario):
-    result = run_sweep(scenario, SweepSpec(tilts_deg=[0, 10], per_pair=True, min_headroom=0.1))
+    result = run_sweep(
+        scenario,
+        SweepSpec(tilts_deg=[0, 10], per_pair=True, min_headroom=0.1, azimuth_mode="inward"),
+    )
     assert result["n_evaluated"] == 16
     feas = [c for c in result["candidates"] if c["feasible"]]
     assert feas and feas == result["candidates"][: len(feas)]
@@ -102,9 +113,11 @@ def test_same_direction_forward_has_no_level_trim(scenario):
 
 def test_spec_validation():
     with pytest.raises(ValueError):
-        SweepSpec(tilts_deg=[95])
+        SweepSpec(tilts_deg=[190])
     with pytest.raises(ValueError):
         SweepSpec(tilts_deg=[0], azimuth_mode="sideways")
+    with pytest.raises(ValueError):
+        SweepSpec(tilts_deg=[0], foil_grouping="odd")
 
 
 def test_sweep_endpoint(scenario):

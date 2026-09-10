@@ -44,7 +44,11 @@ def main() -> None:
     )
     ap.add_argument("html")
     ap.add_argument("--weights", help="dashboard export JSON (weights_by_type in grams)")
-    ap.add_argument("--template", default=str(ROOT / "scenarios" / "flown_log40_vertical_km.json"))
+    ap.add_argument("--template", default=str(ROOT / "scenarios" / "baseline_dihedral30.json"))
+    ap.add_argument(
+        "--no-foils", action="store_true", help="raw fan tilt instead of the foil model"
+    )
+    ap.add_argument("--deflection", type=float, default=45.0, help="as-built foil deflection, deg")
     ap.add_argument(
         "--params",
         default=str(ROOT / "tests" / "fixtures" / "20260909_1515_params_v4_rig_airmode.params"),
@@ -79,8 +83,25 @@ def main() -> None:
     weights = Weights.from_dashboard_export(args.weights) if args.weights else None
     created = datetime.now().astimezone().isoformat(timespec="seconds")
     scenario, report = build_scenario(
-        dash, frame, template, args.name, created, weights=weights, reference_cg_fusion_mm=ref_cg
+        dash,
+        frame,
+        template,
+        args.name,
+        created,
+        weights=weights,
+        reference_cg_fusion_mm=ref_cg,
+        foils=not args.no_foils,
+        foil_deflection_deg=args.deflection,
     )
+    for foil in scenario.foils:
+        pts = ", ".join(
+            f"{i}: {list(foil.pressure_points_frd_m[i])}"
+            for i in sorted(foil.pressure_points_frd_m)
+        )
+        print(
+            f"foil {foil.id}: fans {foil.fan_ids}, deflection {foil.deflection_deg} deg; "
+            f"pressure points FRD m: {pts}"
+        )
     report["reference_cg_fusion_mm"] = np.round(ref_cg, 2).tolist()
     report["residuals_vs_params_mm"] = np.round(residuals * 1e3, 1).tolist()
     report["params_file"] = Path(args.params).name

@@ -1,22 +1,20 @@
-"""Grid sweep over fan tilt angles: find the most efficient geometry that still controls the
-vehicle.
+"""Grid sweep over the geometry variable: foil deflection (when the scenario has foils) or raw
+fan tilt. Finds the most efficient geometry that still controls the vehicle.
 
-Efficiency is hover electrical power (W) from the scenario fan curves at the hover collective. A
-candidate
-is feasible when every controlled axis is attainable in both directions, hover is exact, headroom
-is at
-least ``min_headroom`` and yaw authority is at least ``min_yaw_Nm``. Feasible candidates are ranked
-by
-power ascending; infeasible ones follow, ranked the same way, with their reasons listed.
+Efficiency is hover electrical power (W) from the scenario fan curves at the hover collective.
+A candidate is feasible when every controlled axis is attainable in both directions, hover is
+exact, headroom is at least ``min_headroom`` and yaw authority is at least ``min_yaw_Nm``.
+Feasible candidates are ranked by power ascending; infeasible ones follow with their reasons.
 
-Angles: the eight wing fans form four left/right pairs (rotors 0/1 outermost to 6/7 innermost, left
-is
-negative Y in FRD). ``azimuth_mode`` sets how a pair tilts: ``inward`` (left fan thrust toward +Y,
-right
-toward -Y), ``outward``, ``forward`` or ``aft``. With ``per_pair`` each pair gets its own tilt from
-the
-grid (len(tilts)**4 candidates); otherwise one shared tilt. The centreline fans (8, 9) take
-``centreline_tilts_deg`` with ``centreline_azimuth_deg``.
+Foil variable (``variable="foil"``): the grid values are foil deflections in degrees (0 jet
+straight aft, 90 straight down, 180 straight forward). ``foil_grouping`` is ``same`` (one value
+for every foil fan), ``left_right`` (independent left and right foil, grid squared) or
+``per_pair`` (one value per left/right wing pair, mirrored, grid to the fourth power).
+
+Tilt variable (``variable="tilt"``): the grid values are raw fan tilts for the four wing pairs
+(rotors 0/1 outermost to 6/7 innermost, left is negative Y in FRD) with ``azimuth_mode``
+``inward``, ``outward``, ``forward``, ``aft`` or the alternating fore-aft modes; ``per_pair``
+gives each pair its own tilt. Centreline fans (8, 9) take ``centreline_tilts_deg``.
 """
 
 from __future__ import annotations
@@ -48,6 +46,8 @@ ALTERNATING_MODES: dict[str, tuple[str, ...]] = {
     "outer_aft_inner_fwd": ("aft", "aft", "forward", "forward"),
 }
 AZIMUTH_MODES: tuple[str, ...] = tuple(PAIR_AZIMUTHS) + tuple(ALTERNATING_MODES)
+VARIABLES: tuple[str, ...] = ("auto", "foil", "tilt")
+FOIL_GROUPINGS: tuple[str, ...] = ("same", "left_right", "per_pair")
 
 
 def pair_azimuths(mode: str, pair_index: int) -> tuple[float, float]:
@@ -59,8 +59,10 @@ def pair_azimuths(mode: str, pair_index: int) -> tuple[float, float]:
 
 @dataclass
 class SweepSpec:
-    tilts_deg: list[float]
-    azimuth_mode: str = "inward"
+    tilts_deg: list[float]  # grid values: foil deflections (0..180) or fan tilts (0..90)
+    variable: str = "auto"
+    foil_grouping: str = "same"
+    azimuth_mode: str = "forward"
     per_pair: bool = False
     centreline_tilts_deg: list[float] = field(default_factory=lambda: [0.0])
     centreline_azimuth_deg: float = 0.0
@@ -71,13 +73,22 @@ class SweepSpec:
     max_candidates: int = 5000
 
     def __post_init__(self) -> None:
+        if self.variable not in VARIABLES:
+            raise ValueError(f"variable must be one of {list(VARIABLES)}")
+        if self.foil_grouping not in FOIL_GROUPINGS:
+            raise ValueError(f"foil_grouping must be one of {list(FOIL_GROUPINGS)}")
         if self.azimuth_mode not in AZIMUTH_MODES:
             raise ValueError(f"azimuth_mode must be one of {list(AZIMUTH_MODES)}")
         if not self.tilts_deg:
             raise ValueError("tilts_deg is empty")
         for t in list(self.tilts_deg) + list(self.centreline_tilts_deg):
-            if not 0.0 <= float(t) <= 90.0:
-                raise ValueError("tilt angles must lie in [0, 90] degrees")
+            if not 0.0 <= float(t) <= 180.0:
+                raise ValueError("angles must lie in [0, 180] degrees")
+
+    def resolve_variable(self, scenario: Scenario) -> str:
+        if self.variable == "auto":
+            return "foil" if scenario.foils else "tilt"
+        return self.variable
 
 
 def _left_right(scenario: Scenario, pair: tuple[int, int]) -> tuple[int, int]:
@@ -88,10 +99,16 @@ def _left_right(scenario: Scenario, pair: tuple[int, int]) -> tuple[int, int]:
     return (a, b) if fa.pos_frd_m[1] <= fb.pos_frd_m[1] else (b, a)
 
 
+# ---------------------------------------------------------------- tilt variable
+
+
 def candidate_angles(
     scenario: Scenario, spec: SweepSpec
 ) -> Iterator[dict[int, tuple[float, float]]]:
-    """Yield {rotor id: (tilt_deg, azimuth_deg)} for every grid point."""
+    """Yield {rotor id: (tilt_deg, azimuth_deg)} for every grid point of the tilt variable."""
+    for t in list(spec.tilts_deg) + list(spec.centreline_tilts_deg):
+        if float(t) > 90.0:
+            raise ValueError("fan tilt angles must lie in [0, 90] degrees")
     pair_lr = [_left_right(scenario, p) for p in WING_PAIRS]
     if spec.per_pair:
         pair_grids: Iterator[tuple[float, ...]] = itertools.product(
@@ -121,6 +138,67 @@ def apply_angles(scenario: Scenario, angles: dict[int, tuple[float, float]]) -> 
     return scenario.model_copy(update={"fans": fans})
 
 
+# ---------------------------------------------------------------- foil variable
+
+
+def foil_fan_ids(scenario: Scenario) -> list[int]:
+    return sorted(fid for foil in scenario.foils for fid in foil.fan_ids)
+
+
+def candidate_deflections(scenario: Scenario, spec: SweepSpec) -> Iterator[dict[int, float]]:
+    """Yield {fan id: deflection_deg} for every grid point of the foil variable."""
+    ids = foil_fan_ids(scenario)
+    if not ids:
+        raise ValueError("scenario has no foils")
+    fans = {f.id: f for f in scenario.fans}
+    left = [i for i in ids if fans[i].pos_frd_m[1] < 0]
+    right = [i for i in ids if fans[i].pos_frd_m[1] >= 0]
+    if spec.foil_grouping == "same":
+        for d in spec.tilts_deg:
+            yield {i: float(d) for i in ids}
+    elif spec.foil_grouping == "left_right":
+        for dl, dr in itertools.product(spec.tilts_deg, repeat=2):
+            out = {i: float(dl) for i in left}
+            out.update({i: float(dr) for i in right})
+            yield out
+    else:  # per_pair: mirrored left/right, one value per wing pair that has foil fans
+        pairs = [p for p in WING_PAIRS if p[0] in ids and p[1] in ids]
+        loose = [i for i in ids if not any(i in p for p in pairs)]
+        for values in itertools.product(spec.tilts_deg, repeat=len(pairs)):
+            out: dict[int, float] = {}
+            for (a, b), d in zip(pairs, values, strict=True):
+                out[a] = float(d)
+                out[b] = float(d)
+            for i in loose:
+                out[i] = float(values[0]) if values else float(spec.tilts_deg[0])
+            yield out
+
+
+def apply_deflections(scenario: Scenario, deflections: dict[int, float]) -> Scenario:
+    """Set per-fan foil deflections (collapsing to the foil's deflection_deg when uniform)."""
+    foils = []
+    for foil in scenario.foils:
+        own = {i: deflections[i] for i in foil.fan_ids if i in deflections}
+        if not own:
+            foils.append(foil)
+            continue
+        values = set(own.values())
+        if len(values) == 1 and len(own) == len(foil.fan_ids):
+            foils.append(
+                foil.model_copy(
+                    update={"deflection_deg": values.pop(), "per_fan_deflection_deg": {}}
+                )
+            )
+        else:
+            merged = dict(foil.per_fan_deflection_deg)
+            merged.update(own)
+            foils.append(foil.model_copy(update={"per_fan_deflection_deg": merged}))
+    return scenario.model_copy(update={"foils": foils})
+
+
+# ---------------------------------------------------------------- evaluation
+
+
 def _min_authority(auth: dict[str, Any], axis: str) -> float | None:
     a = auth.get(axis)
     if not a or not (a.get("plus_attainable") and a.get("minus_attainable")):
@@ -128,11 +206,8 @@ def _min_authority(auth: dict[str, Any], axis: str) -> float | None:
     return float(min(abs(a["plus"]), abs(a["minus"])))
 
 
-def evaluate_candidate(
-    scenario: Scenario, angles: dict[int, tuple[float, float]], spec: SweepSpec
-) -> dict[str, Any]:
-    """Metrics of one geometry reduced to the sweep record."""
-    sc = apply_angles(scenario, angles)
+def evaluate_scenario(sc: Scenario, spec: SweepSpec) -> dict[str, Any]:
+    """Metrics of one geometry reduced to the sweep record (geometry fields added by caller)."""
     m = compute_metrics(sc, spec.concept, spec.collective)
     hover = m["hover"]
     auth = m["authority"]
@@ -141,12 +216,16 @@ def evaluate_candidate(
         if _min_authority(auth, AXIS_NAMES[k]) is None:
             reasons.append(f"{AXIS_NAMES[k]} unattainable")
     cond = m["conditioning"].get("condition_number")
-    if hover.get("exact") is False:
+    if float(m.get("collective_hover", 0.0)) > 1.0:
+        reasons.append(
+            "cannot lift the aircraft: vertical thrust at full command is below the weight"
+        )
+    elif hover.get("exact") is False:
         collapsed = max(hover["u"]) <= 1e-6
         fz_ok = _min_authority(auth, "Fz") is not None
         if collapsed and not fz_ok:
             reasons.append(
-                "no level-attitude hover trim: the tilted fans' net Fx or Fy cannot be zeroed"
+                "no level-attitude hover trim: the redirected jets' net Fx or Fy cannot be zeroed"
             )
         else:
             cond_txt = f" (B condition number {cond:.0f})" if isinstance(cond, int | float) else ""
@@ -160,12 +239,7 @@ def evaluate_candidate(
     if yaw is not None and yaw < spec.min_yaw_Nm:
         reasons.append(f"yaw authority {yaw:.2f} N m below {spec.min_yaw_Nm:.2f}")
     power = float(hover["power_W"])
-    ordered = sorted(angles)
     return {
-        "tilts_deg": [angles[i][0] for i in ordered],
-        "azimuths_deg": [angles[i][1] for i in ordered],
-        "pair_tilts_deg": [angles[_left_right(scenario, p)[0]][0] for p in WING_PAIRS],
-        "centreline_tilt_deg": angles[CENTRELINE[0]][0],
         "power_W": power,
         "headroom": float(hover["headroom"]),
         "roll_Nm": _min_authority(auth, "roll"),
@@ -182,27 +256,81 @@ def evaluate_candidate(
     }
 
 
+def evaluate_candidate(
+    scenario: Scenario, angles: dict[int, tuple[float, float]], spec: SweepSpec
+) -> dict[str, Any]:
+    """Tilt-variable candidate: fan tilt/azimuth per rotor."""
+    sc = apply_angles(scenario, angles)
+    ordered = sorted(angles)
+    rec = {
+        "variable": "tilt",
+        "tilts_deg": [angles[i][0] for i in ordered],
+        "azimuths_deg": [angles[i][1] for i in ordered],
+        "pair_tilts_deg": [angles[_left_right(scenario, p)[0]][0] for p in WING_PAIRS],
+        "centreline_tilt_deg": angles[CENTRELINE[0]][0],
+    }
+    rec.update(evaluate_scenario(sc, spec))
+    return rec
+
+
+def evaluate_foil_candidate(
+    scenario: Scenario, deflections: dict[int, float], spec: SweepSpec
+) -> dict[str, Any]:
+    """Foil-variable candidate: deflection per foil fan; pair_tilts_deg carries the per-pair
+    deflection so tables and the UI can show it in the same column."""
+    sc = apply_deflections(scenario, deflections)
+    fans = {f.id: f for f in scenario.fans}
+    pairs = []
+    for a, b in WING_PAIRS:
+        if a in deflections or b in deflections:
+            left, right = _left_right(scenario, (a, b))
+            pairs.append(deflections.get(left, deflections.get(right, 0.0)))
+    left_vals = [d for i, d in deflections.items() if fans[i].pos_frd_m[1] < 0]
+    right_vals = [d for i, d in deflections.items() if fans[i].pos_frd_m[1] >= 0]
+    rec = {
+        "variable": "foil",
+        "deflections_deg": {str(i): deflections[i] for i in sorted(deflections)},
+        "pair_tilts_deg": pairs,
+        "left_deg": (sum(left_vals) / len(left_vals)) if left_vals else None,
+        "right_deg": (sum(right_vals) / len(right_vals)) if right_vals else None,
+        "centreline_tilt_deg": float(next((f.tilt_deg for f in scenario.fans if f.id == 8), 0.0)),
+    }
+    rec.update(evaluate_scenario(sc, spec))
+    return rec
+
+
 def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
     """Evaluate the whole grid and rank: feasible first, then hover power ascending, then yaw
     descending."""
     t0 = time.perf_counter()
+    variable = spec.resolve_variable(scenario)
     records: list[dict[str, Any]] = []
     truncated = False
-    for n, angles in enumerate(candidate_angles(scenario, spec)):
-        if n >= spec.max_candidates:
-            truncated = True
-            break
-        records.append(evaluate_candidate(scenario, angles, spec))
+    if variable == "foil":
+        for n, defl in enumerate(candidate_deflections(scenario, spec)):
+            if n >= spec.max_candidates:
+                truncated = True
+                break
+            records.append(evaluate_foil_candidate(scenario, defl, spec))
+    else:
+        for n, angles in enumerate(candidate_angles(scenario, spec)):
+            if n >= spec.max_candidates:
+                truncated = True
+                break
+            records.append(evaluate_candidate(scenario, angles, spec))
     records.sort(key=lambda r: (not r["feasible"], r["power_W"], -(r["yaw_Nm"] or 0.0)))
     feasible = [r for r in records if r["feasible"]]
     return {
+        "variable": variable,
         "n_evaluated": len(records),
         "n_feasible": len(feasible),
         "truncated": truncated,
         "elapsed_ms": (time.perf_counter() - t0) * 1e3,
         "objective": "hover power_W ascending among feasible candidates",
         "spec": {
+            "variable": variable,
             "tilts_deg": list(spec.tilts_deg),
+            "foil_grouping": spec.foil_grouping,
             "azimuth_mode": spec.azimuth_mode,
             "per_pair": spec.per_pair,
             "centreline_tilts_deg": list(spec.centreline_tilts_deg),
@@ -218,18 +346,8 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
 
 def sweep_table(result: dict[str, Any], top: int = 15) -> str:
     """Compact text table of the ranked candidates."""
-    head = (
-        "pair tilts deg",
-        "ctr",
-        "power W",
-        "headrm",
-        "roll",
-        "pitch",
-        "yaw",
-        "yaw/kW",
-        "coupl",
-        "score",
-    )
+    label = "foil defl deg" if result.get("variable") == "foil" else "pair tilts deg"
+    head = (label, "ctr", "power W", "headrm", "roll", "pitch", "yaw", "yaw/kW", "coupl", "score")
     rows = [
         f"{head[0]:>22s} {head[1]:>4s} {head[2]:>8s} {head[3]:>6s} {head[4]:>6s} {head[5]:>6s} "
         f"{head[6]:>6s} {head[7]:>7s} {head[8]:>6s} {head[9]:>6s}  feasible"

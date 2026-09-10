@@ -27,6 +27,7 @@ function AxesTriad() {
 /** Centre panel: stick model of the aircraft with thrust vectors scaled by hover u. */
 export default function Viewer3D() {
   const fans = useTiltlabStore((s) => s.scenario.fans);
+  const foils = useTiltlabStore((s) => s.scenario.foils);
   const cg = useTiltlabStore((s) => s.scenario.mass.cg_frd_m);
   const u = useTiltlabStore((s) => s.metrics?.hover?.u);
 
@@ -49,7 +50,7 @@ export default function Viewer3D() {
           <sphereGeometry args={[0.02, 16, 16]} />
           <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.4} />
         </mesh>
-        <FanMarkers fans={fans} u={u} />
+        <FanMarkers fans={fans} foils={foils} u={u} />
         <OrbitControls makeDefault enableDamping dampingFactor={0.1} />
       </Canvas>
       <div className="pointer-events-none absolute left-2 top-2 rounded bg-slate-900/70 px-2 py-1 text-[10px] leading-snug text-slate-300">
@@ -58,9 +59,9 @@ export default function Viewer3D() {
           <span className="text-blue-400">Z</span> down (FRD)
         </div>
         <div>
-          <span className="text-amber-300">CG</span> marker. Arrows show the thrust direction (force on the
-          airframe) scaled by hover u; exhaust leaves the duct the opposite way. Tilt 45, azimuth 0 = thrust up
-          and forward.
+          <span className="text-amber-300">CG</span> marker. Grey ducts are the motors; the dotted line is the
+          jet into the foil; arrows start where the force acts and point where it pushes the aircraft,
+          scaled by hover u.
         </div>
       </div>
     </section>

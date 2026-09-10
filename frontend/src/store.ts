@@ -2,7 +2,16 @@ import { create } from "zustand";
 import { api } from "./api";
 import { mirrorAzimuth } from "./geometry";
 import { DIHEDRAL_SCENARIO_NAME, presetOmni, presetVertical, type PresetId } from "./presets";
-import type { ControlConcept, Fan, MetricGroup, Metrics, Scenario, Vec3 } from "./types";
+import type {
+  ControlConcept,
+  Fan,
+  Foil,
+  MetricGroup,
+  Metrics,
+  Scenario,
+  SweepCandidate,
+  Vec3,
+} from "./types";
 
 const zero3 = (): Vec3 => [0, 0, 0];
 
@@ -34,6 +43,7 @@ export function emptyScenario(): Scenario {
     },
     environment: { air_density: 1.225, wind_ned_mps: zero3(), gravity: 9.80665 },
     outputs: { params: true, csv: true, report: true, plots: true, sdf: false, angle_sheet: true },
+    foils: [],
   };
 }
 
@@ -58,8 +68,18 @@ export interface TiltlabState {
   error: string | null;
   mirrorLock: Record<number, boolean>;
   visibleGroups: Record<MetricGroup, boolean>;
+  /** When on, changing one foil's deflection changes every foil (a single foil angle). */
+  foilLinked: boolean;
 
   setScenario: (scenario: Scenario) => void;
+  setFoilLinked: (on: boolean) => void;
+  /** Set a foil's deflection (all its fans); with foilLinked every foil follows. */
+  setFoilDeflection: (foilId: string, deg: number) => void;
+  /** Set one fan's deflection inside a segmented foil (null clears the override). */
+  setFoilFanDeflection: (foilId: string, fanId: number, deg: number | null) => void;
+  setFoilLoss: (loss: number) => void;
+  /** Load a sweep candidate: foil deflections or fan tilts depending on its variable. */
+  applySweepCandidate: (c: SweepCandidate) => void;
   updateFan: (id: number, patch: FanPatch) => void;
   setMirrorLock: (id: number, on: boolean) => void;
   setConcept: (concept: ControlConcept) => void;
@@ -103,6 +123,55 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     error: null,
     mirrorLock: {},
     visibleGroups: { hover: true, authority: true, coupling: true, conditioning: true, composite: true },
+    foilLinked: true,
+
+    setFoilLinked: (on) => set({ foilLinked: on }),
+
+    setFoilDeflection: (foilId, deg) => {
+      const { scenario, foilLinked } = get();
+      const foils: Foil[] = (scenario.foils ?? []).map((f) =>
+        f.id === foilId || foilLinked ? { ...f, deflection_deg: deg, per_fan_deflection_deg: {} } : f,
+      );
+      setScenarioAndRefresh({ ...scenario, foils });
+    },
+
+    setFoilFanDeflection: (foilId, fanId, deg) => {
+      const { scenario } = get();
+      const foils: Foil[] = (scenario.foils ?? []).map((f) => {
+        if (f.id !== foilId) return f;
+        const per = { ...f.per_fan_deflection_deg };
+        if (deg === null) delete per[String(fanId)];
+        else per[String(fanId)] = deg;
+        return { ...f, per_fan_deflection_deg: per };
+      });
+      setScenarioAndRefresh({ ...scenario, foils });
+    },
+
+    setFoilLoss: (loss) => {
+      const { scenario } = get();
+      const foils: Foil[] = (scenario.foils ?? []).map((f) => ({ ...f, loss_at_90deg: loss }));
+      setScenarioAndRefresh({ ...scenario, foils });
+    },
+
+    applySweepCandidate: (c) => {
+      const { scenario } = get();
+      if (c.variable === "foil" && c.deflections_deg) {
+        const d = c.deflections_deg;
+        const foils: Foil[] = (scenario.foils ?? []).map((f) => {
+          const own = f.fan_ids.filter((i) => String(i) in d);
+          const vals = new Set(own.map((i) => d[String(i)]));
+          if (own.length === f.fan_ids.length && vals.size === 1) {
+            return { ...f, deflection_deg: [...vals][0], per_fan_deflection_deg: {} };
+          }
+          const per = { ...f.per_fan_deflection_deg };
+          for (const i of own) per[String(i)] = d[String(i)];
+          return { ...f, per_fan_deflection_deg: per };
+        });
+        setScenarioAndRefresh({ ...scenario, foils });
+      } else if (c.tilts_deg && c.azimuths_deg) {
+        get().applyFanAngles(c.tilts_deg, c.azimuths_deg);
+      }
+    },
 
     setScenario: (scenario) => {
       set({ scenario, concept: scenario.control.concept, mirrorLock: defaultMirrorLock(scenario) });

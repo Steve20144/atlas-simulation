@@ -110,6 +110,23 @@ export interface OutputSelection {
   angle_sheet: boolean;
 }
 
+/**
+ * A jet-deflecting foil behind a group of motors (backend/tiltlab/scenario.py Foil). The motors'
+ * tilt/azimuth describe the MOTOR axis (90 / 0 = horizontal, blowing aft). The foil turns the
+ * jet down by deflection_deg: 0 = straight aft (pure forward thrust), 90 = straight down (pure
+ * lift), 180 = straight forward. The force acts at pressure_points_frd_m (keyed by fan id).
+ */
+export interface Foil {
+  id: string;
+  fan_ids: number[];
+  deflection_deg: number;
+  per_fan_deflection_deg: Record<string, number>;
+  pressure_points_frd_m: Record<string, Vec3>;
+  loss_at_90deg: number;
+  estimated?: boolean;
+  notes?: string;
+}
+
 export interface Scenario {
   meta: ScenarioMeta;
   frame: FrameMapping;
@@ -120,6 +137,7 @@ export interface Scenario {
   rig: RigSettings;
   environment: EnvironmentSettings;
   outputs: OutputSelection;
+  foils?: Foil[];
 }
 
 /* ---------- Metrics returned by POST /api/metrics (M4 contract) ---------- */
@@ -195,8 +213,15 @@ export type MetricGroup = "hover" | "authority" | "coupling" | "conditioning" | 
 
 /** One geometry evaluated by POST /api/sweep (backend/tiltlab/core/sweep.py). */
 export interface SweepCandidate {
-  tilts_deg: number[];
-  azimuths_deg: number[];
+  variable: "foil" | "tilt";
+  /** Tilt variable only. */
+  tilts_deg?: number[];
+  azimuths_deg?: number[];
+  /** Foil variable only: deflection per fan id. */
+  deflections_deg?: Record<string, number>;
+  left_deg?: number | null;
+  right_deg?: number | null;
+  /** Angle per wing pair, outer to inner (tilt or deflection depending on variable). */
   pair_tilts_deg: number[];
   centreline_tilt_deg: number;
   power_W: number;
@@ -219,6 +244,8 @@ export interface SweepRequestBody {
   concept: ControlConcept;
   collective?: number;
   tilts_deg: number[];
+  variable?: "auto" | "foil" | "tilt";
+  foil_grouping?: "same" | "left_right" | "per_pair";
   azimuth_mode:
     | "inward"
     | "outward"
@@ -235,6 +262,7 @@ export interface SweepRequestBody {
 }
 
 export interface SweepResponse {
+  variable: "foil" | "tilt";
   n_evaluated: number;
   n_feasible: number;
   truncated: boolean;

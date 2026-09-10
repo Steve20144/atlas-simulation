@@ -13,7 +13,10 @@ class SweepRequest(BaseModel):
     scenario: Scenario
     concept: Literal["stock", "fully_actuated"] = "stock"
     collective: float | None = Field(default=None, ge=0.0, le=1.0)
-    tilts_deg: list[float] = Field(default_factory=lambda: [float(t) for t in range(0, 50, 5)])
+    # Grid values: foil deflections (0..180) when variable resolves to "foil", else fan tilts.
+    tilts_deg: list[float] = Field(default_factory=lambda: [float(t) for t in range(0, 181, 15)])
+    variable: Literal["auto", "foil", "tilt"] = "auto"
+    foil_grouping: Literal["same", "left_right", "per_pair"] = "same"
     azimuth_mode: Literal[
         "inward",
         "outward",
@@ -32,6 +35,7 @@ class SweepRequest(BaseModel):
 
 
 class SweepResponse(BaseModel):
+    variable: str
     n_evaluated: int
     n_feasible: int
     truncated: bool

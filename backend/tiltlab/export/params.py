@@ -78,7 +78,9 @@ def ca_geometry_params(scenario: Scenario) -> dict[str, int | float]:
     fans = scenario.fans_sorted()
     for fan, rotor in zip(fans, rotors_from_scenario(scenario), strict=True):
         ct_key = f"CA_ROTOR{fan.id}_CT"
-        ct = scenario.control.px4_params_override.get(ct_key, fan_curve_ct(scenario, fan.curve_ref))
+        ct = scenario.control.px4_params_override.get(
+            ct_key, fan_curve_ct(scenario, fan.curve_ref) * scenario.foil_ct_scale(fan)
+        )
         vals = (*rotor.position, *rotor.axis, float(ct), scenario.fan_km(fan))
         for key, v in zip(ROTOR_FIELDS, vals, strict=True):
             params[f"CA_ROTOR{fan.id}_{key}"] = float(np.float32(v))

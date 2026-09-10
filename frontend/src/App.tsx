@@ -1,4 +1,4 @@
-import FanTable from "./components/FanTable";
+import GeometryPanel from "./components/GeometryPanel";
 import MetricsPanel from "./components/MetricsPanel";
 import TopBar from "./components/TopBar";
 import Viewer3D from "./components/Viewer3D";
@@ -10,7 +10,7 @@ export default function App() {
     <div className="flex h-screen flex-col">
       <TopBar />
       <main className="grid min-h-0 flex-1 grid-cols-[380px_minmax(0,1fr)_400px]">
-        <FanTable />
+        <GeometryPanel />
         <Viewer3D />
         <MetricsPanel />
       </main>

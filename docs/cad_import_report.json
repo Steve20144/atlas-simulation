@@ -193,6 +193,96 @@
    "length_mm": 130.2
   }
  ],
+ "foils": {
+  "0": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
+   "channel_points": 2526,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    371.1,
+    280.2,
+    -245.5
+   ],
+   "centroid_mm_aft_of_motor": 85.9
+  },
+  "1": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
+   "channel_points": 2526,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    -371.1,
+    280.2,
+    -245.5
+   ],
+   "centroid_mm_aft_of_motor": 85.9
+  },
+  "2": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
+   "channel_points": 2728,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    290.5,
+    233.5,
+    -194.3
+   ],
+   "centroid_mm_aft_of_motor": 84.6
+  },
+  "3": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
+   "channel_points": 2728,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    -290.5,
+    233.5,
+    -194.3
+   ],
+   "centroid_mm_aft_of_motor": 84.6
+  },
+  "4": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
+   "channel_points": 2717,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    203.6,
+    183.0,
+    -143.8
+   ],
+   "centroid_mm_aft_of_motor": 84.1
+  },
+  "5": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
+   "channel_points": 2717,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    -203.6,
+    183.0,
+    -143.8
+   ],
+   "centroid_mm_aft_of_motor": 84.1
+  },
+  "6": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2:1",
+   "channel_points": 1458,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    113.6,
+    140.2,
+    -135.6
+   ],
+   "centroid_mm_aft_of_motor": 126.0
+  },
+  "7": {
+   "foil_body": "PHASE_0.1_JET_FOIL_V2(Mirror):1",
+   "channel_points": 1458,
+   "duct_exit_mm_aft_of_motor": 57.2,
+   "centroid_fusion_mm": [
+    -113.6,
+    140.2,
+    -135.6
+   ],
+   "centroid_mm_aft_of_motor": 126.0
+  }
+ },
  "reference_cg_fusion_mm": [
   0.0,
   136.14,

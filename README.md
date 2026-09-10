@@ -66,13 +66,27 @@ make docker  # docker compose build (not run on the development machine)
 
 The 3D view is a stick model: cylinders at the fan positions oriented along the thrust axis, thrust vectors scaled by hover `u`, CG marker, FRD axes. Orbit with the mouse.
 
-### Tilt sweep: find the most efficient geometry automatically
+### The foil model (how the Atlas actually vectors thrust)
 
-The Tilt sweep panel (right column, below the metrics) evaluates a grid of wing-fan tilt angles and ranks them by hover power among the candidates that keep control. Set the tilt range and step, the azimuth mode (inward, outward, forward, aft), the minimum hover headroom and minimum yaw authority, then click run. Each row shows the tilt of the four wing pairs (outer to inner), hover power, headroom, yaw and roll authority and the score; grey rows are infeasible and their tooltip says why. Click apply on a row to load that geometry into the fan table and the 3D view. The same sweep runs from the shell:
+The eight wing XFly motors are mounted horizontally (motor axis along the fuselage, exhaust aft) and blow into a foil behind them that turns the jet downward. The force on the aircraft therefore acts at the foil, not at the motor, and points where the deflection sends the jet: a deflection of 0 degrees pushes straight forward, 90 degrees is pure lift, 180 degrees pushes straight back. As built the foils sit at 45 degrees, so the thrust vector is 45 degrees up and forward (the PX4 axis 0.707, 0, -0.707 flown in log 36).
+
+In the scenario this is the `foils` section: `left` and `right`, each with its motor ids, `deflection_deg`, a per-motor override for a segmented foil, the `pressure_points_frd_m` where the force acts (the centroid of the foil channel behind each motor, measured on the CAD meshes, about 90 mm aft of the motor centre) and `loss_at_90deg`, the fraction of motor thrust lost when the jet is turned 90 degrees (not measured, 0 by default). Everything downstream (effectiveness matrix, metrics, PX4 `CA_ROTOR*` export) uses the deflected direction, the pressure point and the reduced thrust. The two centreline fans are plain vertical fans.
+
+In the UI the left column becomes **Geometry**: one slider per foil (linked by default), the resulting thrust direction in words, optional per-motor angles for a segmented foil, the turning loss, and the centreline fans. The 3D view draws the motors as grey ducts along the fuselage, a dotted jet to the pressure point, and the force arrow from there.
+
+### Foil sweep: find the most efficient deflection automatically
+
+The sweep panel (right column, below the metrics) tries every foil deflection in a grid, keeps the geometries that can hover level and steer every controlled axis, and ranks them by hover power. Choose the deflection range and step, the grouping (one angle for both foils, a segmented foil with one angle per motor pair, or left and right independent), the minimum hover headroom and minimum yaw authority, then click run. Each row shows the deflections outer to inner, hover power, headroom, yaw and roll authority and the score; grey rows are infeasible with the reason beside them. Click apply to load a row into the geometry panel and the 3D view. For scenarios without foils the same panel sweeps raw fan tilt. From the shell:
 
 ```bash
-uv run --project backend python scripts/sweep_tilt.py scenarios/atlas_phase01_cad.json --tilts 0,10,20,30,40 --per-pair --min-headroom 0.12 --csv exports
+uv run --project backend python scripts/sweep_tilt.py scenarios/atlas_phase01_cad.json --tilts 45,90,135 --grouping per_pair --min-headroom 0.05 --csv exports
 ```
+
+What the foil sweep says about the as-built aircraft (placeholder mass and fan curve, so read relatively):
+
+- **One angle for both foils never hovers level except at 90 degrees.** At any other angle all eight redirected jets push the same way fore or aft and nothing cancels it (stock PX4 then zeroes the wing motors, the log 36 behaviour). At 90 degrees it hovers but has no yaw, and with the pressure points 0.3 to 0.4 m behind the reference CG the two centreline fans carry most of the pitch balance and saturate.
+- **A segmented foil trims and yaws.** Turning the outer pairs past 90 (jet forward, thrust up and aft) and the inner pairs below 90 cancels the fore-aft force and gives yaw from the differential: 135/135/90/45 degrees outer to inner hovers at 9700 W with 8.7 N m yaw. This needs the foil to bend differently along the span.
+- **Left and right foils at different angles do not trim.** That cancels the fore-aft force but leaves a net yaw moment; it is a yaw control input, not a hover geometry.
 
 Azimuth modes: `forward` and `aft` vector every wing fan the same way in the fore-aft plane (the as-built vehicle has all eight at 45 degrees forward); `alternating`, `outer_fwd_inner_aft` and `outer_aft_inner_fwd` give pairs opposite fore-aft directions; `inward` and `outward` tilt in the lateral plane.
 

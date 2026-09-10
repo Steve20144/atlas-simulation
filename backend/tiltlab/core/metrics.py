@@ -107,9 +107,10 @@ def build_effectiveness(scenario: Scenario) -> tuple[np.ndarray, _FanBank]:
     """PX4 effectiveness matrix (6 x N, N m and N per unit command, FRD) of the scenario with
     CT from the fan curve at cmd 1.0 and KM from the reaction-torque toggle, plus the fan bank."""
     bank = _FanBank(scenario)
+    scales = [scenario.foil_ct_scale(f) for f in scenario.fans_sorted()]
     rotors = [
-        Rotor(r.position, r.axis, float(ct), r.moment_ratio)
-        for r, ct in zip(rotors_from_scenario(scenario), bank.ct, strict=True)
+        Rotor(r.position, r.axis, float(ct * s), r.moment_ratio)
+        for r, ct, s in zip(rotors_from_scenario(scenario), bank.ct, scales, strict=True)
     ]
     full, n = compute_effectiveness_matrix(rotors)
     return full[:, :n], bank
@@ -208,7 +209,15 @@ def compute_metrics(
     if fz_max <= _EPS:
         raise ValueError("scenario produces no upward thrust")
     hover_collective = weight_n / fz_max
-    coll = hover_collective if collective is None else float(collective)
+    if collective is None:
+        coll = min(hover_collective, 1.0)
+        if hover_collective > 1.0:
+            notes.append(
+                f"cannot lift the aircraft: vertical thrust at full command {fz_max:.0f} N is "
+                f"below the weight {weight_n:.0f} N (hover collective {hover_collective:.2f} > 1)"
+            )
+    else:
+        coll = float(collective)
     if not 0.0 <= coll <= 1.0:
         raise ValueError("collective must lie in [0, 1]")
     fz_target = -coll * fz_max

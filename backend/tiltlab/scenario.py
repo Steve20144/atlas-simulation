@@ -34,6 +34,21 @@ def tilt_azimuth_to_axis(tilt_deg: float, azimuth_deg: float) -> np.ndarray:
     return axis
 
 
+def deflect_axis(motor_axis: np.ndarray | tuple[float, ...], deflection_deg: float) -> np.ndarray:
+    """Thrust direction after a foil turns the jet down by deflection_deg (FRD unit vector).
+
+    The foil rotates the jet about the body lateral axis (+Y), so the reaction force rotates the
+    same way: a motor whose thrust axis is (1, 0, 0) (blowing aft) gives
+    (cos d, 0, -sin d): 0 deg is pure forward thrust, 90 deg is pure lift (0, 0, -1),
+    180 deg is pure reverse thrust.
+    """
+    d = math.radians(deflection_deg)
+    x, y, z = (float(v) for v in motor_axis)
+    out = np.array([x * math.cos(d) + z * math.sin(d), y, -x * math.sin(d) + z * math.cos(d)])
+    out[np.abs(out) < 1e-12] = 0.0
+    return out
+
+
 def axis_to_tilt_azimuth(axis: np.ndarray | list[float] | tuple[float, ...]) -> tuple[float, float]:
     """Inverse of tilt_azimuth_to_axis. axis is any non-zero FRD vector (normalised here).
 
@@ -128,6 +143,50 @@ class Fan(BaseModel):
         return self.km if self.spin == "CCW" else -self.km
 
 
+class Foil(BaseModel):
+    """A jet-deflecting foil behind a group of motors.
+
+    The motors in fan_ids blow into the foil (their Fan.tilt_deg/azimuth_deg describe the MOTOR
+    thrust axis; 90 / 0 is a horizontal motor blowing aft). The foil turns the jet down by
+    deflection_deg about the body lateral axis: 0 leaves the jet straight aft (pure forward
+    thrust), 90 sends it straight down (pure lift), 90 to 180 sends it forward (reverse thrust).
+    The force on the airframe acts at pressure_points_frd_m (per fan id; FRD metres, same origin as
+    Fan.pos_frd_m) along deflect_axis(motor axis, deflection) and its magnitude is the motor thrust
+    times 1 - loss_at_90deg * sin^2(deflection). per_fan_deflection_deg overrides deflection_deg for
+    a segmented foil.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    fan_ids: list[int] = Field(min_length=1)
+    deflection_deg: float = Field(default=45.0, ge=0.0, le=180.0)
+    per_fan_deflection_deg: dict[int, float] = Field(default_factory=dict)
+    pressure_points_frd_m: dict[int, Vec3] = Field(default_factory=dict)
+    loss_at_90deg: float = Field(default=0.0, ge=0.0, le=1.0)
+    estimated: bool = True
+    notes: str = ""
+
+    @model_validator(mode="after")
+    def _check_ids(self) -> Foil:
+        for fid, d in self.per_fan_deflection_deg.items():
+            if fid not in self.fan_ids:
+                raise ValueError(f"foil {self.id}: per_fan_deflection for fan {fid} not in fan_ids")
+            if not 0.0 <= d <= 180.0:
+                raise ValueError(f"foil {self.id}: deflection {d} out of [0, 180]")
+        for fid in self.pressure_points_frd_m:
+            if fid not in self.fan_ids:
+                raise ValueError(f"foil {self.id}: pressure point for fan {fid} not in fan_ids")
+        return self
+
+    def deflection_for(self, fan_id: int) -> float:
+        return float(self.per_fan_deflection_deg.get(fan_id, self.deflection_deg))
+
+    def ct_scale(self, fan_id: int) -> float:
+        """Fraction of the motor thrust that survives the turn (dimensionless)."""
+        s = math.sin(math.radians(self.deflection_for(fan_id)))
+        return 1.0 - self.loss_at_90deg * s * s
+
+
 class CurvePoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cmd: float = Field(ge=0.0, le=1.0)
@@ -218,6 +277,7 @@ class Scenario(BaseModel):
     rig: Rig = Field(default_factory=Rig)
     environment: Environment = Field(default_factory=Environment)
     outputs: Outputs = Field(default_factory=Outputs)
+    foils: list[Foil] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_fans(self) -> Scenario:
@@ -231,10 +291,54 @@ class Scenario(BaseModel):
                 raise ValueError(f"fan {f.id}: curve_ref '{f.curve_ref}' not in fan_curves")
             if f.mirror_of is not None and f.mirror_of not in ids:
                 raise ValueError(f"fan {f.id}: mirror_of {f.mirror_of} is not a fan id")
+        seen: set[int] = set()
+        for foil in self.foils:
+            for fid in foil.fan_ids:
+                if fid not in ids:
+                    raise ValueError(f"foil {foil.id}: fan {fid} is not a fan id")
+                if fid in seen:
+                    raise ValueError(f"fan {fid} belongs to more than one foil")
+                seen.add(fid)
         return self
 
     def fans_sorted(self) -> list[Fan]:
         return sorted(self.fans, key=lambda f: f.id)
+
+    # ---- effective geometry (foil-aware): what the airframe feels -------------------------
+
+    def foil_for(self, fan_id: int) -> Foil | None:
+        for foil in self.foils:
+            if fan_id in foil.fan_ids:
+                return foil
+        return None
+
+    def effective_axis(self, fan: Fan) -> np.ndarray:
+        """FRD unit direction of the force on the airframe: the motor axis, turned by the foil
+        deflection when the fan blows into a foil."""
+        foil = self.foil_for(fan.id)
+        if foil is None:
+            return fan.axis()
+        return deflect_axis(fan.axis(), foil.deflection_for(fan.id))
+
+    def effective_pos(self, fan: Fan) -> np.ndarray:
+        """FRD point (m, body origin) where the force acts: the foil pressure point when the fan
+        blows into a foil that has one recorded, else the fan position."""
+        foil = self.foil_for(fan.id)
+        if foil is not None and fan.id in foil.pressure_points_frd_m:
+            return np.asarray(foil.pressure_points_frd_m[fan.id], dtype=float)
+        return np.asarray(fan.pos_frd_m, dtype=float)
+
+    def foil_ct_scale(self, fan: Fan) -> float:
+        foil = self.foil_for(fan.id)
+        return 1.0 if foil is None else foil.ct_scale(fan.id)
+
+    def fan_ct_effective(self, fan: Fan) -> float:
+        """CA_ROTORn_CT the allocator must see (N): motor CT times the foil turning efficiency."""
+        return self.fan_ct(fan) * self.foil_ct_scale(fan)
+
+    def fan_deflection(self, fan: Fan) -> float | None:
+        foil = self.foil_for(fan.id)
+        return None if foil is None else foil.deflection_for(fan.id)
 
     def fan_ct(self, fan: Fan) -> float:
         """PX4 CA_ROTORn_CT for a fan: curve thrust (N) at cmd 1.0, unless overridden

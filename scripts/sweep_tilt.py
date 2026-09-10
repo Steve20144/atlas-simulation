@@ -37,6 +37,13 @@ def main() -> None:
     ap.add_argument("scenario")
     ap.add_argument("--tilts", default="0:45:5")
     ap.add_argument("--mode", default="forward", choices=list(AZIMUTH_MODES))
+    ap.add_argument("--variable", default="auto", choices=["auto", "foil", "tilt"])
+    ap.add_argument(
+        "--grouping",
+        default="same",
+        choices=["same", "left_right", "per_pair"],
+        help="foil variable: one angle for all, left/right independent, or per motor pair",
+    )
     ap.add_argument("--per-pair", action="store_true")
     ap.add_argument("--centre", default="0")
     ap.add_argument("--concept", default="stock", choices=["stock", "fully_actuated"])
@@ -50,6 +57,8 @@ def main() -> None:
     scenario = Scenario.model_validate(json.loads(Path(args.scenario).read_text(encoding="utf-8")))
     spec = SweepSpec(
         tilts_deg=parse_angles(args.tilts),
+        variable=args.variable,
+        foil_grouping=args.grouping,
         azimuth_mode=args.mode,
         per_pair=args.per_pair,
         centreline_tilts_deg=parse_angles(args.centre),

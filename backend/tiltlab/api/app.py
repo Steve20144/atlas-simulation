@@ -195,6 +195,8 @@ def sweep_endpoint(req: SweepRequest) -> SweepResponse:
     try:
         spec = SweepSpec(
             tilts_deg=req.tilts_deg,
+            variable=req.variable,
+            foil_grouping=req.foil_grouping,
             azimuth_mode=req.azimuth_mode,
             per_pair=req.per_pair,
             centreline_tilts_deg=req.centreline_tilts_deg,
