@@ -1,9 +1,13 @@
 SHELL := bash
 .ONESHELL:
-.PHONY: dev test lint docker
+.PHONY: menu dev test lint docker
 
 UV      := uv run --project backend
 NPM     := npm --prefix frontend
+
+# Interactive menu over the whole stack (app, SITL, HITL, exports, firmware, logs).
+menu:
+	$(UV) python scripts/tiltlab_menu.py
 
 # Backend on :8000 (uvicorn --reload) and Vite dev server on :5173, together.
 dev:
