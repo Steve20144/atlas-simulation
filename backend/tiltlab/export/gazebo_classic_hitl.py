@@ -81,10 +81,11 @@ def _rotor_block(i: int, pos: tuple[float, float, float], rpy: tuple[float, floa
           <izz>0.0005</izz>
           </inertia>
       </inertial>
-      <collision name='rotor_{i}_collision'>
-        <geometry><cylinder><length>0.02</length><radius>0.042</radius></cylinder></geometry>
-        <surface><contact><ode/></contact><friction><ode/></friction></surface>
-      </collision>
+      <!-- No rotor collision geometry: with frame.hover_pitch_deg the rotors sit below the
+           base box and the airframe rests on ten cylinders instead of its body. It then
+           skitters along the ground, the IMU reports that acceleration on top of gravity and
+           the board's EKF diverges (seen in HITL 2026-09-11: 0.5 g of lateral acceleration
+           parked, estimate 109 deg of roll away from truth). The gz SITL model has none. -->
       <visual name='rotor_{i}_visual'>
         <geometry><cylinder><length>0.02</length><radius>0.042</radius></cylinder></geometry>
         <material><script><name>Gazebo/Blue</name>

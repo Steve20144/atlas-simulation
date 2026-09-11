@@ -80,6 +80,10 @@ def test_export(cad, tmp_path):
     assert "CONFIG_MODULES_FW_ATT_CONTROL=n" in board
     assert "CONFIG_MODULES_VTOL_ATT_CONTROL=n" in board
     assert "px4_fmu-v6x_hitl" in open(out["readme"], encoding="utf-8").read()
+    # rotors must not collide: rotated by hover_pitch they sit under the base box, the airframe
+    # rests on them and skitters, and the board's EKF diverges on the false acceleration
+    rotor_links = [x for x in model.iter("link") if (x.get("name") or "").startswith("rotor_")]
+    assert rotor_links and not any(x.find("collision") is not None for x in rotor_links)
     if out["mesh"]:
         assert out["mesh"].endswith("airframe.stl")
 
