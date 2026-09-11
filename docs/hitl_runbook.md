@@ -1,0 +1,139 @@
+# HITL runbook: `atlas_phase01_cad_control` on the Pixhawk 6X
+
+The HITL harness is the hardware twin of the SITL setup flown on 2026-09-10
+(`docs/gazebo_flight_2026-09-10.md`): same scenario, same geometry, same controller gains.
+The Pixhawk runs real PX4 firmware and flies a Gazebo Classic model over USB; the fans and ESCs
+stay unpowered.
+
+| | SITL | HITL |
+|---|---|---|
+| scenario | `scenarios/atlas_phase01_cad_control.json` | same |
+| export | `exports/gazebo/atlas_phase01_cad_control` | `exports/gazebo_hitl/atlas_phase01_cad_control_hitl` |
+| simulator | gz sim (Harmonic), Ubuntu-24.04 | Gazebo Classic 11, Ubuntu-22.04 |
+| flight code | `px4_sitl_default` on the PC | `px4_fmu-v6x_default` on the board |
+| config carrier | airframe `4615_gz_atlas_phase01_cad_control` | `px4/atlas_phase01_cad_control_hitl.params` (QGC) |
+
+Regenerate both from the same scenario; the 118 shared parameters are identical by construction:
+
+```bash
+uv run --project backend python -c "import json,pathlib;from tiltlab.scenario import Scenario;from tiltlab.export.gazebo_classic_hitl import export_gazebo_classic_hitl as f;sc=Scenario.model_validate(json.loads(pathlib.Path('scenarios/atlas_phase01_cad_control.json').read_text()));print(f(sc, pathlib.Path('exports/gazebo_hitl'))['root'])"
+```
+
+Gains carried over unchanged (validated in gz sim, hover within 0.5 deg and 25 cm):
+`MC_ROLLRATE_P 0.0985`, `MC_PITCHRATE_P 0.1541`, `MC_YAWRATE_P 0.2482`, I = 0.6 P, D = 0.05 P,
+`MC_*_INT_LIM 0.15`, `MC_ROLL_P` = `MC_PITCH_P` = `MC_YAW_P` 0.762, `MPC_XY_VEL_P_ACC 0.571`,
+`MPC_XY_P 0.358`, `MPC_Z_VEL_P_ACC 1.448`, `MPC_TILTMAX_AIR 20`, `MPC_THR_HOVER 0.484`,
+`MC_AT_EN 0` (never run QGC Autotune on this airframe).
+HITL adds `SYS_HITL 1`, `SYS_AUTOSTART 1001`, `HIL_ACT_FUNC1..10 = 101..110`,
+`CBRK_SUPPLY_CHK 894281`, `UAVCAN_ENABLE 0`; it drops the SITL-only `SIM_GZ_*` and `MAV_0_BROADCAST`.
+
+## Machine state, checked 2026-09-11
+
+Ready: Ubuntu-22.04 (WSL2) with Gazebo Classic 11.10.2 and libgazebo-dev, PX4 v1.17.0 at
+`~/PX4-Autopilot` with the `sitl_gazebo-classic` plugins built, `stefa` in `dialout`,
+usbipd-win 5.3.0 on Windows with the Pixhawk already bound (it survives replug).
+
+Missing: the NuttX firmware. `arm-none-eabi-gcc` is not installed and no fmu-v6x board config
+enables `CONFIG_MODULES_SIMULATION_PWM_OUT_SIM`, so stock v1.17.0 v6x firmware cannot run HITL
+(with `SYS_HITL` set, rcS runs `pwm_out_sim start -m hil`, which is not compiled in). Step 0 is
+therefore mandatory once, and it is the long part (~30 to 60 min total).
+
+## 0. Firmware with `pwm_out_sim` (once)
+
+```bash
+wsl -d Ubuntu-22.04 -- bash -lc "cd ~/PX4-Autopilot && bash ./Tools/setup/ubuntu.sh"
+```
+
+That installs the ARM toolchain (do not pass `--no-nuttx`). Open a new shell afterwards, then
+either use the launcher's flag or build by hand:
+
+```bash
+wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/wsl/tiltlab_gazebo.sh --build-firmware --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
+```
+
+It appends `CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y` to `boards/px4/fmu-v6x/default.px4board`,
+runs `make px4_fmu-v6x_default`, and offers `make px4_fmu-v6x_default upload`. The board must be
+attached (step 1) and QGroundControl closed for the upload. Same target for 6X and 6X Pro.
+
+## 1. USB passthrough into WSL
+
+The board is a USB serial device on Windows; WSL2 needs it forwarded with usbipd-win. The WSL2 VM
+is shared by both distros, so the device appears in Ubuntu-22.04 regardless of which distro is
+named, but name it anyway (the default distro here is Ubuntu-24.04).
+
+Plug in the Pixhawk over USB, then in PowerShell:
+
+```powershell
+usbipd list
+```
+
+Find the Pixhawk row (it enumerates as `USB Serial Device (COM<n>)`) and note its BUSID. If its
+STATE is `Not shared`, bind it once from an **administrator** PowerShell (persists across reboots):
+
+```powershell
+usbipd bind --busid <BUSID>
+```
+
+Then attach it to WSL (normal PowerShell is enough; `--auto-attach` re-attaches after a replug or
+a board reboot and keeps running in that window):
+
+```powershell
+usbipd attach --wsl Ubuntu-22.04 --busid <BUSID> --auto-attach
+```
+
+Confirm inside WSL:
+
+```bash
+wsl -d Ubuntu-22.04 -- bash -lc "ls -l /dev/ttyACM*"
+```
+
+`/dev/ttyACM0` owned by `root:dialout` is what the harness expects. A different number needs
+`--serial /dev/ttyACM1` on the launcher. To give the board back to Windows (for QGC over USB, or
+before a real flight): `usbipd detach --busid <BUSID>` — a rebooting board also drops off until
+auto-attach picks it up again.
+
+## 2. Load the parameters
+
+1. Detach the board from WSL (step 1) so QGroundControl on Windows can open the COM port.
+2. QGC > Vehicle Setup > Parameters > Tools > Load from file:
+   `exports\gazebo_hitl\atlas_phase01_cad_control_hitl\px4\atlas_phase01_cad_control_hitl.params`
+3. Reboot the board. `SYS_HITL` is read only at boot.
+4. In QGC's MAVLink console: `listener vehicle_status` must show `hil_state: 1`, and
+   `pwm_out_sim status` must report the module running. If either fails, the firmware from step 0
+   is not the one on the board.
+5. Close QGroundControl. Gazebo owns the serial port; QGC reconnects over UDP.
+6. Re-attach the board to WSL (step 1).
+
+## 3. Launch
+
+Fans and ESCs unpowered. From PowerShell:
+
+```powershell
+wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/wsl/tiltlab_gazebo.sh --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
+```
+
+HITL is the launcher's default mode. It copies the model and world into
+`~/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/`, strips CR, forces
+`<qgc_addr>INADDR_ANY</qgc_addr>`, checks the serial device, starts `qgc_udp_relay.py` (WSL2 never
+delivers the plugin's UDP broadcast to Windows) and runs `gazebo --verbose`. Expect
+`Opened serial device /dev/ttyACM0`. Reopen QGC after the window is up; it connects over UDP 14550,
+and the fallback is a manual UDP link, listening port 14551, server `<WSL ip>:18570`.
+
+Arm and fly from QGC or the transmitter. `bash ~/utopia/wsl/px4ctl.sh takeoff|land|log|param`
+works the same as in SITL, and `scripts/hover_report.py` reads the copied ulog.
+
+## Returning to flight configuration
+
+Load the real flight parameter file, confirm `SYS_HITL` is 0, reboot, and check `hil_state: 0`
+before powering anything.
+
+## Known failure signatures
+
+| symptom | cause | fix |
+|---|---|---|
+| `No valid data from Accel 0`, `hil_state: 0` | board did not boot with `SYS_HITL 1` | `param set SYS_HITL 1; param save; reboot`, re-attach USB, restart Gazebo |
+| `system power unavailable`, `Battery unhealthy` | a saved `CBRK_SUPPLY_CHK 0` from flight setup | `param set CBRK_SUPPLY_CHK 894281` (the exported file sets it) |
+| no `/dev/ttyACM*` in WSL | not attached, or the board rebooted | repeat `usbipd attach`, use `--auto-attach` |
+| `ttyACM0 exists but cannot be opened` | not in `dialout` in this session | `wsl --terminate Ubuntu-22.04`, new shell |
+| QGC stays "Disconnected" while Gazebo runs | relay not running or firewall | check `qgc_udp_relay.py` in the launcher output, then the manual UDP link above |
+| grey Gazebo window, `[WARN:COPY MODE]` | WSLg shared memory failed | `wsl --shutdown`, relaunch |

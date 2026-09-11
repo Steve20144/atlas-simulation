@@ -360,7 +360,7 @@ The Pixhawk runs the real PX4 firmware and flies this Gazebo Classic model over 
 
 Files: `models/{name}/model.sdf` + `model.config` (+ `meshes/airframe.stl`),
 `worlds/hitl_{name}.world`,
-`px4/{name}_hitl.params` (load with QGroundControl), this README.
+`px4/{name}.params` (load with QGroundControl), this README.
 
 ## Read first
 - Stock PX4 v1.17 `px4_fmu-v6x` firmware CANNOT run HITL: with SYS_HITL set the boot script runs
@@ -375,8 +375,7 @@ Files: `models/{name}/model.sdf` + `model.config` (+ `meshes/airframe.stl`),
 ```bash
 git clone --recursive -b v1.17.0 https://github.com/PX4/PX4-Autopilot.git ~/PX4-Autopilot
 cd ~/PX4-Autopilot && bash ./Tools/setup/ubuntu.sh        # toolchains, Gazebo Classic, dependencies
-sudo apt install gazebo libgazebo-dev                       # if the script did not install Gazebo
-Classic
+sudo apt install gazebo libgazebo-dev                      # if Gazebo Classic is still missing
 sudo usermod -aG dialout $USER && newgrp dialout            # access to /dev/ttyACM*
 ```
 
@@ -391,7 +390,7 @@ The build target is the same for Pixhawk 6X and 6X Pro.
 
 ## 3. Parameters
 1. Connect QGroundControl (USB), Vehicle Setup > Parameters > Tools > Load from file:
-   `px4/{name}_hitl.params`. It sets SYS_AUTOSTART {HIL_AIRFRAME} (HIL airframe), SYS_HITL 1,
+   `px4/{name}.params`. It sets SYS_AUTOSTART {HIL_AIRFRAME} (HIL airframe), SYS_HITL 1,
    the {len(scenario.fans)} rotor geometry (CA_ROTOR*), CA_ROTOR_COUNT and
    HIL_ACT_FUNC1..{len(scenario.fans)} = 101..{100 + len(scenario.fans)}.
 2. Reboot the Pixhawk. The console should show `pwm_out_sim` running (`pwm_out_sim status` in
@@ -404,18 +403,17 @@ The build target is the same for Pixhawk 6X and 6X Pro.
 
 ## 4. Build the Gazebo Classic plugins and install this model
 ```bash
-cd ~/PX4-Autopilot && DONT_RUN=1 make px4_sitl_default gazebo-classic
-cp -r models/{name} ~/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/
-cp worlds/hitl_{name}.world
-~/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/worlds/
-source ~/PX4-Autopilot/Tools/simulation/gazebo-classic/setup_gazebo.bash ~/PX4-Autopilot
-~/PX4-Autopilot/build/px4_sitl_default
+PX4=~/PX4-Autopilot
+GZ=$PX4/Tools/simulation/gazebo-classic/sitl_gazebo-classic
+cd $PX4 && DONT_RUN=1 make px4_sitl_default gazebo-classic
+cp -r models/{name} "$GZ/models/"
+cp worlds/hitl_{name}.world "$GZ/worlds/"
+source $PX4/Tools/simulation/gazebo-classic/setup_gazebo.bash $PX4 $PX4/build/px4_sitl_default
 ```
 
 ## 5. Run
 ```bash
-ls /dev/ttyACM*                                              # the Pixhawk; edit serialDevice in
-model.sdf if it is not {serial}
+ls /dev/ttyACM*             # edit serialDevice in model.sdf if it is not {serial}
 cd ~/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic
 gazebo --verbose worlds/hitl_{name}.world
 ```
