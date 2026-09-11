@@ -29,6 +29,8 @@ export interface FrameMapping {
   cad_units: CadUnits;
   /** CAD coordinates (cad_units) of the FRD origin, the reference CG. */
   cad_origin?: Vec3 | null;
+  /** Hover attitude of the airframe, nose-up degrees; PX4's body frame is this hover frame. */
+  hover_pitch_deg?: number;
 }
 
 export interface CadReportedMass {
@@ -303,6 +305,7 @@ export interface SweepCandidate {
   surge_leak: number;
   control_score: number;
   weakest_axis: "roll" | "pitch" | "yaw" | null;
+  hover_pitch_deg?: number;
   score: number;
   estimated: boolean;
   feasible: boolean;
@@ -335,6 +338,7 @@ export interface SweepRequestBody {
   /** fractions; 1 = not filtered. */
   max_coupling?: number;
   max_surge_leak?: number;
+  hover_pitch_deg?: number[];
   rank_by?: "power" | "yaw" | "yaw_per_kW" | "headroom" | "score" | "control";
   top: number;
 }

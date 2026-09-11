@@ -167,7 +167,8 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     },
 
     applySweepCandidate: (c) => {
-      const { scenario } = get();
+      const base = get().scenario;
+      const scenario = c.hover_pitch_deg === undefined ? base : { ...base, frame: { ...base.frame, hover_pitch_deg: c.hover_pitch_deg } };
       if (c.variable === "foil" && c.deflections_deg) {
         const d = c.deflections_deg;
         const foils: Foil[] = (scenario.foils ?? []).map((f) => {

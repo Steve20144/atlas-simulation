@@ -58,6 +58,9 @@ def main() -> None:
         "--max-surge-leak", type=float, default=1.0, help="Fx/Fy leak, fraction of weight"
     )
     ap.add_argument(
+        "--hover-pitch", default="0", help="hover attitude nose-up deg: 0,30 or -20:40:10"
+    )
+    ap.add_argument(
         "--rank-by",
         default="power",
         choices=["power", "yaw", "yaw_per_kW", "headroom", "score", "control"],
@@ -83,6 +86,7 @@ def main() -> None:
         min_yaw_accel=args.min_yaw_accel,
         max_coupling=args.max_coupling,
         max_surge_leak=args.max_surge_leak,
+        hover_pitch_deg=parse_angles(args.hover_pitch),
         rank_by=args.rank_by,
     )
     result = run_sweep(scenario, spec)

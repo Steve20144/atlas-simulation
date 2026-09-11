@@ -103,9 +103,13 @@ def _inertia(scenario: Scenario) -> dict[str, float]:
 
 def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
     inertia = _inertia(scenario)
+    # the CAD mesh is in the airframe frame; base_link is the hover frame (a nose-up hover is a
+    # negative rotation about FLU +Y)
+    mesh_pitch = -math.radians(float(scenario.frame.hover_pitch_deg))
     ca = ca_geometry_params(scenario)
     body_visual = (
-        f'<visual name="airframe_visual"><geometry><mesh><uri>{escape(mesh_uri)}</uri></mesh>'
+        f'<visual name="airframe_visual"><pose>0 0 0 0 {mesh_pitch:.5f} 0</pose>'
+        f"<geometry><mesh><uri>{escape(mesh_uri)}</uri></mesh>"
         "</geometry><material><ambient>0.6 0.6 0.65 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse>"
         "</material></visual>"
         if mesh_uri
@@ -154,8 +158,8 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
     ]
     for fan in scenario.fans_sorted():
         i = fan.id
-        pos = frd_to_flu(scenario.effective_pos(fan) - np.asarray(scenario.mass.cg_frd_m))
-        axis = frd_to_flu(scenario.effective_axis(fan))
+        pos = frd_to_flu(scenario.hover_pos(fan))  # base_link is the hover frame
+        axis = frd_to_flu(scenario.hover_axis(fan))
         r, p, y = axis_to_rpy(axis)
         # first-order spool lag of this fan's curve (the scenario's estimate, not x500's 12 ms)
         lag = max(0.01, scenario.fan_curves[fan.curve_ref].lag_s) if fan.curve_ref else 0.01

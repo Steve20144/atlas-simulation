@@ -53,6 +53,7 @@ export default function SweepPanel() {
   const [minPitchAcc, setMinPitchAcc] = useState(8);
   const [minYawAcc, setMinYawAcc] = useState(2.5);
   const [maxCoupling, setMaxCoupling] = useState(0.3);
+  const [pitches, setPitches] = useState("0");
   const [rankBy, setRankBy] = useState<NonNullable<SweepRequestBody["rank_by"]>>("control");
   const [result, setResult] = useState<SweepResponse | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,7 +61,8 @@ export default function SweepPanel() {
 
   const values = range(Math.min(start, stop), Math.max(start, stop), step > 0 ? step : 15);
   const pow = hasFoils ? (GROUPINGS.find((g) => g.id === grouping)?.pow ?? 1) : perPair ? 4 : 1;
-  const count = Math.pow(values.length, pow);
+  const nPitch = Math.max(1, pitches.split(",").filter((p) => p.trim() !== "").length);
+  const count = Math.pow(values.length, pow) * nPitch;
 
   const run = async () => {
     setBusy(true);
@@ -72,6 +74,7 @@ export default function SweepPanel() {
           variable: hasFoils ? "foil" : "tilt", foil_grouping: grouping, azimuth_mode: mode, per_pair: perPair,
           min_headroom: minHeadroom, min_yaw_Nm: 0, min_roll_accel: minRollAcc, min_pitch_accel: minPitchAcc,
           min_yaw_accel: minYawAcc, max_coupling: maxCoupling, rank_by: rankBy, top: 12,
+          hover_pitch_deg: pitches.split(",").map((p) => Number(p.trim())).filter((p) => Number.isFinite(p)),
         }),
       );
     } catch (e) {
@@ -119,6 +122,8 @@ export default function SweepPanel() {
         <input className={input} type="number" value={minYawAcc} min={0} step={0.5} onChange={(e) => setMinYawAcc(Number(e.target.value))} aria-label="min yaw acceleration" />
         <span title="off-axis leakage fraction; 1 disables the check">max coupling</span>
         <input className={input} type="number" value={maxCoupling} min={0} max={1} step={0.05} onChange={(e) => setMaxCoupling(Number(e.target.value))} aria-label="max coupling" />
+        <span title="hover attitudes to try, nose-up degrees, comma separated: the airframe hovers pitched and PX4's body frame is that hover frame">hover pitch°</span>
+        <input className={input + " w-24"} type="text" value={pitches} onChange={(e) => setPitches(e.target.value)} aria-label="hover pitch list" />
         <span>rank by</span>
         <select className={input + " w-40"} value={rankBy} onChange={(e) => setRankBy(e.target.value as typeof rankBy)} aria-label="rank by">
           {RANKS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}

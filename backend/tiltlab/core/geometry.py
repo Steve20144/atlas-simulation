@@ -198,14 +198,13 @@ def rotors_from_scenario(scenario: Scenario) -> list[Rotor]:
     turned by the foil deflection when the fan blows into a foil), CT = motor CT (fan curve at
     cmd 1.0 or the CA_ROTORn_CT override) times the foil turning efficiency, KM from the
     reaction-torque toggle. Order is fan id 0..9."""
-    cg = np.asarray(scenario.mass.cg_frd_m, dtype=float)
     rotors: list[Rotor] = []
     for fan in scenario.fans_sorted():
-        pos = scenario.effective_pos(fan) - cg
+        pos = scenario.hover_pos(fan)  # hover-frame geometry: what PX4's allocator sees
         rotors.append(
             Rotor(
                 position=(float(pos[0]), float(pos[1]), float(pos[2])),
-                axis=tuple(float(v) for v in scenario.effective_axis(fan)),
+                axis=tuple(float(v) for v in scenario.hover_axis(fan)),
                 thrust_coef=scenario.fan_ct_effective(fan),
                 moment_ratio=scenario.fan_km(fan),
             )

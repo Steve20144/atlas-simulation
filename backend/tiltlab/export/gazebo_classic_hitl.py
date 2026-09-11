@@ -129,6 +129,7 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None, serial: str) 
     ca = ca_geometry_params(scenario)
     n = len(scenario.fans)
     body_visual = (
+        f"<pose>0 0 0 0 {-np.radians(float(scenario.frame.hover_pitch_deg)):.5f} 0</pose>"
         f"<geometry><mesh><scale>1 1 1</scale><uri>{escape(mesh_uri)}</uri></mesh></geometry>"
         if mesh_uri
         else "<geometry><box><size>1.2 0.9 0.3</size></box></geometry>"
@@ -172,10 +173,9 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None, serial: str) 
         "</use_parent_model_frame></axis>",
         "    </joint>",
     ]
-    cg = np.asarray(scenario.mass.cg_frd_m)
     for fan in scenario.fans_sorted():
-        pos = frd_to_flu(scenario.effective_pos(fan) - cg)
-        rpy = axis_to_rpy(frd_to_flu(scenario.effective_axis(fan)))
+        pos = frd_to_flu(scenario.hover_pos(fan))  # base_link is the hover frame
+        rpy = axis_to_rpy(frd_to_flu(scenario.hover_axis(fan)))
         out.append(_rotor_block(fan.id, pos, rpy))
     out.append(
         "    <plugin name='rosbag' filename='libgazebo_multirotor_base_plugin.so'>\n"

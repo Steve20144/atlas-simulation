@@ -84,6 +84,14 @@ class Frame(BaseModel):
     # CAD coordinates (in cad_units) of the scenario's FRD origin (the reference CG), so that
     # FRD positions can be reported back in the CAD frame for modelling.
     cad_origin: Vec3 | None = None
+    # Attitude the airframe holds in hover, nose-up positive, degrees. PX4's body frame (where the
+    # CA_ROTOR* geometry lives) is this hover frame: airframe vectors are rotated about +Y by
+    # hover_pitch_deg before allocation, so a nose-up hover lets forward-vectored jets carry lift.
+    hover_pitch_deg: float = Field(default=0.0, ge=-90.0, le=90.0)
+    # Attitude the airframe holds in hover, nose-up positive, degrees. PX4's body frame (where the
+    # CA_ROTOR* geometry lives) is this hover frame: airframe vectors are rotated about +Y by
+    # hover_pitch_deg before allocation, so a nose-up hover lets forward-vectored jets carry lift.
+    hover_pitch_deg: float = Field(default=0.0, ge=-90.0, le=90.0)
 
 
 class CadReported(BaseModel):
@@ -405,6 +413,23 @@ class Scenario(BaseModel):
     def fan_jet_attached(self, fan: Fan) -> bool:
         foil = self.foil_for(fan.id)
         return True if foil is None else foil.attached(fan.id)
+
+    def hover_rotation(self) -> np.ndarray:
+        """Airframe FRD -> hover (flight controller) FRD: rotation about +Y by
+        frame.hover_pitch_deg, nose-up positive; v_hover = R @ v_airframe."""
+        th = np.radians(float(self.frame.hover_pitch_deg))
+        c, s = np.cos(th), np.sin(th)
+        return np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+
+    def hover_pos(self, fan: Fan) -> np.ndarray:
+        """Effective force point (m) about the CG, in the hover frame (FRD)."""
+        cg = np.asarray(self.mass.cg_frd_m, dtype=float)
+        return self.hover_rotation() @ (np.asarray(self.effective_pos(fan), dtype=float) - cg)
+
+    def hover_axis(self, fan: Fan) -> np.ndarray:
+        """Effective thrust direction (unit, FRD) in the hover frame."""
+        return self.hover_rotation() @ np.asarray(self.effective_axis(fan), dtype=float)
+
 
     def fan_ct(self, fan: Fan) -> float:
         """PX4 CA_ROTORn_CT for a fan: curve thrust (N) at cmd 1.0, unless overridden

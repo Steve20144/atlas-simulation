@@ -121,3 +121,32 @@ def test_spec_rejects_bad_control_thresholds():
         SweepSpec(tilts_deg=[90.0], min_roll_accel=-1.0)
     with pytest.raises(ValueError):
         SweepSpec(tilts_deg=[90.0], max_coupling=1.5)
+
+
+def test_hover_pitch_rotates_geometry_into_the_flight_controller_frame():
+    """Hovering nose-up by t puts the wing jets of a foil at deflection d where a level hover
+    would put them at d + t; the sweep evaluates every geometry at each requested attitude."""
+    level = load("atlas_phase01_cad")  # foils at 45 deg, jets 45 deg forward of vertical
+    pitched = level.model_copy(deep=True)
+    pitched.frame.hover_pitch_deg = 45.0
+    ax = pitched.hover_axis(pitched.fans_sorted()[0])
+    assert ax[0] == pytest.approx(0.0, abs=1e-6) and ax[2] == pytest.approx(-1.0, abs=1e-6)
+    nose = pitched.hover_axis(next(f for f in pitched.fans if f.id == 8))
+    assert nose[0] == pytest.approx(-np.sin(np.radians(45)), abs=1e-6)  # vertical fan now aft-up
+    assert not compute_metrics(level)["hover"]["exact"]
+    # the as-built set trims at no attitude: wing and nose fans always disagree in direction
+    assert not compute_metrics(pitched)["hover"]["exact"]
+    res = run_sweep(
+        level,
+        SweepSpec(
+            tilts_deg=[45.0, 135.0],
+            variable="foil",
+            foil_grouping="per_pair",
+            min_headroom=0.0,
+            hover_pitch_deg=[0.0, 15.0],
+        ),
+    )
+    cands = res["candidates"]
+    assert {r["hover_pitch_deg"] for r in cands} == {0.0, 15.0} and len(cands) == 32
+    assert any(r["feasible"] and r["hover_pitch_deg"] == 15.0 for r in cands)
+    assert res["spec"]["hover_pitch_deg"] == [0.0, 15.0]

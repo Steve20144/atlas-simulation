@@ -108,6 +108,8 @@ class SweepSpec:
     min_yaw_accel: float = 0.0
     max_coupling: float = 1.0  # off-axis leakage fraction through the PX4 allocator
     max_surge_leak: float = 1.0  # fore-aft/lateral force leak, fraction of weight
+    # hover attitudes to try (nose-up degrees); every geometry is evaluated at each one
+    hover_pitch_deg: list[float] = field(default_factory=lambda: [0.0])
     rank_by: str = "power"  # power | yaw | yaw_per_kW | headroom | score | control
     max_candidates: int = 5000
 
@@ -115,6 +117,9 @@ class SweepSpec:
         for name in ("min_roll_accel", "min_pitch_accel", "min_yaw_accel"):
             if float(getattr(self, name)) < 0.0:
                 raise ValueError(f"{name} must be >= 0")
+        for p in self.hover_pitch_deg:
+            if not -90.0 <= float(p) <= 90.0:
+                raise ValueError("hover_pitch_deg must lie in [-90, 90] degrees")
         for name in ("max_coupling", "max_surge_leak"):
             if not 0.0 <= float(getattr(self, name)) <= 1.0:
                 raise ValueError(f"{name} must lie in [0, 1]")
@@ -394,25 +399,39 @@ def evaluate_foil_candidate(
     return rec
 
 
+def _with_hover_pitch(scenario: Scenario, pitch_deg: float) -> Scenario:
+    """Copy of the scenario hovering at pitch_deg nose-up (frame.hover_pitch_deg)."""
+    sc = scenario.model_copy(deep=True)
+    sc.frame.hover_pitch_deg = pitch_deg
+    return sc
+
+
 def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
     """Evaluate the whole grid and rank: feasible first, then hover power ascending, then yaw
     descending."""
     t0 = time.perf_counter()
     variable = spec.resolve_variable(scenario)
     records: list[dict[str, Any]] = []
+    variants = [(float(p), _with_hover_pitch(scenario, float(p))) for p in spec.hover_pitch_deg]
     truncated = False
     if variable == "foil":
         for n, defl in enumerate(candidate_deflections(scenario, spec)):
             if n >= spec.max_candidates:
                 truncated = True
                 break
-            records.append(evaluate_foil_candidate(scenario, defl, spec))
+            for pitch, sc0 in variants:
+                rec = evaluate_foil_candidate(sc0, defl, spec)
+                rec["hover_pitch_deg"] = pitch
+                records.append(rec)
     else:
         for n, angles in enumerate(candidate_angles(scenario, spec)):
             if n >= spec.max_candidates:
                 truncated = True
                 break
-            records.append(evaluate_candidate(scenario, angles, spec))
+            for pitch, sc0 in variants:
+                rec = evaluate_candidate(sc0, angles, spec)
+                rec["hover_pitch_deg"] = pitch
+                records.append(rec)
     records.sort(key=lambda r: (not r["feasible"], *rank_key(r, spec.rank_by)))
     feasible = [r for r in records if r["feasible"]]
     return {
@@ -439,6 +458,7 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
             "min_yaw_accel": spec.min_yaw_accel,
             "max_coupling": spec.max_coupling,
             "max_surge_leak": spec.max_surge_leak,
+            "hover_pitch_deg": spec.hover_pitch_deg,
             "rank_by": spec.rank_by,
         },
         "candidates": records,
@@ -498,6 +518,8 @@ def sweep_table(result: dict[str, Any], top: int = 15) -> str:
 
     for r in result["candidates"][:top]:
         tilts = str([round(t, 1) for t in r["pair_tilts_deg"]])
+        if r.get("hover_pitch_deg"):
+            tilts += f" @{r['hover_pitch_deg']:+.0f}"
         verdict = "yes" if r["feasible"] else "; ".join(r["reasons"])
         rows.append(
             f"{tilts:>22s} {r['centreline_tilt_deg']:4.0f} {r['power_W']:8.0f} "

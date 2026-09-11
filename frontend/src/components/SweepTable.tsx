@@ -39,6 +39,7 @@ export default function SweepTable({ result, angleLabel, leftRight, onApply }: P
             <tr key={i} className={c.feasible ? "" : "text-slate-500"} title={c.reasons.join("; ")}>
               <td className="text-left">
                 {leftRight ? `${fmt(c.left_deg ?? 0, 0)} / ${fmt(c.right_deg ?? 0, 0)}` : c.pair_tilts_deg.join("/")}
+                {c.hover_pitch_deg ? ` @${fmt(c.hover_pitch_deg, 0)}°` : ""}
               </td>
               <td className="text-right">{fmt(c.power_W, 0)}</td>
               <td className="text-right">{fmt(c.headroom, 2)}</td>
