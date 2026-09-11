@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useTiltlabStore } from "../store";
 import type { MetricGroup } from "../types";
 import AuthorityTable, { Badge } from "./AuthorityTable";
+import ControlTable from "./ControlTable";
 import CouplingTable from "./CouplingTable";
 import ExportPanel from "./ExportPanel";
 import { fmt } from "./format";
@@ -11,6 +12,7 @@ import SweepPanel from "./SweepPanel";
 const GROUPS: { id: MetricGroup; label: string }[] = [
   { id: "hover", label: "Hover" },
   { id: "authority", label: "Authority" },
+  { id: "control", label: "Control" },
   { id: "coupling", label: "Coupling" },
   { id: "conditioning", label: "Conditioning" },
   { id: "composite", label: "Composite" },
@@ -81,6 +83,12 @@ export default function MetricsPanel() {
       {metrics && visible.authority && metrics.authority && (
         <Group title="Authority">
           <AuthorityTable authority={metrics.authority} />
+        </Group>
+      )}
+
+      {metrics && visible.control && metrics.control && (
+        <Group title="Control (what the pilot gets)">
+          <ControlTable control={metrics.control} />
         </Group>
       )}
 

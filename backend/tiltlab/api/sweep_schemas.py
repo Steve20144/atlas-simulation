@@ -31,7 +31,13 @@ class SweepRequest(BaseModel):
     centreline_azimuth_deg: float = Field(default=0.0, ge=0.0, le=360.0)
     min_headroom: float = Field(default=0.2, ge=0.0, le=1.0)
     min_yaw_Nm: float = Field(default=0.0, ge=0.0)
-    rank_by: Literal["power", "yaw", "yaw_per_kW", "headroom", "score"] = "power"
+    # control checks (rad/s^2 from attainable torque over inertia; 0 or 1 = not filtered)
+    min_roll_accel: float = Field(default=0.0, ge=0.0)
+    min_pitch_accel: float = Field(default=0.0, ge=0.0)
+    min_yaw_accel: float = Field(default=0.0, ge=0.0)
+    max_coupling: float = Field(default=1.0, ge=0.0, le=1.0)
+    max_surge_leak: float = Field(default=1.0, ge=0.0, le=1.0)
+    rank_by: Literal["power", "yaw", "yaw_per_kW", "headroom", "score", "control"] = "power"
     top: int = Field(default=25, ge=1, le=5000)
 
 

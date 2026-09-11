@@ -94,6 +94,16 @@ The sweep panel (right column, below the metrics) tries every foil deflection in
 uv run --project backend python scripts/sweep_tilt.py scenarios/atlas_phase01_cad.json --tilts 45,90,135 --grouping per_pair --min-headroom 0.05 --csv exports
 ```
 
+### Control checks: authority the pilot actually gets on each axis
+
+Torque in N m does not tell you whether a geometry is flyable, so every metrics call now carries a `control` block (Control group in the right panel) and the sweep can filter and rank on it. Per axis it reports the angular acceleration the attainable torque gives at hover (torque over the inertia about that axis, rad/s^2), the time to 10 degrees of bank from rest, the share of that torque reachable before PX4 has to desaturate a fan (beyond it axes start to couple), and the fore-aft or lateral force that leaks out when 20 percent of the axis is commanded, as a fraction of weight. It also states the rate-loop bandwidth the fan spool lag allows. The sweep panel takes minimum roll, pitch and yaw accelerations (defaults 8, 8 and 2.5 rad/s^2: a heavy multirotor that still feels crisp reaches 10 degrees of bank in about 0.2 s) and a maximum coupling, marks the weakest axis of each row, and "rank by most control authority" orders rows by the weakest axis over its requirement, penalised by coupling and surge. From the shell:
+
+```bash
+uv run --project backend python scripts/sweep_tilt.py scenarios/atlas_phase01_cad.json --grouping per_pair --tilts 45:150:15 --rank-by control --min-roll-accel 8 --min-pitch-accel 8 --min-yaw-accel 5 --max-coupling 0.3 --min-headroom 0.1
+```
+
+What it found on the CAD layout (box-placeholder inertia, so compare rows relatively): pitch is the weakest axis of every hovering candidate and stays between 11 and 13 rad/s^2 whatever the foils do, because pitch comes from the two centreline fans and their arm, not from the foils; the foils trade roll (13 to 24 rad/s^2) against yaw (4 to 8 rad/s^2). Requiring 5 rad/s^2 of yaw, the best set is 135/60/135/45 degrees outer to inner (roll 19.3, pitch 12.4, yaw 7.7 rad/s^2, hover 11.9 kW), saved as `scenarios/atlas_phase01_cad_control.json`. Off-axis coupling and surge leak are zero for every hovering set: within the linear region the ten fans give the allocator enough freedom to hold Fx and Fy at zero. The handling limit that no deflection can fix is the 150 ms fan spool, which caps the rate loop near 2.7 rad/s and forces soft attitude gains; measuring the real spool time on the rig is the single most valuable input for the controller sizing.
+
 What the foil sweep says about the as-built aircraft (placeholder mass and fan curve, so read relatively):
 
 - **One angle for both foils never hovers level except at 90 degrees.** At any other angle all eight redirected jets push the same way fore or aft and nothing cancels it (stock PX4 then zeroes the wing motors, the log 36 behaviour). At 90 degrees it hovers at 8658 W with headroom 0.64 and 28 N m of roll, but has no yaw at all.

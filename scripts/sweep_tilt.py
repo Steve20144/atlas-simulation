@@ -50,8 +50,17 @@ def main() -> None:
     ap.add_argument("--collective", type=float, default=None)
     ap.add_argument("--min-headroom", type=float, default=0.2)
     ap.add_argument("--min-yaw", type=float, default=0.0)
+    ap.add_argument("--min-roll-accel", type=float, default=0.0, help="rad/s^2 at hover")
+    ap.add_argument("--min-pitch-accel", type=float, default=0.0, help="rad/s^2 at hover")
+    ap.add_argument("--min-yaw-accel", type=float, default=0.0, help="rad/s^2 at hover")
+    ap.add_argument("--max-coupling", type=float, default=1.0, help="off-axis leak fraction")
     ap.add_argument(
-        "--rank-by", default="power", choices=["power", "yaw", "yaw_per_kW", "headroom", "score"]
+        "--max-surge-leak", type=float, default=1.0, help="Fx/Fy leak, fraction of weight"
+    )
+    ap.add_argument(
+        "--rank-by",
+        default="power",
+        choices=["power", "yaw", "yaw_per_kW", "headroom", "score", "control"],
     )
     ap.add_argument("--top", type=int, default=15)
     ap.add_argument("--csv", default=None, help="directory for the timestamped CSV")
@@ -69,6 +78,11 @@ def main() -> None:
         collective=args.collective,
         min_headroom=args.min_headroom,
         min_yaw_Nm=args.min_yaw,
+        min_roll_accel=args.min_roll_accel,
+        min_pitch_accel=args.min_pitch_accel,
+        min_yaw_accel=args.min_yaw_accel,
+        max_coupling=args.max_coupling,
+        max_surge_leak=args.max_surge_leak,
         rank_by=args.rank_by,
     )
     result = run_sweep(scenario, spec)

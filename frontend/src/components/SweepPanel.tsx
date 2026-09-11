@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { api } from "../api";
 import { useTiltlabStore } from "../store";
-import type { SweepCandidate, SweepRequestBody, SweepResponse } from "../types";
+import type { SweepRequestBody, SweepResponse } from "../types";
 import { fmt } from "./format";
+import SweepTable from "./SweepTable";
 
 const btn = "rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700 disabled:opacity-40";
 const input = "w-14 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-xs tabular-nums";
@@ -12,8 +13,8 @@ const GROUPINGS: { id: NonNullable<SweepRequestBody["foil_grouping"]>; label: st
   { id: "per_pair", label: "segmented foil: one angle per motor pair", pow: 4 },
   { id: "left_right", label: "left and right foil independent", pow: 2 },
 ];
-
 const RANKS: { id: NonNullable<SweepRequestBody["rank_by"]>; label: string }[] = [
+  { id: "control", label: "most control authority" },
   { id: "power", label: "lowest hover power" },
   { id: "yaw", label: "most yaw authority" },
   { id: "yaw_per_kW", label: "most yaw per kW" },
@@ -33,22 +34,26 @@ function topReason(r: SweepResponse): string {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
 }
 
-/** Sweep the foil deflection (or raw fan tilt when the scenario has no foils), ranked by hover power. */
+/** Sweep the foil deflection (or raw fan tilt when the scenario has no foils); every candidate is
+ * checked for level hover and for control authority on roll, pitch and yaw, then ranked. */
 export default function SweepPanel() {
   const scenario = useTiltlabStore((s) => s.scenario);
   const concept = useTiltlabStore((s) => s.concept);
   const collective = useTiltlabStore((s) => s.collective);
   const applySweepCandidate = useTiltlabStore((s) => s.applySweepCandidate);
   const hasFoils = (scenario.foils?.length ?? 0) > 0;
-  const [start, setStart] = useState(0);
-  const [stop, setStop] = useState(hasFoils ? 180 : 45);
+  const [start, setStart] = useState(hasFoils ? 45 : 0);
+  const [stop, setStop] = useState(hasFoils ? 150 : 45);
   const [step, setStep] = useState(hasFoils ? 15 : 5);
-  const [grouping, setGrouping] = useState<NonNullable<SweepRequestBody["foil_grouping"]>>("same");
+  const [grouping, setGrouping] = useState<NonNullable<SweepRequestBody["foil_grouping"]>>(hasFoils ? "per_pair" : "same");
   const [mode, setMode] = useState<(typeof TILT_MODES)[number]>("forward");
   const [perPair, setPerPair] = useState(false);
   const [minHeadroom, setMinHeadroom] = useState(0.1);
-  const [minYaw, setMinYaw] = useState(0);
-  const [rankBy, setRankBy] = useState<NonNullable<SweepRequestBody["rank_by"]>>("power");
+  const [minRollAcc, setMinRollAcc] = useState(8);
+  const [minPitchAcc, setMinPitchAcc] = useState(8);
+  const [minYawAcc, setMinYawAcc] = useState(2.5);
+  const [maxCoupling, setMaxCoupling] = useState(0.3);
+  const [rankBy, setRankBy] = useState<NonNullable<SweepRequestBody["rank_by"]>>("control");
   const [result, setResult] = useState<SweepResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -65,7 +70,8 @@ export default function SweepPanel() {
         await api.sweep({
           scenario, concept, collective: collective ?? undefined, tilts_deg: values,
           variable: hasFoils ? "foil" : "tilt", foil_grouping: grouping, azimuth_mode: mode, per_pair: perPair,
-          min_headroom: minHeadroom, min_yaw_Nm: minYaw, rank_by: rankBy, top: 12,
+          min_headroom: minHeadroom, min_yaw_Nm: 0, min_roll_accel: minRollAcc, min_pitch_accel: minPitchAcc,
+          min_yaw_accel: minYawAcc, max_coupling: maxCoupling, rank_by: rankBy, top: 12,
         }),
       );
     } catch (e) {
@@ -75,13 +81,12 @@ export default function SweepPanel() {
     }
   };
 
+  const d = result?.diagnostics;
   return (
     <div className="flex flex-col gap-1 rounded border border-slate-800 p-2" data-testid="sweep-panel">
       <h3 className="text-xs font-semibold">{hasFoils ? "Foil sweep" : "Tilt sweep"}</h3>
       <p className="text-[10px] text-slate-400">
-        {hasFoils
-          ? "Tries every foil deflection in the grid, keeps the ones that can hover level and steer all axes, and ranks them by hover power."
-          : "Tries every wing-fan tilt in the grid, keeps the ones that can hover level and steer all axes, and ranks them by hover power."}
+        Tries every {hasFoils ? "foil deflection" : "wing-fan tilt"} in the grid. A candidate passes when it hovers level and gives the pilot at least the angular acceleration you ask for on roll, pitch and yaw (attainable torque over inertia, at hover) without leaking into the other axes. Rank by control authority to find the deflector set that is easiest to fly.
       </p>
       <div className="flex flex-wrap items-center gap-1 text-[11px]">
         <span>{hasFoils ? "deflection from" : "tilt from"}</span>
@@ -102,12 +107,20 @@ export default function SweepPanel() {
             <label className="flex items-center gap-1"><input type="checkbox" checked={perPair} onChange={(e) => setPerPair(e.target.checked)} /> per pair</label>
           </>
         )}
+      </div>
+      <div className="flex flex-wrap items-center gap-1 text-[11px]">
         <span>min headroom</span>
         <input className={input} type="number" value={minHeadroom} min={0} max={1} step={0.05} onChange={(e) => setMinHeadroom(Number(e.target.value))} aria-label="min headroom" />
-        <span>min yaw N m</span>
-        <input className={input} type="number" value={minYaw} min={0} step={0.1} onChange={(e) => setMinYaw(Number(e.target.value))} aria-label="min yaw" />
+        <span title="rad/s² at hover; 0 disables the check">min roll</span>
+        <input className={input} type="number" value={minRollAcc} min={0} step={0.5} onChange={(e) => setMinRollAcc(Number(e.target.value))} aria-label="min roll acceleration" />
+        <span>pitch</span>
+        <input className={input} type="number" value={minPitchAcc} min={0} step={0.5} onChange={(e) => setMinPitchAcc(Number(e.target.value))} aria-label="min pitch acceleration" />
+        <span>yaw rad/s²</span>
+        <input className={input} type="number" value={minYawAcc} min={0} step={0.5} onChange={(e) => setMinYawAcc(Number(e.target.value))} aria-label="min yaw acceleration" />
+        <span title="off-axis leakage fraction; 1 disables the check">max coupling</span>
+        <input className={input} type="number" value={maxCoupling} min={0} max={1} step={0.05} onChange={(e) => setMaxCoupling(Number(e.target.value))} aria-label="max coupling" />
         <span>rank by</span>
-        <select className={input + " w-36"} value={rankBy} onChange={(e) => setRankBy(e.target.value as typeof rankBy)} aria-label="rank by">
+        <select className={input + " w-40"} value={rankBy} onChange={(e) => setRankBy(e.target.value as typeof rankBy)} aria-label="rank by">
           {RANKS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
         </select>
         <button className={btn} disabled={busy || count === 0 || count > 5000} onClick={() => void run()}>
@@ -115,44 +128,24 @@ export default function SweepPanel() {
         </button>
       </div>
       {error && <p className="text-[10px] text-rose-300">{error}</p>}
-      {result && (
+      {result && d && (
         <>
           <p className="text-[10px] text-slate-400">
-            {result.n_feasible} of {result.n_evaluated} geometries can hover and control every axis under this concept, {fmt(result.elapsed_ms, 0)} ms. Feasible rows first, ranked by {RANKS.find((r) => r.id === rankBy)?.label}.
+            {result.n_feasible} of {result.n_evaluated} geometries hover level and meet every control check, {fmt(result.elapsed_ms, 0)} ms. Feasible rows first, ranked by {RANKS.find((r) => r.id === rankBy)?.label}.
           </p>
           {result.n_feasible === 0 && (
             <p className="text-[10px] text-rose-300">
-              {result.diagnostics.n_controllable > 0
-                ? `${result.diagnostics.n_controllable} of these geometries can hover level and steer every axis but miss your thresholds: the best of them reaches headroom ${fmt(result.diagnostics.best_headroom_controllable ?? 0, 2)} and yaw ${fmt(result.diagnostics.best_yaw_controllable ?? 0, 1)} N m. Lower min headroom or min yaw to see them${result.diagnostics.best_headroom_controllable !== null && result.diagnostics.best_headroom_controllable < 0.15 ? " (headroom is capped by the estimated mass until the real weights are in)" : ""}.`
-                : `No geometry in this grid can hover level and steer every axis. Most common reason: ${result.diagnostics.most_common_reason_near_miss ?? topReason(result)}.${hasFoils && grouping === "same" ? " With one angle for both foils only 90 deg (straight down) hovers level; use the segmented grouping for yaw." : hasFoils && grouping === "left_right" ? " Different left and right angles leave a net yaw moment; use the segmented grouping." : !hasFoils ? " Try the alternating fore-aft mode or per-pair angles." : ""}`}
+              {d.n_controllable > 0
+                ? `${d.n_controllable} geometries hover level and steer every axis but miss your thresholds (most often: ${d.most_common_reason_near_miss ?? topReason(result)}). Lower the minimum accelerations or headroom to see them.`
+                : `No geometry in this grid can hover level and steer every axis. Most common reason: ${d.most_common_reason_near_miss ?? topReason(result)}.${hasFoils && grouping === "same" ? " With one angle for both foils only 90 deg (straight down) hovers level; use the segmented grouping." : hasFoils && grouping === "left_right" ? " Different left and right angles leave a net yaw moment; use the segmented grouping." : !hasFoils ? " Try the alternating fore-aft mode or per-pair angles." : ""}`}
             </p>
           )}
-          <table className="w-full text-[10px] tabular-nums">
-            <thead>
-              <tr className="text-slate-400">
-                <th className="text-left">{hasFoils ? (grouping === "left_right" ? "left / right deg" : "deflection outer to inner") : "pair tilts"}</th>
-                <th>W</th><th>headroom</th><th>yaw N m</th><th>roll N m</th><th>score</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.candidates.map((c: SweepCandidate, i) => (
-                <tr key={i} className={c.feasible ? "" : "text-slate-500"} title={c.reasons.join("; ")}>
-                  <td className="text-left">
-                    {hasFoils && grouping === "left_right" ? `${fmt(c.left_deg ?? 0, 0)} / ${fmt(c.right_deg ?? 0, 0)}` : c.pair_tilts_deg.join("/")}
-                  </td>
-                  <td className="text-right">{fmt(c.power_W, 0)}</td>
-                  <td className="text-right">{fmt(c.headroom, 2)}</td>
-                  <td className="text-right">{c.yaw_Nm === null ? "-" : fmt(c.yaw_Nm, 2)}</td>
-                  <td className="text-right">{c.roll_Nm === null ? "-" : fmt(c.roll_Nm, 2)}</td>
-                  <td className="text-right">{fmt(c.score, 2)}</td>
-                  <td>
-                    <button className={btn} onClick={() => applySweepCandidate(c)}>apply</button>
-                    {!c.feasible && <span className="ml-1 text-[9px] text-rose-300">{c.reasons[0]?.split(" (")[0]}</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SweepTable
+            result={result}
+            angleLabel={hasFoils ? (grouping === "left_right" ? "left / right deg" : "deflection outer to inner") : "pair tilts"}
+            leftRight={hasFoils && grouping === "left_right"}
+            onApply={applySweepCandidate}
+          />
         </>
       )}
     </div>

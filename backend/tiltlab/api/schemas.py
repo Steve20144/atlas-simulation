@@ -45,6 +45,7 @@ class MetricsResponse(BaseModel):
     marginal_power: dict[str, dict[str, Any]]
     coupling: dict[str, Any]
     conditioning: dict[str, Any]
+    control: dict[str, Any]
     score: dict[str, Any]
     badges: dict[str, str]
     estimated: bool

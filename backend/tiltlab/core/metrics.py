@@ -17,6 +17,7 @@ to physical units through the allocator scale: c_norm = physical * scale[axis].
 from __future__ import annotations
 
 import time
+from dataclasses import asdict, dataclass
 from typing import Any
 
 import numpy as np
@@ -46,6 +47,45 @@ DEFAULT_WEIGHTS: dict[str, float] = {
     "conditioning": 1.0,
 }
 _EPS = 1e-9
+RATE_CROSSOVER_MAX_RAD_S = 4.0  # rate-loop crossover a PX4 rate loop can hold with fast fans
+PLACEHOLDER_BOX_M = (1.2, 0.9, 0.3)  # uniform box used when the scenario has no inertia yet
+
+
+@dataclass(frozen=True)
+class ControlRequirements:
+    """Pilot-side thresholds for the control checks (rad/s^2 of angular acceleration the
+    attainable torque gives at hover, off-axis coupling fraction, fore-aft/lateral force leak
+    as a fraction of weight when 20 percent of an axis' authority is commanded).
+
+    Defaults are starting points, not certification numbers: a heavy multirotor that still
+    feels crisp in Stabilized mode reaches 10 deg of bank in about 0.2 s, which takes roughly
+    8 rad/s^2; yaw is usually allowed a third of that. Tighten or loosen them in the sweep.
+    """
+
+    min_roll_accel: float = 8.0
+    min_pitch_accel: float = 8.0
+    min_yaw_accel: float = 2.5
+    max_coupling: float = 0.3
+    max_surge_leak: float = 0.1
+
+
+def inertia_matrix(scenario: Scenario) -> tuple[np.ndarray, bool]:
+    """Inertia about the CG in kg m^2, FRD axes, and whether it is the box placeholder (used
+    when the scenario's inertia is all zeros: uniform box PLACEHOLDER_BOX_M of the total mass)."""
+    ix = np.asarray(scenario.mass.inertia_frd_kgm2, dtype=float)
+    if not np.allclose(ix, 0.0):
+        return ix, False
+    m = float(scenario.mass.total_kg)
+    a, b, c = PLACEHOLDER_BOX_M
+    return np.diag(
+        [m * (b * b + c * c) / 12, m * (a * a + c * c) / 12, m * (a * a + b * b) / 12]
+    ), True
+
+
+def fan_lag_s(scenario: Scenario) -> float:
+    """Largest first-order spool time constant (s) of the fans' curves, floored at 10 ms."""
+    lags = [scenario.fan_curves[f.curve_ref].lag_s for f in scenario.fans if f.curve_ref]
+    return max(0.01, max(lags) if lags else 0.0)
 
 
 def _py(obj: Any) -> Any:
@@ -179,6 +219,7 @@ def compute_metrics(
     concept: str = "stock",
     collective: float | None = None,
     weights: dict[str, float] | None = None,
+    requirements: ControlRequirements | None = None,
 ) -> dict[str, Any]:
     """Static metrics of a scenario under a control concept, at a stated collective.
 
@@ -364,6 +405,118 @@ def compute_metrics(
         "px4_scale": scale,
     }
 
+    # --- control authority in body-rate terms (what the pilot feels) ------------------------
+    # Torque in N m says little on its own: a 12 kg airframe with 1.5 kg m^2 of pitch inertia
+    # turns 18 N m into 12 rad/s^2, a 2 kg quad turns 3 N m into 140. The checks below use the
+    # attainable torque over the inertia, the torque reachable before PX4's desaturation has
+    # to redistribute (first fan at 0 or 1 along the min-norm direction), and the fore-aft or
+    # lateral force that leaks out when an axis is commanded, all at the hover trim.
+    req = requirements or ControlRequirements()
+    inertia, inertia_placeholder = inertia_matrix(scenario)
+    lag = fan_lag_s(scenario)
+    rate_bw = min(RATE_CROSSOVER_MAX_RAD_S, 1.0 / (2.5 * lag))
+    control_axes: dict[str, Any] = {}
+    control_checks: list[dict[str, Any]] = []
+    ratios: list[float] = []
+    required = {"roll": req.min_roll_accel, "pitch": req.min_pitch_accel, "yaw": req.min_yaw_accel}
+    for k in TORQUE_AXES:
+        if k not in axes:
+            continue
+        name = AXIS_NAMES[k]
+        entry = authority[name]
+        attainable = bool(entry["plus_attainable"] and entry["minus_attainable"])
+        tau = min(entry["plus"] or 0.0, entry["minus"] or 0.0) if attainable else 0.0
+        inert = float(inertia[k, k])
+        acc = tau / inert if inert > _EPS else 0.0
+        lin = []
+        for sign in (1.0, -1.0):
+            step = sign * pinv[:, k]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                room = np.where(
+                    step > _EPS,
+                    (1.0 - u_trim) / step,
+                    np.where(step < -_EPS, -u_trim / step, np.inf),
+                )
+            lin.append(float(room.min()) if np.isfinite(room).any() else 0.0)
+        tau_lin = max(0.0, min(lin))
+        i_ax = axes.index(k)
+        surge = float(np.hypot(leak_phys[i_ax, 3], leak_phys[i_ax, 4]) / weight_n)
+        control_axes[name] = {
+            "torque_Nm": tau,
+            "attainable": attainable,
+            "inertia_kgm2": inert,
+            "accel_rad_s2": acc,
+            "linear_torque_Nm": tau_lin,
+            "linear_fraction": (tau_lin / tau) if tau > _EPS else 0.0,
+            "time_to_10deg_s": float(np.sqrt(2.0 * np.radians(10.0) / acc)) if acc > _EPS else None,
+            "surge_leak_frac_of_weight": surge,
+            "required_accel_rad_s2": required[name],
+        }
+        control_checks.append(
+            {
+                "name": f"{name} acceleration",
+                "value": acc,
+                "threshold": required[name],
+                "unit": "rad/s^2",
+                "pass": acc >= required[name],
+            }
+        )
+        control_checks.append(
+            {
+                "name": f"{name} surge leak",
+                "value": surge,
+                "threshold": req.max_surge_leak,
+                "unit": "fraction of weight",
+                "pass": surge <= req.max_surge_leak,
+            }
+        )
+        ratios.append(
+            acc / required[name] if required[name] > _EPS else (1.0 if acc > _EPS else 0.0)
+        )
+    coupling_max = float(coupling["max_offaxis_fraction"])
+    control_checks.append(
+        {
+            "name": "off-axis coupling",
+            "value": coupling_max,
+            "threshold": req.max_coupling,
+            "unit": "fraction",
+            "pass": coupling_max <= req.max_coupling,
+        }
+    )
+    worst_surge = max((a["surge_leak_frac_of_weight"] for a in control_axes.values()), default=0.0)
+    control_score = (
+        (min(ratios) if ratios else 0.0)
+        * max(0.0, 1.0 - min(coupling_max, 1.0))
+        * max(0.0, 1.0 - min(worst_surge, 1.0))
+    )
+    control = {
+        "inertia_diag_kgm2": [float(inertia[i, i]) for i in range(3)],
+        "inertia_placeholder": inertia_placeholder,
+        "fan_lag_s": lag,
+        "rate_bandwidth_rad_s": rate_bw,
+        "axes": control_axes,
+        "requirements": asdict(req),
+        "checks": control_checks,
+        "pass": all(c["pass"] for c in control_checks),
+        "score": float(control_score),
+        "weakest_axis": (
+            min(
+                control_axes,
+                key=lambda a: (
+                    control_axes[a]["accel_rad_s2"]
+                    / max(control_axes[a]["required_accel_rad_s2"], _EPS)
+                ),
+            )
+            if control_axes
+            else None
+        ),
+    }
+    if inertia_placeholder:
+        notes.append(
+            "inertia is the box placeholder (scenario inertia is zero): angular accelerations "
+            "are indicative until the CAD mass properties are in"
+        )
+
     # --- composite score --------------------------------------------------------------------
     torque_auth = np.array([auth_ref[k] for k in TORQUE_AXES])
     fa_ref = np.array([auth_ref[k] for k in axes])
@@ -414,6 +567,7 @@ def compute_metrics(
         "marginal_power": marginal,
         "coupling": coupling,
         "conditioning": conditioning,
+        "control": control,
         "score": {"value": float(score), "weights": w, "normalised": normalised},
         "badges": badges,
         "estimated": bool(estimated_sources),

@@ -25,7 +25,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from tiltlab.core.metrics import compute_metrics, controlled_axes
+from tiltlab.core.metrics import ControlRequirements, compute_metrics, controlled_axes
 from tiltlab.scenario import Scenario
 
 WING_PAIRS: tuple[tuple[int, int], ...] = ((0, 1), (2, 3), (4, 5), (6, 7))
@@ -48,18 +48,29 @@ ALTERNATING_MODES: dict[str, tuple[str, ...]] = {
 AZIMUTH_MODES: tuple[str, ...] = tuple(PAIR_AZIMUTHS) + tuple(ALTERNATING_MODES)
 VARIABLES: tuple[str, ...] = ("auto", "foil", "tilt")
 FOIL_GROUPINGS: tuple[str, ...] = ("same", "left_right", "per_pair")
+# reasons that only reflect a user threshold (the geometry itself can hover and steer)
+THRESHOLD_REASON_PREFIXES: tuple[str, ...] = (
+    "headroom", "yaw authority", "roll acceleration", "pitch acceleration",
+    "yaw acceleration", "coupling", "surge leak",
+)  # fmt: skip
 RANK_OBJECTIVES: dict[str, str] = {
     "power": "hover power_W ascending among feasible candidates (most efficient hover)",
     "yaw": "yaw authority N m descending among feasible candidates (most yaw)",
     "yaw_per_kW": "yaw authority per kW of hover power descending (yaw bought cheapest)",
     "headroom": "hover headroom descending (most control margin)",
     "score": "composite score descending (weighted mix of headroom, power, authority, coupling)",
+    "control": (
+        "control score descending: weakest axis' angular acceleration over its requirement, "
+        "penalised by off-axis coupling and fore-aft force leak (most authority for the pilot)"
+    ),
 }
 
 
 def rank_key(r: dict[str, Any], rank_by: str) -> tuple[float, ...]:
     """Sort key (ascending) for one record under the chosen objective; ties break on power."""
     yaw = r["yaw_Nm"] or 0.0
+    if rank_by == "control":
+        return (-(r.get("control_score") or 0.0), r["power_W"])
     if rank_by == "yaw":
         return (-yaw, r["power_W"])
     if rank_by == "yaw_per_kW":
@@ -91,10 +102,22 @@ class SweepSpec:
     collective: float | None = None
     min_headroom: float = 0.2
     min_yaw_Nm: float = 0.0
-    rank_by: str = "power"  # power | yaw | yaw_per_kW | headroom | score
+    # control checks (metrics.ControlRequirements): 0 / 1 means "do not filter on this"
+    min_roll_accel: float = 0.0  # rad/s^2 from attainable roll torque over inertia
+    min_pitch_accel: float = 0.0
+    min_yaw_accel: float = 0.0
+    max_coupling: float = 1.0  # off-axis leakage fraction through the PX4 allocator
+    max_surge_leak: float = 1.0  # fore-aft/lateral force leak, fraction of weight
+    rank_by: str = "power"  # power | yaw | yaw_per_kW | headroom | score | control
     max_candidates: int = 5000
 
     def __post_init__(self) -> None:
+        for name in ("min_roll_accel", "min_pitch_accel", "min_yaw_accel"):
+            if float(getattr(self, name)) < 0.0:
+                raise ValueError(f"{name} must be >= 0")
+        for name in ("max_coupling", "max_surge_leak"):
+            if not 0.0 <= float(getattr(self, name)) <= 1.0:
+                raise ValueError(f"{name} must lie in [0, 1]")
         if self.variable not in VARIABLES:
             raise ValueError(f"variable must be one of {list(VARIABLES)}")
         if self.foil_grouping not in FOIL_GROUPINGS:
@@ -232,9 +255,20 @@ def _min_authority(auth: dict[str, Any], axis: str) -> float | None:
 
 def evaluate_scenario(sc: Scenario, spec: SweepSpec) -> dict[str, Any]:
     """Metrics of one geometry reduced to the sweep record (geometry fields added by caller)."""
-    m = compute_metrics(sc, spec.concept, spec.collective)
+    defaults = ControlRequirements()
+    req = ControlRequirements(
+        min_roll_accel=spec.min_roll_accel or defaults.min_roll_accel,
+        min_pitch_accel=spec.min_pitch_accel or defaults.min_pitch_accel,
+        min_yaw_accel=spec.min_yaw_accel or defaults.min_yaw_accel,
+        max_coupling=spec.max_coupling if spec.max_coupling < 1.0 else defaults.max_coupling,
+        max_surge_leak=(
+            spec.max_surge_leak if spec.max_surge_leak < 1.0 else defaults.max_surge_leak
+        ),
+    )
+    m = compute_metrics(sc, spec.concept, spec.collective, requirements=req)
     hover = m["hover"]
     auth = m["authority"]
+    ctrl = m["control"]
     reasons: list[str] = []
     for k in controlled_axes(spec.concept):
         if _min_authority(auth, AXIS_NAMES[k]) is None:
@@ -270,6 +304,28 @@ def evaluate_scenario(sc: Scenario, spec: SweepSpec) -> dict[str, Any]:
     yaw = _min_authority(auth, "yaw")
     if yaw is not None and yaw < spec.min_yaw_Nm:
         reasons.append(f"yaw authority {yaw:.2f} N m below {spec.min_yaw_Nm:.2f}")
+    # control checks against the sweep's own thresholds (0 / 1 = not filtered)
+    acc = {
+        a: float(ctrl["axes"][a]["accel_rad_s2"]) if a in ctrl["axes"] else None
+        for a in AXIS_NAMES[:3]
+    }
+    for axis, limit in (
+        ("roll", spec.min_roll_accel),
+        ("pitch", spec.min_pitch_accel),
+        ("yaw", spec.min_yaw_accel),
+    ):
+        if limit > 0.0 and acc[axis] is not None and acc[axis] < limit:
+            reasons.append(f"{axis} acceleration {acc[axis]:.1f} rad/s2 below {limit:.1f}")
+    coupling_max = m["coupling"].get("max_offaxis_fraction")
+    if spec.max_coupling < 1.0 and coupling_max is not None and coupling_max > spec.max_coupling:
+        reasons.append(f"coupling {coupling_max:.2f} above {spec.max_coupling:.2f}")
+    surge = max((float(a["surge_leak_frac_of_weight"]) for a in ctrl["axes"].values()), default=0.0)
+    if spec.max_surge_leak < 1.0 and surge > spec.max_surge_leak:
+        reasons.append(f"surge leak {surge:.2f} of weight above {spec.max_surge_leak:.2f}")
+    linear = min(
+        (float(a["linear_fraction"]) for a in ctrl["axes"].values() if a["attainable"]),
+        default=0.0,
+    )
     power = float(hover["power_W"])
     return {
         "power_W": power,
@@ -279,8 +335,15 @@ def evaluate_scenario(sc: Scenario, spec: SweepSpec) -> dict[str, Any]:
         "yaw_Nm": yaw,
         "fz_up_N": _min_authority(auth, "Fz"),
         "yaw_Nm_per_kW": (yaw / (power / 1000.0)) if (yaw is not None and power > 1e-9) else None,
-        "coupling_max": m["coupling"].get("max_offaxis_fraction"),
+        "coupling_max": coupling_max,
         "condition_number": float(cond) if isinstance(cond, int | float) else None,
+        "roll_acc": acc["roll"],
+        "pitch_acc": acc["pitch"],
+        "yaw_acc": acc["yaw"],
+        "linear_frac": linear,
+        "surge_leak": surge,
+        "control_score": float(ctrl["score"]),
+        "weakest_axis": ctrl["weakest_axis"],
         "score": float(m["score"]["value"]),
         "estimated": bool(m.get("estimated", False)),
         "feasible": not reasons,
@@ -371,6 +434,11 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
             "collective": spec.collective,
             "min_headroom": spec.min_headroom,
             "min_yaw_Nm": spec.min_yaw_Nm,
+            "min_roll_accel": spec.min_roll_accel,
+            "min_pitch_accel": spec.min_pitch_accel,
+            "min_yaw_accel": spec.min_yaw_accel,
+            "max_coupling": spec.max_coupling,
+            "max_surge_leak": spec.max_surge_leak,
             "rank_by": spec.rank_by,
         },
         "candidates": records,
@@ -381,9 +449,7 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
 def _threshold_only(reasons: list[str]) -> bool:
     """True when a candidate failed only the user thresholds (headroom, minimum yaw), i.e. it can
     hover level and steer every axis."""
-    return bool(reasons) and all(
-        r.startswith("headroom") or r.startswith("yaw authority") for r in reasons
-    )
+    return bool(reasons) and all(r.startswith(THRESHOLD_REASON_PREFIXES) for r in reasons)
 
 
 def sweep_diagnostics(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -417,10 +483,14 @@ def sweep_diagnostics(records: list[dict[str, Any]]) -> dict[str, Any]:
 def sweep_table(result: dict[str, Any], top: int = 15) -> str:
     """Compact text table of the ranked candidates."""
     label = "foil defl deg" if result.get("variable") == "foil" else "pair tilts deg"
-    head = (label, "ctr", "power W", "headrm", "roll", "pitch", "yaw", "yaw/kW", "coupl", "score")
+    head = (
+        label, "ctr", "power W", "headrm", "roll", "pitch", "yaw", "r a/s2", "p a/s2", "y a/s2",
+        "coupl", "surge", "ctrl", "score",
+    )  # fmt: skip
     rows = [
         f"{head[0]:>22s} {head[1]:>4s} {head[2]:>8s} {head[3]:>6s} {head[4]:>6s} {head[5]:>6s} "
-        f"{head[6]:>6s} {head[7]:>7s} {head[8]:>6s} {head[9]:>6s}  feasible"
+        f"{head[6]:>6s} {head[7]:>6s} {head[8]:>6s} {head[9]:>6s} {head[10]:>6s} {head[11]:>6s} "
+        f"{head[12]:>6s} {head[13]:>6s}  feasible"
     ]
 
     def f(v: float | None, fmt: str) -> str:
@@ -432,7 +502,9 @@ def sweep_table(result: dict[str, Any], top: int = 15) -> str:
         rows.append(
             f"{tilts:>22s} {r['centreline_tilt_deg']:4.0f} {r['power_W']:8.0f} "
             f"{r['headroom']:6.2f} {f(r['roll_Nm'], '6.2f')} {f(r['pitch_Nm'], '6.2f')} "
-            f"{f(r['yaw_Nm'], '6.2f')} {f(r['yaw_Nm_per_kW'], '7.3f')} "
-            f"{f(r['coupling_max'], '6.3f')} {r['score']:6.3f}  {verdict}"
+            f"{f(r['yaw_Nm'], '6.2f')} {f(r.get('roll_acc'), '6.1f')} "
+            f"{f(r.get('pitch_acc'), '6.1f')} {f(r.get('yaw_acc'), '6.1f')} "
+            f"{f(r['coupling_max'], '6.3f')} {f(r.get('surge_leak'), '6.3f')} "
+            f"{f(r.get('control_score'), '6.2f')} {r['score']:6.3f}  {verdict}"
         )
     return "\n".join(rows)

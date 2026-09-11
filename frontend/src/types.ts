@@ -224,6 +224,8 @@ export interface Metrics {
   authority: AuthorityMetrics;
   coupling: CouplingMetrics;
   conditioning: ConditioningMetrics;
+  /** Pilot-side control checks (backend metrics["control"]); absent from older fixtures. */
+  control?: ControlMetrics;
   score: ScoreMetrics;
   badges: Record<string, string>;
   estimated: boolean;
@@ -231,7 +233,43 @@ export interface Metrics {
   notes: string[];
 }
 
-export type MetricGroup = "hover" | "authority" | "coupling" | "conditioning" | "composite";
+export interface ControlAxisMetrics {
+  torque_Nm: number;
+  attainable: boolean;
+  inertia_kgm2: number;
+  /** Attainable torque over inertia, rad/s^2, at hover. */
+  accel_rad_s2: number;
+  linear_torque_Nm: number;
+  /** Share of the torque reachable before PX4 has to desaturate a fan. */
+  linear_fraction: number;
+  time_to_10deg_s: number | null;
+  /** Fx/Fy leaking when 20 percent of the axis is commanded, fraction of weight. */
+  surge_leak_frac_of_weight: number;
+  required_accel_rad_s2: number;
+}
+
+export interface ControlCheck {
+  name: string;
+  value: number;
+  threshold: number;
+  unit: string;
+  pass: boolean;
+}
+
+export interface ControlMetrics {
+  inertia_diag_kgm2: number[];
+  inertia_placeholder: boolean;
+  fan_lag_s: number;
+  rate_bandwidth_rad_s: number;
+  axes: Record<string, ControlAxisMetrics>;
+  requirements: { min_roll_accel: number; min_pitch_accel: number; min_yaw_accel: number; max_coupling: number; max_surge_leak: number };
+  checks: ControlCheck[];
+  pass: boolean;
+  score: number;
+  weakest_axis: string | null;
+}
+
+export type MetricGroup = "hover" | "authority" | "control" | "coupling" | "conditioning" | "composite";
 
 /** One geometry evaluated by POST /api/sweep (backend/tiltlab/core/sweep.py). */
 export interface SweepCandidate {
@@ -255,6 +293,16 @@ export interface SweepCandidate {
   yaw_Nm_per_kW: number | null;
   coupling_max: number | null;
   condition_number: number | null;
+  /** Control checks: angular acceleration the attainable torque gives at hover, rad/s^2. */
+  roll_acc: number | null;
+  pitch_acc: number | null;
+  yaw_acc: number | null;
+  /** Fraction of each axis' authority reachable before PX4 has to desaturate (min over axes). */
+  linear_frac: number;
+  /** Fore-aft/lateral force leaking out when 20 percent of an axis is commanded, fraction of weight. */
+  surge_leak: number;
+  control_score: number;
+  weakest_axis: "roll" | "pitch" | "yaw" | null;
   score: number;
   estimated: boolean;
   feasible: boolean;
@@ -280,7 +328,14 @@ export interface SweepRequestBody {
   centreline_tilts_deg?: number[];
   min_headroom: number;
   min_yaw_Nm: number;
-  rank_by?: "power" | "yaw" | "yaw_per_kW" | "headroom" | "score";
+  /** rad/s^2 at hover; 0 = not filtered. */
+  min_roll_accel?: number;
+  min_pitch_accel?: number;
+  min_yaw_accel?: number;
+  /** fractions; 1 = not filtered. */
+  max_coupling?: number;
+  max_surge_leak?: number;
+  rank_by?: "power" | "yaw" | "yaw_per_kW" | "headroom" | "score" | "control";
   top: number;
 }
 

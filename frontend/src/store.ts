@@ -125,7 +125,7 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     loading: false,
     error: null,
     mirrorLock: {},
-    visibleGroups: { hover: true, authority: true, coupling: true, conditioning: true, composite: true },
+    visibleGroups: { hover: true, authority: true, control: true, coupling: true, conditioning: true, composite: true },
     foilLinked: true,
 
     setFoilLinked: (on) => set({ foilLinked: on }),

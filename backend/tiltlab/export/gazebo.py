@@ -23,7 +23,7 @@ from xml.sax.saxutils import escape
 
 import numpy as np
 
-from tiltlab.core.metrics import compute_metrics
+from tiltlab.core.metrics import compute_metrics, fan_lag_s, inertia_matrix
 from tiltlab.export.params import ca_geometry_params
 from tiltlab.scenario import Scenario
 
@@ -89,12 +89,7 @@ def body_mass_kg(scenario: Scenario, rotor_mass_kg: float = ROTOR_MASS_KG) -> fl
 
 
 def _inertia(scenario: Scenario) -> dict[str, float]:
-    m = scenario.mass.total_kg
-    ix = np.asarray(scenario.mass.inertia_frd_kgm2, dtype=float)
-    if np.allclose(ix, 0.0):
-        # placeholder: uniform box 1.2 m long, 0.9 m wide, 0.3 m tall
-        a, b, c = 1.2, 0.9, 0.3
-        ix = np.diag([m * (b * b + c * c) / 12, m * (a * a + c * c) / 12, m * (a * a + b * b) / 12])
+    ix, _placeholder = inertia_matrix(scenario)  # FRD, box placeholder when the scenario has none
     # FRD -> FLU flips the sign of the xy and xz products
     return {
         "ixx": float(ix[0, 0]),
@@ -296,12 +291,6 @@ def geometry_summary(scenario: Scenario) -> list[str]:
             f"thrust axis FRD ({ax[0]:+.3f}, {ax[1]:+.3f}, {ax[2]:+.3f})"
         )
     return out
-
-
-def fan_lag_s(scenario: Scenario) -> float:
-    """Largest first-order spool time constant (s) of the fans' curves; floor 0.01 s for gz."""
-    lags = [scenario.fan_curves[f.curve_ref].lag_s for f in scenario.fans if f.curve_ref]
-    return max(0.01, max(lags) if lags else 0.0)
 
 
 RATE_CROSSOVER_MAX_RAD_S = 4.0  # rate-loop crossover asked for when the fans are fast enough

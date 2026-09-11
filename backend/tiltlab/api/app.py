@@ -206,6 +206,11 @@ def sweep_endpoint(req: SweepRequest) -> SweepResponse:
             collective=req.collective,
             min_headroom=req.min_headroom,
             min_yaw_Nm=req.min_yaw_Nm,
+            min_roll_accel=req.min_roll_accel,
+            min_pitch_accel=req.min_pitch_accel,
+            min_yaw_accel=req.min_yaw_accel,
+            max_coupling=req.max_coupling,
+            max_surge_leak=req.max_surge_leak,
             rank_by=req.rank_by,
         )
         result = run_sweep(req.scenario, spec)
