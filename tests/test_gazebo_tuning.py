@@ -66,7 +66,9 @@ def test_tuning_sized_from_authority_and_lag(hover):
 
 def test_unattainable_axes_keep_defaults(cad):
     # the all-45-degree set cannot trim, so only the thrust model factor is written
-    assert px4_tuning(cad) == {"THR_MDL_FAC": 1.0}
+    t = px4_tuning(cad)
+    assert t["THR_MDL_FAC"] == 1.0 and not any(k.startswith("MC_") for k in t)
+    assert "MPC_TILTMAX_AIR" in t  # outer-loop limits are geometry independent
 
 
 def test_export_carries_tuning_lag_and_mass(hover, tmp_path):
