@@ -1,0 +1,414 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black}
+\setlist{nosep}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,columns=fullflexible,frame=single,
+  framerule=0.3pt,rulecolor=\color{gray!50},backgroundcolor=\color{gray!6},
+  xleftmargin=4pt,xrightmargin=4pt,aboveskip=6pt,belowskip=6pt}
+\newcommand{\file}[1]{\texttt{#1}}
+\newcommand{\param}[1]{\texttt{#1}}
+\newcommand{\why}[1]{\par\smallskip\noindent\textit{Why this matters here:} #1\par}
+
+\title{Gazebo and PX4 for the Atlas 10\,-\,EDF airframe\\
+\large From nothing to a hover in SITL and HITL, with the tiltlab stack}
+\author{tiltlab project notes}
+\date{2026-09-11}
+
+\begin{document}
+\maketitle
+
+\noindent This guide assumes you have never used Gazebo or PX4. It is written so that, with this
+document and an internet connection, you can rebuild and operate everything the repository does
+without further help. Where an official page explains something better than a rewrite would, the
+guide sends you there and tells you what to take from it. Where this project learned something the
+official pages do not say, the guide says it in full.
+
+\tableofcontents
+\newpage
+
+%=====================================================================
+\section{The map: what talks to what}
+
+Everything here is three programs and one cable.
+
+\begin{enumerate}
+  \item \textbf{A physics simulator} (Gazebo) integrates rigid-body motion of the aircraft, spins
+        simulated fans that produce thrust, and produces fake sensor readings.
+  \item \textbf{A flight controller} (PX4) reads sensors, estimates attitude and position, runs the
+        controllers and the \emph{control allocator} that turns ``roll torque, pitch torque, yaw
+        torque, thrust'' into ten fan commands, and sends those commands back to the simulator.
+  \item \textbf{tiltlab} (this repository) describes the aircraft (a \emph{scenario}: fan positions,
+        fan thrust axes, mass, inertia, foil deflections), computes whether it can hover and how
+        much control authority it has, and \emph{exports} the simulator model and the PX4
+        configuration so that the two agree exactly.
+  \item \textbf{The cable} is the difference between SITL and HITL:
+    \begin{itemize}
+      \item \textbf{SITL} (software in the loop): PX4 runs as a program on the same PC as Gazebo.
+            No hardware. Fast to iterate.
+      \item \textbf{HITL} (hardware in the loop): PX4 runs on the real Pixhawk, connected by USB.
+            Gazebo replaces the aircraft and its sensors. The controller code, its timing and its
+            parameters are exactly what will fly.
+    \end{itemize}
+\end{enumerate}
+
+\begin{lstlisting}
+scenario JSON -> tiltlab -> exported harness -> WSL launcher -> Gazebo <-> PX4 (PC or Pixhawk)
+\end{lstlisting}
+
+\why{Every failure in this project was a disagreement between two of those boxes: the model and
+the allocator disagreed about geometry, the simulator and the board disagreed about attitude, or
+the parameter file and the board disagreed about integers. Keep asking ``which two boxes disagree?''}
+
+%=====================================================================
+\section{Gazebo, the minimum you need}
+
+\subsection{Two Gazebos}
+There are two unrelated programs called Gazebo:
+\begin{itemize}
+  \item \textbf{Gazebo Classic} (versions 9, 10, 11; command \file{gazebo}). Old, stable, and the
+        only one PX4 v1.17 speaks HITL through. We run it on Ubuntu 22.04.
+  \item \textbf{gz sim} (formerly Ignition; versions Fortress, Garden, Harmonic; command \file{gz sim}).
+        The current one. PX4's SITL bridge targets it. We run Harmonic on Ubuntu 24.04.
+\end{itemize}
+They have different file layouts, plugin systems and command-line tools. Do not mix their
+documentation. Official entry points:
+\begin{itemize}
+  \item gz sim: \url{https://gazebosim.org/docs/harmonic/getstarted/} (read ``Getting started'' and
+        ``Understanding the GUI''; skip ROS integration).
+  \item Gazebo Classic: \url{https://classic.gazebosim.org/tutorials} (read ``Beginner: Overview'' and
+        ``Build a robot: Model structure and requirements'').
+\end{itemize}
+
+\subsection{SDF: the file that describes everything}
+Both Gazebos read \textbf{SDF} (Simulation Description Format), an XML dialect. Reference:
+\url{http://sdformat.org/spec}. You need four concepts:
+\begin{description}[style=nextline]
+  \item[world] The scene: gravity, ground plane, light, which models to spawn and where. One file,
+        \file{*.world} (Classic) or \file{*.sdf} (gz sim). Our exporter writes one per scenario.
+  \item[model] The aircraft. A directory with \file{model.config} (name, author) and
+        \file{model.sdf} (the content). Gazebo finds models through the \file{GAZEBO\_MODEL\_PATH}
+        (Classic) or \file{GZ\_SIM\_RESOURCE\_PATH} (gz sim) environment variable; the launcher
+        sets these.
+  \item[link] A rigid body inside a model: mass, inertia, collision shape, visual shape, pose. Our
+        model has \file{base\_link} (the airframe, mass and inertia from the scenario), ten
+        \file{rotor\_N} links (one per fan) and an IMU link.
+  \item[joint] Connects two links. Each rotor joint is a \emph{revolute} joint whose axis is the
+        fan's spin axis.
+\end{description}
+
+Poses are ``x y z roll pitch yaw'' in metres and radians, in the \emph{parent's} frame. A rotor
+link's pose therefore places the fan on the airframe and points it.
+
+\subsection{Frames: the single most important paragraph}
+Gazebo's body frame is \textbf{FLU}: x forward, y left, z up. PX4's is \textbf{FRD}: x forward, y
+right, z down. Converting is a 180\textdegree{} rotation about x: $(x, y, z)_{\mathrm{FRD}} \to (x, -y,
+-z)_{\mathrm{FLU}}$. Gazebo's world frame is \textbf{ENU} (x east, y north, z up); PX4's is
+\textbf{NED}. A vehicle facing Gazebo's $+x$ (east) has PX4 heading 090\textdegree. That is not
+a bug; you will see ``yaw 90'' on a level, still vehicle and it is correct.
+
+tiltlab works in FRD internally and applies the FLU conversion once, when writing the model. If
+you ever hand-edit a pose, do it in FLU.
+
+\why{The airframe hovers at 25\textdegree{} nose-up. tiltlab's scenario field
+\param{frame.hover\_pitch\_deg} rotates the airframe geometry into the flight-controller frame, so
+the exported model's \file{base\_link} is level when the real airframe is at 25\textdegree. In
+Gazebo you therefore \emph{see} the airframe mesh tilted 25\textdegree{} while PX4 reads ``level''.
+That is the intended design, in both simulators.}
+
+\subsection{Plugins}
+A plugin is a shared library Gazebo loads for a model. Ours (Classic, from PX4's
+\file{sitl\_gazebo-classic}):
+\begin{itemize}
+  \item \file{libgazebo\_motor\_model.so}, one per rotor. Thrust $= k_T\,\omega^2$ along the
+        rotor link's $+z$, torque $= k_M \cdot$ thrust, with a spin-up time constant. The
+        exporter sets $k_T$ from the fan curve and the time constant from the fan lag.
+  \item \file{libgazebo\_imu\_plugin.so}, \file{\_magnetometer\_}, \file{\_barometer\_},
+        \file{\_gps\_}: simulated sensors.
+  \item \file{libgazebo\_mavlink\_interface.so}: the bridge. Reads sensors, sends them to PX4 as
+        MAVLink; receives PX4's motor commands and publishes them to the motor plugins. Its
+        parameters that matter: \param{serialEnabled}, \param{serialDevice} (HITL),
+        \param{hil\_mode}, \param{hil\_state\_level}, \param{input\_scaling} per motor channel.
+\end{itemize}
+gz sim's equivalents live in PX4's \file{Tools/simulation/gz} and the \file{gz\_bridge} module
+inside PX4 itself; PX4 subscribes to gz topics directly, no MAVLink in between.
+
+\subsection{Topics and tools}
+Gazebo publishes on internal topics. Useful commands (Classic):
+\begin{lstlisting}
+gz topic -l                      # list topics (note the world name in each path)
+gz topic -e <topic>              # echo (fails silently on PX4's custom message types)
+gz stats                         # real-time factor: keep it at 1.00 for HITL
+gz world -w <world> --reset-all  # put every model back where it spawned
+gz model -w <world> -m <name> -p # pose; -w is required unless the world is called "default"
+\end{lstlisting}
+gz sim: \file{gz topic -l}, \file{gz topic -e -t <topic>}, \file{gz model --list}.
+
+%=====================================================================
+\section{PX4, the minimum you need}
+
+Official documentation: \url{https://docs.px4.io/v1.17/en/} (we pin v1.17.0). Read, in this
+order: ``Basic Concepts'', ``Flight Modes (Multicopter)'', ``Parameters and Configurations'',
+``Control Allocation'', ``Simulation'' overview, then ``Hardware in the Loop''.
+
+\subsection{Parameters}
+PX4 is configured by named parameters, e.g. \param{MC\_ROLLRATE\_P}. Each has a type: INT32 or
+FLOAT. They live on the board (or in \file{parameters.bson} for SITL) and survive reboots once
+saved. Three things this project learned the hard way:
+\begin{enumerate}
+  \item Over MAVLink, \textbf{INT32 parameters travel as raw bits in a float field}. Writing them
+        as ordinary floats corrupts every integer parameter (\param{HIL\_ACT\_FUNC1} became
+        1120534528, which is the bit pattern of $101.0f$), and reading them back the same wrong
+        way agrees with itself, so nothing looks wrong. Write integers through the board's shell
+        (\file{param set NAME VALUE}) or use \file{scripts/px4\_board.py}, which does that and
+        decodes reads correctly.
+  \item Some parameters are read \textbf{only at boot}: \param{SYS\_HITL}, \param{SYS\_AUTOSTART},
+        \param{EKF2\_EN}, \param{SDLOG\_*}. Change, save, reboot, then check.
+  \item An airframe file's \file{param set-default} lines never override a value the user saved;
+        \file{param set} lines do. \file{1001\_rc\_quad\_x.hil} uses \file{set-default} for its
+        4-rotor geometry, which is why our saved 10-rotor set survives it.
+\end{enumerate}
+
+\subsection{The control allocator}
+PX4 does not know about ``quad'' or ``hexa''; it knows a matrix. For each rotor $i$ you give a
+position \param{CA\_ROTORi\_PX/PY/PZ} (m, FRD, from the centre of gravity), a thrust axis
+\param{CA\_ROTORi\_AX/AY/AZ} (unit vector, FRD), a thrust coefficient \param{CA\_ROTORi\_CT} and
+a torque coefficient \param{CA\_ROTORi\_KM}. PX4 builds the effectiveness matrix (source:
+\file{ActuatorEffectivenessRotors.cpp}), pseudo-inverts it and desaturates
+(\file{ControlAllocationSequentialDesaturation.cpp}). tiltlab replicates that code line for line
+so its predictions match what PX4 will do; the exported parameters are the same numbers the
+replica used. Read ``Control Allocation'' in the docs once; then trust the exporter.
+
+\subsection{Gains that matter for this airframe}
+The rate loop (\param{MC\_ROLLRATE\_P/I/D} etc.), the attitude loop (\param{MC\_ROLL\_P}...),
+the position loops (\param{MPC\_XY\_*}, \param{MPC\_Z\_*}), the hover throttle
+\param{MPC\_THR\_HOVER}, the tilt limit \param{MPC\_TILTMAX\_AIR}, and \param{MC\_AT\_EN}
+(autotune; \textbf{keep it 0}, autotune produced gains three to four times too high and every axis
+rang). tiltlab sizes the first three from authority, inertia and fan lag; the rest were tuned in
+SITL and saved in the scenario under \param{control.px4\_params\_override}, from where both
+exports pick them up.
+
+%=====================================================================
+\section{Windows, WSL2 and USB}
+
+Both simulators run in WSL2 (Windows Subsystem for Linux). Two distributions, because gz sim
+Harmonic wants Ubuntu 24.04 and Gazebo Classic 11 exists only up to 22.04:
+\begin{lstlisting}
+wsl --list --verbose             # Ubuntu-24.04 (SITL), Ubuntu-22.04 (HITL)
+wsl -d Ubuntu-22.04 -- bash -lc "<command>"
+\end{lstlisting}
+The repository is reachable inside both as \file{\textasciitilde/utopia/vibe-coded} (a symlink;
+the space in ``Utopia Labs'' breaks quoting through \file{wsl.exe}, so never pass the
+\file{/mnt/c/...} spelling on a command line).
+
+\textbf{GUI}: WSLg shows Linux windows on the Windows desktop. If every window is grey and
+titled \texttt{[WARN:COPY MODE]}, WSLg lost its shared-memory channel at start-up; only
+\file{wsl --shutdown} from PowerShell fixes it (it closes every distribution).
+
+\textbf{USB into WSL} uses usbipd-win (\url{https://github.com/dorssel/usbipd-win}):
+\begin{lstlisting}
+usbipd list                                   # find the Pixhawk's BUSID, e.g. 2-4
+usbipd bind --busid 2-4                       # once, administrator PowerShell
+usbipd attach --wsl Ubuntu-22.04 --busid 2-4  # each session (--auto-attach to survive reboots)
+usbipd detach --busid 2-4                     # give it back to Windows (QGroundControl)
+\end{lstlisting}
+Inside WSL the board is \file{/dev/ttyACM0}, owned by \file{root:dialout}; your user must be in
+\file{dialout}. A board reboot re-enumerates and often comes back as \file{ttyACM1}; the launcher
+handles either. The distribution must be running for \file{attach} to work (keep a shell open).
+
+%=====================================================================
+\section{Installing the stack from scratch}
+
+Do these once. Each step's check is written next to it.
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Windows tools}: \file{uv} (Python), Node, \file{make}, MiKTeX (for this guide),
+        usbipd-win. In the repo: \file{source scripts/env.sh} (bash) or \file{. .\textbackslash
+        scripts\textbackslash env.ps1} puts them on \file{PATH}. Check: \file{make test} is green.
+  \item \textbf{WSL distributions}: \file{wsl --install -d Ubuntu-24.04} and
+        \file{wsl --install -d Ubuntu-22.04}. Create the symlink in each:
+        \file{mkdir -p \textasciitilde/utopia \&\& ln -s "/mnt/c/Users/<you>/Documents/Utopia Labs/vibe-coded" \textasciitilde/utopia/vibe-coded}.
+  \item \textbf{PX4 source} in each distribution, pinned:
+\begin{lstlisting}
+git clone --recursive -b v1.17.0 https://github.com/PX4/PX4-Autopilot.git ~/PX4-Autopilot
+cd ~/PX4-Autopilot && bash ./Tools/setup/ubuntu.sh     # toolchains; do NOT pass --no-nuttx in 22.04
+\end{lstlisting}
+        Check (22.04): \file{arm-none-eabi-gcc --version}. Check (24.04): \file{gz sim --version}
+        prints Harmonic 8.x. In 22.04 also \file{sudo apt install gazebo libgazebo-dev}.
+  \item \textbf{Let the launcher finish the rest}. Run
+        \file{bash \textasciitilde/utopia/vibe-coded/scripts/wsl/tiltlab\_gazebo.sh --check}
+        in each distribution. It lists every tool with its version, builds what is missing when
+        asked, and applies the PX4 patches a 10-motor vehicle needs (PX4's gz bridge assumes at
+        most 8 ESCs). Repeat until every line says \texttt{[ok]}.
+  \item \textbf{HITL firmware} (22.04, once). Stock \file{px4\_fmu-v6x\_default} has no
+        \file{pwm\_out\_sim} and adding it overflows flash by 22\,884 bytes, so the exporter ships
+        a board label that also drops the fixed-wing and VTOL modules:
+\begin{lstlisting}
+bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --build-firmware --harness <hitl harness dir>
+\end{lstlisting}
+        It copies \file{fmu-v6x\_hitl.px4board}, runs \file{make px4\_fmu-v6x\_hitl} (94.6\,\% of
+        flash) and offers the upload. Check on the board: \file{pwm\_out\_sim status} lists
+        channels 0..9 with functions 101..110 after the parameters are loaded.
+\end{enumerate}
+
+%=====================================================================
+\section{Flying SITL}
+
+\begin{enumerate}[leftmargin=*]
+  \item In the app (\file{make dev}, \url{http://127.0.0.1:8000}) load or build a scenario, check
+        \emph{hover: exact} and the authority numbers, Save.
+  \item Metrics panel, \emph{Launch Gazebo}, \textbf{SITL}. The app exports
+        \file{exports/gazebo/<name>/} (model, world, airframe \file{NNNN\_gz\_<name>}, README) and
+        starts the launcher in Ubuntu-24.04. Its console tail appears under the buttons; the full
+        console is \file{exports/logs/gazebo\_sitl.log}. Without the browser:
+        \file{make menu}, option 2.
+  \item Wait for \texttt{Ready for takeoff!} plus about ten seconds (height estimate), then
+\begin{lstlisting}
+wsl -d Ubuntu-24.04 -- bash ~/utopia/vibe-coded/scripts/wsl/px4ctl.sh takeoff
+wsl -d Ubuntu-24.04 -- bash ~/utopia/vibe-coded/scripts/wsl/px4ctl.sh land
+wsl -d Ubuntu-24.04 -- bash ~/utopia/vibe-coded/scripts/wsl/px4ctl.sh log   # copies the newest ulog
+uv run --project backend python scripts/hover_report.py exports/logs/<file>.ulg
+\end{lstlisting}
+  \item Good hover on this airframe: attitude under 1\textdegree{} peak to peak, position under
+        0.3\,m, torque demand well below 1. Tune live with \file{px4ctl.sh param NAME VALUE ...},
+        land and take off again so integrators restart, and save winners in the scenario's
+        \param{control.px4\_params\_override}.
+\end{enumerate}
+
+\textbf{What SITL cannot tell you}: PX4-SITL's clock \emph{is} Gazebo's clock (lockstep), so the
+flight stack never sees late sensor data. The real board runs on its own clock. If a geometry
+only just hovers in SITL, expect HITL to be worse.
+
+%=====================================================================
+\section{Flying HITL}
+
+\subsection{How HITL differs, in this project's configuration}
+The board is the flight controller; Gazebo Classic is the aircraft. Two designs exist for how the
+board learns its attitude:
+\begin{itemize}
+  \item \param{hil\_state\_level 0}: Gazebo sends simulated IMU, magnetometer, barometer and GPS
+        (\texttt{HIL\_SENSOR}, \texttt{HIL\_GPS}); the board's own EKF estimates attitude. The
+        official default.
+  \item \param{hil\_state\_level 1}: Gazebo sends its ground-truth attitude, position and velocity
+        (\texttt{HIL\_STATE\_QUATERNION}); the board uses that directly.
+\end{itemize}
+This project uses level 1, and the exported parameter set carries what that needs:
+\param{EKF2\_EN 0} (otherwise the EKF and the HIL handler both publish attitude and the values
+flip between them), \param{SYS\_HAS\_MAG 0}, \param{SYS\_HAS\_BARO 0} (no such sensors are sent
+at level 1), and calibration slot 0 pointed at the simulated IMU (device id 1310988) so the
+arming checks stop looking for the real ICM. The reason for leaving level 0: the Classic IMU
+plugin handed this board an accelerometer tilted about 25\textdegree{} while the model was
+level, also with PX4's own \file{iris\_hitl} reference model, and the EKF believed it. That was
+never resolved at the source; level 1 sidesteps it, and what HITL is for (the controller and
+allocator running on real hardware against the real geometry) is fully exercised.
+
+\subsection{Session checklist}
+\begin{enumerate}[leftmargin=*]
+  \item Fans and ESCs unpowered. Board on USB, attached to WSL (Section 4). QGroundControl closed
+        (one program owns the serial port).
+  \item Parameters onto the board, once per scenario (no sim running):
+\begin{lstlisting}
+python3 scripts/px4_board.py --dev /dev/ttyACM0 push   exports/gazebo_hitl/<name>_hitl/px4/<name>_hitl.params
+python3 scripts/px4_board.py --dev /dev/ttyACM0 shell  reboot
+python3 scripts/px4_board.py --dev /dev/ttyACM0 verify exports/gazebo_hitl/<name>_hitl/px4/<name>_hitl.params
+\end{lstlisting}
+        \file{verify} must print \texttt{N of N match}.
+  \item App, \emph{Launch Gazebo}, \textbf{HITL} (or \file{make menu}, option 3). The launcher
+        installs the model into the PX4 Classic tree, finds the serial device, starts the QGC
+        relay (WSL2 drops UDP broadcast, so QGroundControl on Windows would otherwise never see
+        the vehicle) and opens Gazebo.
+  \item Before arming, confirm the board agrees with the sim:
+\begin{lstlisting}
+python3 scripts/px4_board.py status      # HIL flag True, roll/pitch near 0, velocities 0, Preflight check: OK
+\end{lstlisting}
+        (default link is the sim's SDK port 14540, so this works while Gazebo owns the serial.)
+  \item Arm and fly from the transmitter or QGroundControl. Afterwards
+        \file{python3 scripts/px4\_board.py pull-log exports/logs} then \file{hover\_report.py}.
+        Logs land in \file{/fs/microsd/log/sessNNN/} because the board has no time source at level 1.
+\end{enumerate}
+
+\subsection{Returning the board to flight}
+Reflash \file{px4\_fmu-v6x\_default}, load your flight parameter file, confirm \param{SYS\_HITL} 0,
+\param{EKF2\_EN} 1, \param{SYS\_HAS\_MAG} 1, \param{SYS\_HAS\_BARO} 1, re-select your airframe
+and recalibrate the IMU (the HITL set points calibration slot 0 at the simulated device).
+On the real aircraft the IMU is bolted to the airframe and reads the 25\textdegree{} hover pitch;
+\param{SENS\_BOARD\_Y\_OFF} (degrees) makes PX4's body frame the hover frame. It acts on real
+sensors only, so it plays no part in HITL.
+
+%=====================================================================
+\section{When it goes wrong}
+
+\begin{longtable}{p{4.6cm}p{4.9cm}p{5.4cm}}
+\toprule
+\textbf{You see} & \textbf{It means} & \textbf{Do} \\
+\midrule
+\endhead
+Motors stay at zero after takeoff; allocator reports thrust unallocated & the geometry has no hover
+trim (tiltlab shows \emph{Fz unattainable}) & pick a feasible sweep row or change hover pitch \\
+Lifts, then flips within two seconds & PX4 default gains on a 12\,kg, 150\,ms-fan airframe & gains
+from the exporter (\file{px4\_tuning}); never Autotune \\
+Slow 0.25\,Hz roll/pitch swing to the tilt limit, metres of wander & position loop faster than
+attitude loop & the exporter's \param{MPC\_*} scaling; lower \param{MPC\_TILTMAX\_AIR} on thin margin \\
+Yaw torque demand above 1 & yaw axis has almost no authority; gains sized too stiff & soften
+\param{MC\_YAWRATE\_P/I}, \param{MC\_YAW\_P} \\
+Translates away at speed, altitude fine & a standing trim moment the integrator cannot hold &
+raise \param{MC\_PR\_INT\_LIM} (pitch) with a larger \param{MC\_PITCHRATE\_I} \\
+Second Gazebo launch shows a grey or duplicate window & a \file{gzserver} from the last run holds
+port 11345 & \file{tiltlab\_gazebo.sh --stop} (the launcher also asks) \\
+\texttt{[WARN:COPY MODE]} window & WSLg lost shared memory & \file{wsl --shutdown}, relaunch \\
+\texttt{Error opening serial device: set\_option: Input/output error}, \texttt{Tx queue overflow}
+& the board re-enumerated as another \file{ttyACM} & relaunch; the launcher picks the one present \\
+Board attitude far from the sim's, parked; arms into a lunge & sim and board disagree about
+attitude & \param{hil\_state\_level 1} + \param{EKF2\_EN 0} (in the export); compare with
+\file{px4\_board.py status} before arming \\
+\texttt{Preflight Fail: Accel Sensor 0 missing}, \texttt{barometer 0 missing}, \texttt{Found 0
+compass} & sensor-presence checks at state level 1 & \param{SYS\_HAS\_MAG/BARO 0}, calibration
+slot 0 = 1310988 (in the export) \\
+\texttt{Flight termination active} & it flipped past 60\textdegree{}; latched & reboot the board
+(\file{px4\_board.py shell reboot}); \param{CBRK\_FLIGHTTERM 121212} disables it for bench work \\
+\texttt{logger: not running}, no log of the flight & \param{SDLOG\_BACKEND 0} on the board &
+\param{SDLOG\_MODE 2}, \param{SDLOG\_BACKEND 1} (in the export), reboot \\
+Integer parameters read as huge numbers or 0 after a MAVLink load & float write of INT32 &
+\file{px4\_board.py push} (shell) and \file{verify} \\
+QGroundControl ``Disconnected'' while Gazebo runs & WSL2 dropped the broadcast & the relay must be
+running (launcher output); manual UDP link: listen 14551, server \texttt{<WSL ip>:18570} \\
+\bottomrule
+\end{longtable}
+
+%=====================================================================
+\section{Where things live}
+
+\begin{tabular}{@{}p{5.2cm}p{9.6cm}@{}}
+\toprule
+\file{scenarios/*.json} & aircraft descriptions; \param{control.px4\_params\_override} holds tuned gains \\
+\file{backend/tiltlab/export/gazebo.py} & gz sim harness and gain sizing (\file{px4\_tuning}) \\
+\file{backend/tiltlab/export/gazebo\_classic\_hitl.py} & Classic HITL harness, \file{.params}, board label, README \\
+\file{backend/tiltlab/api/gazebo\_launch.py} & the app's launch/status/stop \\
+\file{scripts/wsl/tiltlab\_gazebo.sh} & the launcher (checks, installs, patches, launches, \file{--stop}) \\
+\file{scripts/wsl/px4ctl.sh} & SITL: takeoff, land, param, log, stop \\
+\file{scripts/wsl/qgc\_udp\_relay.py} & MAVLink relay to QGroundControl on Windows \\
+\file{scripts/px4\_board.py} & board: status, shell, push, verify, pull-log \\
+\file{scripts/hover\_report.py} & hover quality from a ulog \\
+\file{scripts/tiltlab\_menu.py} & \file{make menu}, the no-browser front door \\
+\file{docs/sim\_stack.md} & the architecture map and the HITL findings \\
+\file{docs/hitl\_runbook.md} & the HITL checklist for this machine \\
+\file{exports/gazebo/}, \file{exports/gazebo\_hitl/} & generated harnesses (not versioned) \\
+\file{third\_party/PX4-Autopilot} & pinned v1.17.0 source, cite file and line when porting \\
+\bottomrule
+\end{tabular}
+
+\bigskip
+\noindent\textbf{Further reading, in the order it pays off}: PX4 ``Basic Concepts'' and ``Control
+Allocation''; gz sim ``Getting started''; sdformat.org spec (world, model, link, joint); PX4
+``Simulation'' and ``Hardware in the Loop''; usbipd-win README; PX4 ``Parameters and
+Configurations'' (the INT32 paragraph above is not in it).
+
+\end{document}

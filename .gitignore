@@ -20,3 +20,5 @@ exports/
 Thumbs.db
 .idea/
 .vscode/
+# LaTeX byproducts of make guide
+docs/guide/build/

@@ -1,6 +1,6 @@
 SHELL := bash
 .ONESHELL:
-.PHONY: menu dev test lint docker
+.PHONY: menu dev test lint docker guide
 
 UV      := uv run --project backend
 NPM     := npm --prefix frontend
@@ -30,3 +30,9 @@ lint:
 
 docker:
 	docker compose build
+
+# Gazebo and PX4 guide, docs/guide/gazebo_px4_guide.pdf (needs a LaTeX distribution with latexmk;
+# MiKTeX on this machine). Byproducts stay in docs/guide/build.
+guide:
+	cd docs/guide && latexmk -pdf -interaction=nonstopmode -outdir=build gazebo_px4_guide.tex
+	cp docs/guide/build/gazebo_px4_guide.pdf docs/guide/gazebo_px4_guide.pdf

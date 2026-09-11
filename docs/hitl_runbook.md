@@ -34,8 +34,10 @@ Ready: Ubuntu-22.04 (WSL2) with Gazebo Classic 11.10.2 and libgazebo-dev, PX4 v1
 usbipd-win 5.3.0 on Windows with the Pixhawk already bound (it survives replug), and the ARM
 toolchain (`arm-none-eabi-gcc` 10.3.1) installed by `Tools/setup/ubuntu.sh`.
 
-Flashed 2026-09-11: `px4_fmu-v6x_hitl` (1.72 MB) is on the board with the HITL parameter set,
-`EKF2_EN 0` and the HIL sensor-presence set; the harness runs `hil_state_level 1`.
+Flashed 2026-09-11: `px4_fmu-v6x_hitl` (1.72 MB) is on the board with the HITL parameter set
+(`EKF2_EN 0`, `SYS_HAS_MAG/BARO 0`, SIM IMU calibration slot, `SDLOG_MODE 2`, `SDLOG_BACKEND 1`);
+the harness runs `hil_state_level 1`. Board verified level against Gazebo truth, preflight OK.
+See `sim_stack.md` for why each of those is there.
 
 ## 0. Firmware with `pwm_out_sim` (once)
 
@@ -99,21 +101,29 @@ wsl -d Ubuntu-22.04 -- bash -lc "ls -l /dev/ttyACM*"
 before a real flight): `usbipd detach --busid <BUSID>` — a rebooting board also drops off until
 auto-attach picks it up again.
 
-## 2. Load the parameters
+## 2. Load the parameters (board tool, no QGC needed)
 
-1. Detach the board from WSL (step 1) so QGroundControl on Windows can open the COM port.
-2. QGC > Vehicle Setup > Parameters > Tools > Load from file:
-   `exports\gazebo_hitl\atlas_phase01_cad_control_hitl\px4\atlas_phase01_cad_control_hitl.params`
-3. Reboot the board. `SYS_HITL` is read only at boot.
-4. In QGC's MAVLink console: `listener vehicle_status` must show `hil_state: 1`, and
-   `pwm_out_sim status` must report the module running. If either fails, the firmware from step 0
-   is not the one on the board.
-5. Close QGroundControl. Gazebo owns the serial port; QGC reconnects over UDP.
-6. Re-attach the board to WSL (step 1).
+With the board attached to WSL and no sim running (the sim owns the serial port), from the repo
+in WSL:
+
+```bash
+python3 scripts/px4_board.py --dev /dev/ttyACM0 push exports/gazebo_hitl/<name>_hitl/px4/<name>_hitl.params
+python3 scripts/px4_board.py --dev /dev/ttyACM0 shell reboot
+python3 scripts/px4_board.py --dev /dev/ttyACM0 verify exports/gazebo_hitl/<name>_hitl/px4/<name>_hitl.params
+```
+
+`push` writes through the board's NSH so integer parameters stay integers (a MAVLink float write
+corrupts them, see `sim_stack.md`); `verify` reads every value back with the right decoding and
+must print `N of N match`. `SYS_HITL` and `SYS_AUTOSTART` take effect at boot, hence the reboot.
+The board comes back on `/dev/ttyACM0` or `ttyACM1`; the launcher handles either.
+
+QGroundControl still works for the same job (Vehicle Setup > Parameters > Tools > Load from file)
+if you detach the board from WSL first; it is just no longer required.
 
 ## 3. Launch
 
-Fans and ESCs unpowered. From PowerShell:
+Fans and ESCs unpowered. Easiest: in the app, Metrics panel > Launch Gazebo > **HITL** (it
+exports the current scenario first and shows the launcher console). Equivalent from PowerShell:
 
 ```powershell
 wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
