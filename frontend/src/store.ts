@@ -3,6 +3,8 @@ import { api } from "./api";
 import { mirrorAzimuth } from "./geometry";
 import { DIHEDRAL_SCENARIO_NAME, presetOmni, presetVertical, type PresetId } from "./presets";
 import type {
+  GazeboMode,
+  GazeboStatus,
   Coanda,
   ControlConcept,
   Fan,
@@ -71,6 +73,8 @@ export interface TiltlabState {
   visibleGroups: Record<MetricGroup, boolean>;
   /** When on, changing one foil's deflection changes every foil (a single foil angle). */
   foilLinked: boolean;
+  /** Gazebo session started from the app (SITL or HITL); message is the last outcome shown. */
+  gazebo: GazeboStatus & { message: string };
 
   setScenario: (scenario: Scenario) => void;
   setFoilLinked: (on: boolean) => void;
@@ -95,8 +99,16 @@ export interface TiltlabState {
   loadScenario: (name: string) => Promise<void>;
   saveScenario: () => Promise<void>;
   refresh: () => Promise<void>;
+  launchGazebo: (mode: GazeboMode) => Promise<void>;
+  pollGazebo: () => Promise<void>;
+  stopGazebo: () => Promise<void>;
   reset: () => void;
 }
+
+const idleGazebo = (): GazeboStatus & { message: string } => ({
+  available: false, running: false, mode: null, harness: null, command: null, log: null, tail: [],
+  returncode: null, message: "",
+});
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshSeq = 0;
@@ -127,6 +139,35 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     mirrorLock: {},
     visibleGroups: { hover: true, authority: true, control: true, coupling: true, conditioning: true, composite: true },
     foilLinked: true,
+    gazebo: idleGazebo(),
+
+    launchGazebo: async (mode) => {
+      try {
+        const st = await api.launchGazebo(get().scenario, mode);
+        const message = st.dry_run
+          ? `dry run, would run: ${st.command ?? ""}`
+          : `${mode.toUpperCase()} launching; console in ${st.log ?? "exports/logs/"}`;
+        set({ gazebo: { ...st, message } });
+      } catch (e) {
+        set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
+    pollGazebo: async () => {
+      try {
+        const st = await api.gazeboStatus();
+        set({ gazebo: { ...st, message: get().gazebo.message } });
+      } catch (e) {
+        set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
+    stopGazebo: async () => {
+      try {
+        const st = await api.stopGazebo();
+        set({ gazebo: { ...st, message: "stopped" } });
+      } catch (e) {
+        set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
 
     setFoilLinked: (on) => set({ foilLinked: on }),
 
@@ -290,6 +331,7 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
       refreshTimer = null;
       set({
         scenario: emptyScenario(),
+        gazebo: idleGazebo(),
         concept: "stock",
         collective: null,
         metrics: null,

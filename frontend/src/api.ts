@@ -1,4 +1,6 @@
-import type { ControlConcept, FoilSheetRow, Metrics, Scenario, SweepRequestBody, SweepResponse } from "./types";
+import type {
+  ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario, SweepRequestBody, SweepResponse,
+} from "./types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -45,6 +47,11 @@ export const api = {
       "/api/export/gazebo_hitl",
       { scenario },
     ),
+  /** Export the harness and start the WSL launcher for that mode; the console goes to exports/logs/. */
+  launchGazebo: (scenario: Scenario, mode: GazeboMode) =>
+    post<GazeboStatus>("/api/gazebo/launch", { scenario, mode }),
+  gazeboStatus: () => request<GazeboStatus>("/api/gazebo/status"),
+  stopGazebo: () => post<GazeboStatus>("/api/gazebo/stop", {}),
   exportGazebo: (scenario: Scenario) =>
     post<{ root: string; model_sdf: string; world_sdf: string; airframe: string; readme: string }>(
       "/api/export/gazebo",

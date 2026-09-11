@@ -5,6 +5,7 @@ import AuthorityTable, { Badge } from "./AuthorityTable";
 import ControlTable from "./ControlTable";
 import CouplingTable from "./CouplingTable";
 import ExportPanel from "./ExportPanel";
+import GazeboPanel from "./GazeboPanel";
 import { fmt } from "./format";
 import ParamsPreview from "./ParamsPreview";
 import SweepPanel from "./SweepPanel";
@@ -133,6 +134,7 @@ export default function MetricsPanel() {
       {metrics && <SweepPanel />}
       <ParamsPreview />
       <ExportPanel />
+      <GazeboPanel />
     </section>
   );
 }

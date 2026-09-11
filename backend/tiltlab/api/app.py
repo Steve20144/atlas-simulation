@@ -279,3 +279,36 @@ def export_gazebo_hitl_endpoint(req: FoilSheetRequest) -> dict[str, Any]:
     if not SCENARIO_NAME_RE.match(req.scenario.meta.name):
         raise HTTPException(status_code=400, detail="invalid scenario name")
     return export_gazebo_classic_hitl(req.scenario, EXPORTS_DIR / "gazebo_hitl")
+
+
+# ---------------------------------------------------------------- launch gazebo from the app
+from tiltlab.api import gazebo_launch  # noqa: E402
+from tiltlab.api.schemas import GazeboLaunchRequest  # noqa: E402
+
+
+@app.post("/api/gazebo/launch")
+def gazebo_launch_endpoint(req: GazeboLaunchRequest) -> dict[str, Any]:
+    """Export the harness for the scenario and start the WSL launcher in the matching distro."""
+    if not SCENARIO_NAME_RE.match(req.scenario.meta.name):
+        raise HTTPException(status_code=400, detail="invalid scenario name")
+    if not gazebo_launch.available() and not gazebo_launch.dry_run():
+        raise HTTPException(
+            status_code=501,
+            detail="Gazebo launch needs wsl.exe on this host; run scripts/tiltlab_menu.py there",
+        )
+    try:
+        return gazebo_launch.launch(req.mode, req.scenario, EXPORTS_DIR, REPO_ROOT)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/gazebo/status")
+def gazebo_status_endpoint() -> dict[str, Any]:
+    """Whether a session runs, which mode, and the last console lines of the launcher."""
+    return gazebo_launch.status()
+
+
+@app.post("/api/gazebo/stop")
+def gazebo_stop_endpoint() -> dict[str, Any]:
+    """Stop PX4 SITL, gz sim, Gazebo Classic and the QGC relay in both distros."""
+    return gazebo_launch.stop()

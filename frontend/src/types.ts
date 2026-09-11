@@ -382,3 +382,19 @@ export interface FoilSheetRow {
   ct_effective_N: number;
   [cadCoordinate: string]: unknown;
 }
+
+/** What /api/gazebo/status reports: the WSL launcher session started from the app. */
+export type GazeboMode = "sitl" | "hitl";
+export interface GazeboStatus {
+  available: boolean;
+  running: boolean;
+  mode: GazeboMode | null;
+  harness: string | null;
+  command: string | null;
+  log: string | null;
+  tail: string[];
+  returncode: number | null;
+  dry_run?: boolean;
+  stopped?: boolean;
+}
+

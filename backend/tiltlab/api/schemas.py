@@ -97,3 +97,12 @@ class ExportCsvRequest(BaseModel):
 class ExportResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     path: str
+
+
+class GazeboLaunchRequest(BaseModel):
+    """Which harness to export and start: gz sim SITL (Ubuntu-24.04) or Classic HITL
+    (Ubuntu-22.04)."""
+
+    model_config = ConfigDict(extra="forbid")
+    scenario: Scenario
+    mode: Literal["sitl", "hitl"]

@@ -147,3 +147,25 @@ def test_export_endpoints_write_into_exports_dir(
     lines = csv_path.read_text(encoding="utf-8").splitlines()
     assert csv_path.parent == out and lines[0] == "scenario,hover.power_W" and len(lines) == 3
     assert client.post("/api/export/csv", json={"rows": rows, "stem": "../x"}).status_code == 400
+
+
+def test_gazebo_launch_status_stop_dry_run(client: TestClient, tmp_path: Path,
+                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dry run exports the harness and returns the WSL command without starting anything."""
+    monkeypatch.setenv("TILTLAB_GAZEBO_DRY_RUN", "1")
+    monkeypatch.setattr(app_module, "EXPORTS_DIR", tmp_path / "exports")
+    body = {"scenario": scenario_json("atlas_phase01_cad_control"), "mode": "sitl"}
+    r = client.post("/api/gazebo/launch", json=body)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["dry_run"] is True and d["running"] is False and d["mode"] == "sitl"
+    assert "--mode sitl" in d["command"] and "Ubuntu-24.04" in d["command"]
+    # the temp exports dir is outside the repo, so the harness is spelled as an /mnt path
+    assert "/exports/gazebo/atlas_phase01_cad_control" in d["command"]
+    assert (tmp_path / "exports" / "gazebo" / "atlas_phase01_cad_control" / "README.md").exists()
+    body["mode"] = "hitl"
+    d = client.post("/api/gazebo/launch", json=body).json()
+    assert "Ubuntu-22.04" in d["command"] and d["harness"].endswith("_hitl")
+    assert client.get("/api/gazebo/status").json()["running"] is False
+    assert client.post("/api/gazebo/stop").json()["stopped"] is True
+    assert client.post("/api/gazebo/launch", json={**body, "mode": "vtol"}).status_code == 422
