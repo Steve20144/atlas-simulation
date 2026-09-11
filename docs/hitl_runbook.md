@@ -10,7 +10,7 @@ stay unpowered.
 | scenario | `scenarios/atlas_phase01_cad_control.json` | same |
 | export | `exports/gazebo/atlas_phase01_cad_control` | `exports/gazebo_hitl/atlas_phase01_cad_control_hitl` |
 | simulator | gz sim (Harmonic), Ubuntu-24.04 | Gazebo Classic 11, Ubuntu-22.04 |
-| flight code | `px4_sitl_default` on the PC | `px4_fmu-v6x_default` on the board |
+| flight code | `px4_sitl_default` on the PC | `px4_fmu-v6x_hitl` on the board |
 | config carrier | airframe `4615_gz_atlas_phase01_cad_control` | `px4/atlas_phase01_cad_control_hitl.params` (QGC) |
 
 Regenerate both from the same scenario; the 118 shared parameters are identical by construction:
@@ -31,29 +31,36 @@ HITL adds `SYS_HITL 1`, `SYS_AUTOSTART 1001`, `HIL_ACT_FUNC1..10 = 101..110`,
 
 Ready: Ubuntu-22.04 (WSL2) with Gazebo Classic 11.10.2 and libgazebo-dev, PX4 v1.17.0 at
 `~/PX4-Autopilot` with the `sitl_gazebo-classic` plugins built, `stefa` in `dialout`,
-usbipd-win 5.3.0 on Windows with the Pixhawk already bound (it survives replug).
+usbipd-win 5.3.0 on Windows with the Pixhawk already bound (it survives replug), and the ARM
+toolchain (`arm-none-eabi-gcc` 10.3.1) installed by `Tools/setup/ubuntu.sh`.
 
-Missing: the NuttX firmware. `arm-none-eabi-gcc` is not installed and no fmu-v6x board config
-enables `CONFIG_MODULES_SIMULATION_PWM_OUT_SIM`, so stock v1.17.0 v6x firmware cannot run HITL
-(with `SYS_HITL` set, rcS runs `pwm_out_sim start -m hil`, which is not compiled in). Step 0 is
-therefore mandatory once, and it is the long part (~30 to 60 min total).
+Built on 2026-09-11: `~/PX4-Autopilot/build/px4_fmu-v6x_hitl/px4_fmu-v6x_hitl.px4` (1.72 MB),
+`pwm_out_sim` confirmed in the binary. Not yet uploaded to the board.
 
 ## 0. Firmware with `pwm_out_sim` (once)
 
-```bash
-wsl -d Ubuntu-22.04 -- bash -lc "cd ~/PX4-Autopilot && bash ./Tools/setup/ubuntu.sh"
+Stock v1.17.0 v6x firmware cannot run HITL: with `SYS_HITL` set, rcS runs `pwm_out_sim start -m
+hil`, and no fmu-v6x board config compiles that module. Simply adding it to `default.px4board`
+does not link either, measured on this tree:
+
+```
+region `FLASH' overflowed by 22884 bytes      FLASH: 1988964 B / 1920 KB = 101.16%
 ```
 
-That installs the ARM toolchain (do not pass `--no-nuttx`). Open a new shell afterwards, then
-either use the launcher's flag or build by hand:
+So the harness ships `px4/fmu-v6x_hitl.px4board`, a delta on `default.px4board` (merged by
+`cmake/kconfig.cmake:50`) that adds `CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y` and drops the
+fixed-wing and VTOL modules a multirotor HITL never runs, exactly the set PX4's own
+`multicopter.px4board` drops. That links at 1859824 B, 94.6% of flash, and leaves
+`default.px4board` untouched for flight builds.
 
 ```bash
 wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/wsl/tiltlab_gazebo.sh --build-firmware --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
 ```
 
-It appends `CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y` to `boards/px4/fmu-v6x/default.px4board`,
-runs `make px4_fmu-v6x_default`, and offers `make px4_fmu-v6x_default upload`. The board must be
-attached (step 1) and QGroundControl closed for the upload. Same target for 6X and 6X Pro.
+The launcher copies the label to `boards/px4/fmu-v6x/hitl.px4board`, runs `make px4_fmu-v6x_hitl`
+and offers `make px4_fmu-v6x_hitl upload`. The board must be attached (step 1) and QGroundControl
+closed for the upload. Same target for 6X and 6X Pro. If the ARM toolchain is ever missing, run
+`bash ~/PX4-Autopilot/Tools/setup/ubuntu.sh` first (without `--no-nuttx`) and open a new shell.
 
 ## 1. USB passthrough into WSL
 

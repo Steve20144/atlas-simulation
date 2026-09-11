@@ -74,6 +74,12 @@ def test_export(cad, tmp_path):
     assert d["CBRK_SUPPLY_CHK"] == 894281  # USB-powered HITL: skip the power and battery checks
     assert channels[0].find("zero_position_armed").text == "0"
     assert "pwm_out_sim" in open(out["readme"], encoding="utf-8").read()
+    board = open(out["boardconfig"], encoding="utf-8").read()
+    # stock default + pwm_out_sim overflows the v6x flash: the label also drops FW and VTOL
+    assert board.endswith("CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y\n")
+    assert "CONFIG_MODULES_FW_ATT_CONTROL=n" in board
+    assert "CONFIG_MODULES_VTOL_ATT_CONTROL=n" in board
+    assert "px4_fmu-v6x_hitl" in open(out["readme"], encoding="utf-8").read()
     if out["mesh"]:
         assert out["mesh"].endswith("airframe.stl")
 

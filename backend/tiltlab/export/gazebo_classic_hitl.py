@@ -40,6 +40,24 @@ from tiltlab.export.gazebo import (
 from tiltlab.export.params import ca_geometry_params
 from tiltlab.scenario import Scenario
 
+BOARD_CONFIG_NAME = "fmu-v6x_hitl.px4board"
+# Delta on boards/px4/fmu-v6x/default.px4board (cmake/kconfig.cmake:50 merges the two). PX4 v1.17.0
+# default + CONFIG_MODULES_SIMULATION_PWM_OUT_SIM overflows the 1920 kB FLASH region by 22884 B, so
+# the fixed-wing and VTOL modules a multirotor HITL never runs come out; the stock multicopter label
+# drops exactly these (boards/px4/fmu-v6x/multicopter.px4board). Measured result: 1859824 B, 94.6%.
+BOARD_CONFIG = """CONFIG_COMMON_DIFFERENTIAL_PRESSURE=n
+CONFIG_MODE_NAVIGATOR_VTOL_TAKEOFF=n
+CONFIG_MODULES_AIRSPEED_SELECTOR=n
+CONFIG_MODULES_FW_ATT_CONTROL=n
+CONFIG_MODULES_FW_AUTOTUNE_ATTITUDE_CONTROL=n
+CONFIG_MODULES_FW_MODE_MANAGER=n
+CONFIG_MODULES_FW_LATERAL_LONGITUDINAL_CONTROL=n
+CONFIG_MODULES_FW_RATE_CONTROL=n
+CONFIG_MODULES_VTOL_ATT_CONTROL=n
+# CONFIG_EKF2_SIDESLIP is not set
+# CONFIG_SENSORS_VEHICLE_AIRSPEED is not set
+CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y
+"""
 HIL_AIRFRAME = 1001  # PX4 "HIL Quadcopter X": sets SYS_HITL 1 and starts pwm_out_sim -m hil
 INPUT_SCALING = 1000.0  # rad/s at full command in the mavlink_interface control channels
 MAX_ROT_VELOCITY = 1100.0
@@ -380,13 +398,18 @@ sudo usermod -aG dialout $USER && newgrp dialout            # access to /dev/tty
 ```
 
 ## 2. Firmware with the HITL output module
+Adding `pwm_out_sim` to the stock `default` configuration overflows the v6x flash region by
+about 22 kB, so this harness ships a separate board label that also drops the fixed-wing and
+VTOL modules a multirotor HITL never runs (result: 94.6% of flash used).
 ```bash
+HARNESS=$PWD                           # this directory, before changing to the PX4 tree
 cd ~/PX4-Autopilot
-echo 'CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y' >> boards/px4/fmu-v6x/default.px4board
-make px4_fmu-v6x_default
-make px4_fmu-v6x_default upload        # Pixhawk on USB, no other program holding the port
+cp $HARNESS/px4/fmu-v6x_hitl.px4board boards/px4/fmu-v6x/hitl.px4board
+make px4_fmu-v6x_hitl
+make px4_fmu-v6x_hitl upload           # Pixhawk on USB, no other program holding the port
 ```
-The build target is the same for Pixhawk 6X and 6X Pro.
+The label is a delta on `default.px4board`, which stays untouched for flight builds. The build
+target is the same for Pixhawk 6X and 6X Pro.
 
 ## 3. Parameters
 1. Connect QGroundControl (USB), Vehicle Setup > Parameters > Tools > Load from file:
@@ -473,12 +496,15 @@ def export_gazebo_classic_hitl(
     )
     params_path = root / "px4" / f"{name}.params"
     write_params_file(pf, params_path)
+    board_path = root / "px4" / BOARD_CONFIG_NAME
+    board_path.write_text(BOARD_CONFIG, encoding="utf-8", newline="\n")
     (root / "README.md").write_text(readme(scenario, name, serial), encoding="utf-8", newline="\n")
     return {
         "root": str(root),
         "model_sdf": str(model_dir / "model.sdf"),
         "world": str(root / "worlds" / f"hitl_{name}.world"),
         "params": str(params_path),
+        "boardconfig": str(board_path),
         "readme": str(root / "README.md"),
         "mesh": mesh_uri,
     }
