@@ -28,7 +28,14 @@ from tiltlab.core.params_px4 import (
     params_file_from_dict,
     write_params_file,
 )
-from tiltlab.export.gazebo import _inertia, airframe_stl, axis_to_rpy, frd_to_flu
+from tiltlab.export.gazebo import (
+    _inertia,
+    airframe_stl,
+    axis_to_rpy,
+    body_mass_kg,
+    fan_lag_s,
+    frd_to_flu,
+)
 from tiltlab.export.params import ca_geometry_params
 from tiltlab.scenario import Scenario
 
@@ -83,14 +90,14 @@ def _rotor_block(i: int, pos: tuple[float, float, float], rpy: tuple[float, floa
 """
 
 
-def _motor_plugin(i: int, turning: str, ct: float, km: float) -> str:
+def _motor_plugin(i: int, turning: str, ct: float, km: float, lag_s: float) -> str:
     return f"""    <plugin name='motor_{i}_model' filename='libgazebo_motor_model.so'>
       <robotNamespace/>
       <jointName>rotor_{i}_joint</jointName>
       <linkName>rotor_{i}</linkName>
       <turningDirection>{turning}</turningDirection>
-      <timeConstantUp>0.15</timeConstantUp>
-      <timeConstantDown>0.15</timeConstantDown>
+      <timeConstantUp>{lag_s:.3f}</timeConstantUp>
+      <timeConstantDown>{lag_s:.3f}</timeConstantDown>
       <maxRotVelocity>{MAX_ROT_VELOCITY:.0f}</maxRotVelocity>
       <motorConstant>{ct / INPUT_SCALING**2:.10e}</motorConstant>
       <momentConstant>{abs(km):.6f}</momentConstant>
@@ -134,7 +141,7 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None, serial: str) 
         "      <pose>0 0 0 0 0 0</pose>",
         "      <inertial>",
         "        <pose>0 0 0 0 0 0</pose>",
-        f"        <mass>{scenario.mass.total_kg:.4f}</mass>",
+        f"        <mass>{body_mass_kg(scenario, ROTOR_MASS_KG):.4f}</mass>",
         "        <inertia>"
         + "".join(f"<{k}>{v:.6f}</{k}>" for k, v in inertia.items())
         + "</inertia>",
@@ -182,6 +189,7 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None, serial: str) 
                 "ccw" if fan.spin == "CCW" else "cw",
                 float(ca[f"CA_ROTOR{i}_CT"]),
                 float(ca[f"CA_ROTOR{i}_KM"]),
+                fan_lag_s(scenario),
             )
         )
     out.append(

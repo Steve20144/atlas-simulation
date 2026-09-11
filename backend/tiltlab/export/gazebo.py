@@ -16,12 +16,14 @@ Generated, not run here (Gazebo needs a Linux host); see the README for the chec
 from __future__ import annotations
 
 import math
+import zlib
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
 
 import numpy as np
 
+from tiltlab.core.metrics import compute_metrics
 from tiltlab.export.params import ca_geometry_params
 from tiltlab.scenario import Scenario
 
@@ -29,7 +31,13 @@ MAX_ROT_VELOCITY = 1000.0  # rad/s at full command; motorConstant maps it onto t
 ROTOR_MASS_KG = 0.32  # XFly 80 mm EDF unit
 # Must not share its numeric prefix with any stock posix airframe: rcS sources every file matching
 # `<SYS_AUTOSTART>_*` and keeps the last; v1.17 ships 4010_gz_x500_mono_cam (4001..4021 are used).
-AIRFRAME_ID = 4500
+AIRFRAME_ID_BASE = 4500  # tiltlab ids are 4500..4899; PX4 v1.17 uses none of them
+
+
+def airframe_id(name: str) -> int:
+    """Autostart id for a scenario name: PX4's rcS matches `<id>_*` and sources the last hit, so two
+    tiltlab exports installed side by side must not share an id."""
+    return AIRFRAME_ID_BASE + zlib.crc32(name.encode("utf-8")) % 400
 
 
 def frd_to_flu(v: tuple[float, float, float] | np.ndarray) -> tuple[float, float, float]:
@@ -73,6 +81,13 @@ def airframe_stl(src_glb: Path, dst_stl: Path) -> bool:
         return False
 
 
+def body_mass_kg(scenario: Scenario, rotor_mass_kg: float = ROTOR_MASS_KG) -> float:
+    """Mass left for the body link once each rotor link carries rotor_mass_kg, so the whole
+    model weighs the scenario's total (otherwise hover needs about 27 percent more thrust than
+    tiltlab predicts)."""
+    return max(0.5, scenario.mass.total_kg - rotor_mass_kg * len(scenario.fans))
+
+
 def _inertia(scenario: Scenario) -> dict[str, float]:
     m = scenario.mass.total_kg
     ix = np.asarray(scenario.mass.inertia_frd_kgm2, dtype=float)
@@ -109,7 +124,8 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
         "    <pose>0 0 0.3 0 0 0</pose>",
         '    <link name="base_link">',
         "      <inertial>",
-        f"        <mass>{scenario.mass.total_kg:.4f}</mass>",
+        # the rotor links carry ROTOR_MASS_KG each; keep the model's total at the scenario mass
+        f"        <mass>{body_mass_kg(scenario):.4f}</mass>",
         "        <inertia>"
         + "".join(f"<{k}>{v:.6f}</{k}>" for k, v in inertia.items())
         + "</inertia>",
@@ -146,6 +162,8 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
         pos = frd_to_flu(scenario.effective_pos(fan) - np.asarray(scenario.mass.cg_frd_m))
         axis = frd_to_flu(scenario.effective_axis(fan))
         r, p, y = axis_to_rpy(axis)
+        # first-order spool lag of this fan's curve (the scenario's estimate, not x500's 12 ms)
+        lag = max(0.01, scenario.fan_curves[fan.curve_ref].lag_s) if fan.curve_ref else 0.01
         ct = float(ca[f"CA_ROTOR{i}_CT"])
         km = float(ca[f"CA_ROTOR{i}_KM"])
         turning = "ccw" if fan.spin == "CCW" else "cw"
@@ -169,7 +187,8 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
             'name="gz::sim::systems::MulticopterMotorModel">',
             f"      <jointName>rotor_{i}_joint</jointName><linkName>rotor_{i}</linkName>",
             f"      <turningDirection>{turning}</turningDirection>",
-            "      <timeConstantUp>0.15</timeConstantUp><timeConstantDown>0.15</timeConstantDown>",
+            f"      <timeConstantUp>{lag:.3f}</timeConstantUp>"
+            f"<timeConstantDown>{lag:.3f}</timeConstantDown>",
             f"      <maxRotVelocity>{MAX_ROT_VELOCITY:.0f}</maxRotVelocity>",
             f"      <motorConstant>{ct / MAX_ROT_VELOCITY**2:.10e}</motorConstant>",
             f"      <momentConstant>{abs(km):.6f}</momentConstant>",
@@ -279,8 +298,63 @@ def geometry_summary(scenario: Scenario) -> list[str]:
     return out
 
 
+def fan_lag_s(scenario: Scenario) -> float:
+    """Largest first-order spool time constant (s) of the fans' curves; floor 0.01 s for gz."""
+    lags = [scenario.fan_curves[f.curve_ref].lag_s for f in scenario.fans if f.curve_ref]
+    return max(0.01, max(lags) if lags else 0.0)
+
+
+RATE_CROSSOVER_MAX_RAD_S = 4.0  # rate-loop crossover asked for when the fans are fast enough
+
+
+def px4_tuning(scenario: Scenario) -> dict[str, float]:
+    """PX4 controller parameters sized for this airframe from tiltlab's own numbers.
+
+    PX4's default MC_* gains fit a small quad whose motors give about 130 rad/s^2 of angular
+    acceleration per unit of normalised torque with a 10 to 25 ms spool. A 12 kg EDF airframe
+    gives 7 to 20 rad/s^2 per unit with a 150 ms spool, so with the defaults the rate loop is
+    several times slower than the attitude loop above it and the cascade oscillates and flips
+    (seen in gz: pitch swinging to +50 then -80 deg within two seconds of lift-off).
+
+    Rule used here, per axis: crossover w_c = min(4 rad/s, 1 / (2.5 * fan lag)), rate P =
+    w_c / (torque authority / inertia), I = 1.3 P (yaw 0.5 P), D = 0.02 P (yaw 0), attitude
+    P = w_c / 2.5. Authority is tiltlab's attainable torque at hover (N m), inertia the
+    scenario's (or the box placeholder). THR_MDL_FAC 1 with a zero idle command makes the
+    gz thrust (motorConstant * omega^2) linear in PX4's command. MPC_THR_HOVER is the hover
+    collective. Axes tiltlab marks unattainable keep the PX4 defaults.
+    """
+    m = compute_metrics(scenario)
+    inertia = _inertia(scenario)
+    lag = fan_lag_s(scenario)
+    w_c = min(RATE_CROSSOVER_MAX_RAD_S, 1.0 / (2.5 * lag))
+    out: dict[str, float] = {"THR_MDL_FAC": 1.0}
+    hover = m.get("hover", {})
+    if hover.get("exact") and hover.get("u"):
+        out["MPC_THR_HOVER"] = round(min(0.8, max(0.2, float(np.mean(hover["u"])))), 3)
+    for axis, key, tag in (
+        ("roll", "ixx", "ROLL"),
+        ("pitch", "iyy", "PITCH"),
+        ("yaw", "izz", "YAW"),
+    ):
+        a = m.get("authority", {}).get(axis)
+        if not a or not (a.get("plus_attainable") and a.get("minus_attainable")):
+            continue
+        tau = min(float(a["plus"]), float(a["minus"]))
+        if tau <= 0.0 or inertia[key] <= 0.0:
+            continue
+        acc_per_unit = tau / inertia[key]  # rad/s^2 per unit normalised torque
+        p = min(0.6, max(0.02, w_c / acc_per_unit))
+        out[f"MC_{tag}RATE_P"] = round(p, 4)
+        out[f"MC_{tag}RATE_I"] = round((0.5 if axis == "yaw" else 1.3) * p, 4)
+        out[f"MC_{tag}RATE_D"] = 0.0 if axis == "yaw" else round(0.02 * p, 5)
+        out[f"MC_{tag}RATE_K"] = 1.0
+        out[f"MC_{tag}_P"] = round(min(6.5, max(0.5, w_c / 2.5)), 3)
+    return out
+
+
 def px4_airframe(scenario: Scenario, name: str) -> str:
     ca = ca_geometry_params(scenario)
+    tuning = px4_tuning(scenario)
     lines = [
         "#!/bin/sh",
         f"# @name tiltlab {name} (gz)",
@@ -308,11 +382,16 @@ def px4_airframe(scenario: Scenario, name: str) -> str:
             )
     for i in range(int(ca["CA_ROTOR_COUNT"])):
         lines.append(f"param set-default SIM_GZ_EC_FUNC{i + 1} {101 + i}")
-        lines.append(f"param set-default SIM_GZ_EC_MIN{i + 1} 150")
+        # idle command 0 (not x500's 150): with THR_MDL_FAC 1 the gz thrust is then exactly
+        # linear in PX4's motor command, so the allocator's hover and torque trims are right
+        lines.append(f"param set-default SIM_GZ_EC_MIN{i + 1} 0")
         lines.append(f"param set-default SIM_GZ_EC_MAX{i + 1} 1000")
     lines += [
         "",
-        "param set-default MPC_THR_HOVER 0.35",
+        "# Controller sizing from tiltlab (see px4_tuning in tiltlab/export/gazebo.py): rate-loop",
+        f"# crossover min(4 rad/s, 1/(2.5 x fan lag {fan_lag_s(scenario):.2f} s)) over torque",
+        "# authority / inertia per axis; THR_MDL_FAC 1 linearises motorConstant x omega^2.",
+        *(f"param set-default {k} {v:g}" for k, v in tuning.items()),
         "",
         "# SITL sends MAVLink to localhost only. Inside WSL2 broadcasts never reach Windows",
         "# (tested: unicast to the host does, subnet and limited broadcasts do not), so the GCS",
@@ -357,14 +436,15 @@ finds no motor combination that gives pure vertical thrust and commands zero.
 - `models/{name}/model.sdf`, `model.config`, `meshes/airframe.stl` (the CAD converted to the gz
   body frame FLU; the blue discs are the rotor links at the foil pressure points, not the ducts)
 - `worlds/{name}.sdf`
-- `px4/airframes/{AIRFRAME_ID}_gz_{name}` (posix airframe with the CA_ROTOR* geometry)
+- `px4/airframes/{airframe_id(name)}_gz_{name}` (posix airframe with the CA_ROTOR* geometry)
 
 ## Install into a PX4 checkout (v1.17)
 ```bash
 cp -r models/{name} $PX4/Tools/simulation/gz/models/
 cp worlds/{name}.sdf $PX4/Tools/simulation/gz/worlds/
-cp px4/airframes/{AIRFRAME_ID}_gz_{name} $PX4/ROMFS/px4fmu_common/init.d-posix/airframes/
-# add {AIRFRAME_ID}_gz_{name} to $PX4/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
+cp px4/airframes/{airframe_id(name)}_gz_{name} $PX4/ROMFS/px4fmu_common/init.d-posix/airframes/
+# add {airframe_id(name)}_gz_{name} to $PX4/ROMFS/px4fmu_common/init.d-posix/airframes/
+#   CMakeLists.txt
 cd $PX4 && make px4_sitl gz_{name}
 ```
 PX4's gz bridge (src/modules/simulation/gz_bridge) publishes `/{name}/command/motor_speed` and reads
@@ -429,6 +509,23 @@ tiltlab writes LF; if you edit or copy the files on Windows, run `sed -i 's/\\r$
 3. Hover in Position mode. If the vehicle drifts fore-aft at level attitude, the geometry has a
    net Fx, which tiltlab reports as "no level-attitude hover trim".
 
+## PX4 controller sizing written into the airframe
+PX4's default MC_* gains fit a small quad (about 130 rad/s^2 of angular acceleration per unit of
+normalised torque, 10 to 25 ms motor spool). This airframe gives far less angular authority per
+unit and its fans spool in {fan_lag_s(scenario) * 1000:.0f} ms, so with the defaults the rate
+loop is slower than the attitude loop above it and the vehicle flips within two seconds of
+lift-off (seen in gz before this sizing was added). The airframe therefore sets, per axis:
+rate-loop crossover w_c = min(4 rad/s, 1 / (2.5 x fan lag)), rate P = w_c / (torque authority /
+inertia), I = 1.3 P (yaw 0.5 P), D = 0.02 P, attitude P = w_c / 2.5, plus THR_MDL_FAC 1 with a
+zero idle command so the gz thrust (motorConstant x omega^2) is linear in PX4's command, and
+MPC_THR_HOVER at tiltlab's hover collective. Axes tiltlab marks unattainable keep PX4 defaults.
+{chr(10).join(f"- {k} = {v:g}" for k, v in px4_tuning(scenario).items())}
+
+With the per-pair foil set [135, 60, 120, 60] deg this flew in gz sim (2026-09-10): `commander
+takeoff` to 2.5 m, 30 s hover with roll and pitch standard deviation under 3 deg and altitude
+within 2.4 cm, `commander land`; the hover motor commands matched tiltlab's prediction (mean
+0.449) on every motor. See docs/gazebo_flight_2026-09-10.md in the tiltlab repository.
+
 ## Limits
 No aerodynamics of the foil or wing, no jet interaction, no ground effect; the Coanda turning is
 baked into the rotor axes (effective deflection), not simulated. Mass and inertia are the
@@ -464,7 +561,7 @@ def export_gazebo(
         encoding="utf-8",
     )
     (root / "worlds" / f"{name}.sdf").write_text(world_sdf(name), encoding="utf-8", newline="\n")
-    airframe = root / "px4" / "airframes" / f"{AIRFRAME_ID}_gz_{name}"
+    airframe = root / "px4" / "airframes" / f"{airframe_id(name)}_gz_{name}"
     airframe.write_text(px4_airframe(scenario, name), encoding="utf-8", newline="\n")
     (root / "README.md").write_text(readme(scenario, name), encoding="utf-8", newline="\n")
     return {
