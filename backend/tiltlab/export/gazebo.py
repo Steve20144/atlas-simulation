@@ -315,7 +315,8 @@ def px4_tuning(scenario: Scenario) -> dict[str, float]:
     Rule used here, per axis: crossover w_c = min(4 rad/s, 1 / (3.5 * fan lag)), rate P =
     w_c / (torque authority / inertia), I = 0.6 P (yaw 0.5 P), D = 0.05 P (yaw 0), integrator
     limit 0.15, attitude P = w_c / 2.5, autotune off. Authority is tiltlab's attainable torque
-    at hover (N m), inertia the scenario's (or the box placeholder). THR_MDL_FAC 1 with a zero idle command makes the
+    at hover (N m), inertia the scenario's (or the box placeholder). THR_MDL_FAC 1 with a zero
+    idle command makes the
     gz thrust (motorConstant * omega^2) linear in PX4's command. MPC_THR_HOVER is the hover
     collective. Axes tiltlab marks unattainable keep the PX4 defaults.
     """
