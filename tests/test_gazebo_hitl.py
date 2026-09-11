@@ -70,6 +70,8 @@ def test_export(cad, tmp_path):
     pf = read_params_file(out["params"])
     d = pf.to_dict()
     assert d["SYS_HITL"] == 1 and d["HIL_ACT_FUNC10"] == 110 and d["CA_ROTOR_COUNT"] == 10
+    assert d["THR_MDL_FAC"] == 1.0  # controller sizing rides along with the geometry
+    assert channels[0].find("zero_position_armed").text == "0"
     assert "pwm_out_sim" in open(out["readme"], encoding="utf-8").read()
     if out["mesh"]:
         assert out["mesh"].endswith("airframe.stl")

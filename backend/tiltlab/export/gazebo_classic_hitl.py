@@ -35,6 +35,7 @@ from tiltlab.export.gazebo import (
     body_mass_kg,
     fan_lag_s,
     frd_to_flu,
+    px4_tuning,
 )
 from tiltlab.export.params import ca_geometry_params
 from tiltlab.scenario import Scenario
@@ -117,7 +118,7 @@ def _channel(i: int) -> str:
           <input_offset>0</input_offset>
           <input_scaling>{INPUT_SCALING:.0f}</input_scaling>
           <zero_position_disarmed>0</zero_position_disarmed>
-          <zero_position_armed>100</zero_position_armed>
+          <zero_position_armed>0</zero_position_armed>
           <joint_control_type>velocity</joint_control_type>
         </channel>
 """
@@ -340,6 +341,10 @@ def hitl_params(scenario: Scenario) -> dict[str, int | float]:
     params["CA_ROTOR_COUNT"] = int(ca["CA_ROTOR_COUNT"])
     for i in range(int(ca["CA_ROTOR_COUNT"])):
         params[f"HIL_ACT_FUNC{i + 1}"] = 101 + i
+    # same controller sizing that flew the gz SITL harness: the Classic motor model is also
+    # thrust = k * omega^2 with omega = command * input_scaling (zero_position_armed 0), so
+    # THR_MDL_FAC 1 linearises it and the gains sized from authority, inertia and fan lag apply
+    params.update(px4_tuning(scenario))
     return params
 
 
