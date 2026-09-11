@@ -74,6 +74,7 @@ def test_export(cad, tmp_path):
     assert d["THR_MDL_FAC"] == 1.0  # controller sizing rides along with the geometry
     assert d["CBRK_SUPPLY_CHK"] == 894281  # USB-powered HITL: skip the power and battery checks
     assert d["EKF2_EN"] == 0  # HIL_STATE_QUATERNION is the sole attitude source
+    assert d["SDLOG_MODE"] == 2 and d["SDLOG_BACKEND"] == 1  # rc.logging:55 needs a backend
     assert d["SYS_HAS_MAG"] == 0 and d["SYS_HAS_BARO"] == 0  # not sent at hil_state_level 1
     assert d["CAL_ACC0_ID"] == 1310988 and d["CAL_GYRO0_ID"] == 1310988 and d["CAL_ACC1_ID"] == 0
     assert channels[0].find("zero_position_armed").text == "0"

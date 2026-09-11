@@ -379,6 +379,11 @@ def hitl_params(scenario: Scenario) -> dict[str, int | float]:
     # quaternion publishes vehicle_attitude / vehicle_local_position directly). ekf2 must not
     # publish the same topics at the same time; rcS:371 starts it only when EKF2_EN is 1.
     params["EKF2_EN"] = 0
+    # Log every HITL session from boot. rc.logging:55 starts the logger only when SDLOG_BACKEND is
+    # not 0, and a board set up for flight may carry 0; with no time source at hil_state_level 1
+    # the files land in /fs/microsd/log/sessNNN/ and list with time_utc 0.
+    params["SDLOG_MODE"] = 2
+    params["SDLOG_BACKEND"] = 1
     # At hil_state_level 1 the plugin sends no HIL_SENSOR (mavlink_interface.cpp:277, :303), so no
     # magnetometer or barometer instance exists and the presence checks would refuse to arm.
     params["SYS_HAS_MAG"] = 0
