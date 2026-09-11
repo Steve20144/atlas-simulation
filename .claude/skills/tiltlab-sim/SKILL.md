@@ -110,6 +110,10 @@ MPC_Z_VEL_P_ACC 1.9 x, tilt limit 20 deg, `MC_AT_EN 0`.
 | axes ring one after another, gains in log 3 to 4x the airframe's | PX4 autotune ran (QGC tuning page) | `MC_AT_EN 0`; never run Autotune here |
 | QGC "Disconnected" though PX4 runs | WSL2 drops UDP broadcast to Windows | airframe starts the GCS link at the Windows host IP; fallback: QGC manual UDP link, listening port 14551, server `<WSL ip>:18570` |
 | second Gazebo launch shows a grey or duplicate window, or will not start | `gzserver` from the previous run still holds the master port 11345 | `pkill -x gzclient; pkill -x gzserver` (the launcher asks before doing it) |
+| HITL board tilted 25 deg+ against a level model, lunges on arming | Classic IMU plugin gives the EKF tilted acceleration | harness: `hil_state_level 1` + `EKF2_EN 0`; board takes `HIL_STATE_QUATERNION` |
+| HITL `Preflight Fail: Accel Sensor 0 missing` / `0 compass` / `barometer 0 missing` | no HIL_SENSOR at state level 1; CAL slots name the real ICM | exported `SYS_HAS_MAG/BARO 0`, `CAL_ACC0_ID`/`CAL_GYRO0_ID 1310988` |
+| HITL `set_option: Input/output error`, `Tx queue overflow` | board came back as `/dev/ttyACM1` after reboot | launcher auto-selects the one `ttyACM*` present |
+| int params garbage after MAVLink param load | INT32 is byte-wise in PARAM_VALUE | `param set` via the board shell, or struct-decode ints |
 | grey Gazebo window titled `[WARN:COPY MODE]` | WSLg shared-memory channel failed (`/mnt/wslg/weston.log`: `rdp_allocate_shared_memory ... Input/output error`, `use_gfxredir = 0`) | `wsl --shutdown` from PowerShell, relaunch |
 | HITL: `No valid data from Accel 0`, `hil_state: 0` | board not booted with SYS_HITL 1, or commander restarted | `param set SYS_HITL 1; param save; reboot`, re-attach USB, restart Gazebo |
 | HITL: `system power unavailable`, `Battery unhealthy` | saved `CBRK_SUPPLY_CHK 0` from flight setup | `param set CBRK_SUPPLY_CHK 894281` (now in the exported file) |

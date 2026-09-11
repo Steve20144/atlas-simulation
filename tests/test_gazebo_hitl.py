@@ -46,6 +46,7 @@ def test_export(cad, tmp_path):
     assert sum(1 for n in plugins if n.startswith("motor_")) == 10
     mav = plugins["mavlink_interface"]
     assert mav.find("serialEnabled").text == "1" and mav.find("hil_mode").text == "1"
+    assert mav.find("hil_state_level").text == "1"  # ground-truth state to the board
     assert mav.find("baudRate").text == "921600" and mav.find("use_tcp").text == "0"
     channels = mav.find("control_channels").findall("channel")
     assert len(channels) == 10 and channels[9].find("input_index").text == "9"
@@ -72,6 +73,9 @@ def test_export(cad, tmp_path):
     assert d["SYS_HITL"] == 1 and d["HIL_ACT_FUNC10"] == 110 and d["CA_ROTOR_COUNT"] == 10
     assert d["THR_MDL_FAC"] == 1.0  # controller sizing rides along with the geometry
     assert d["CBRK_SUPPLY_CHK"] == 894281  # USB-powered HITL: skip the power and battery checks
+    assert d["EKF2_EN"] == 0  # HIL_STATE_QUATERNION is the sole attitude source
+    assert d["SYS_HAS_MAG"] == 0 and d["SYS_HAS_BARO"] == 0  # not sent at hil_state_level 1
+    assert d["CAL_ACC0_ID"] == 1310988 and d["CAL_GYRO0_ID"] == 1310988 and d["CAL_ACC1_ID"] == 0
     assert channels[0].find("zero_position_armed").text == "0"
     assert "pwm_out_sim" in open(out["readme"], encoding="utf-8").read()
     board = open(out["boardconfig"], encoding="utf-8").read()

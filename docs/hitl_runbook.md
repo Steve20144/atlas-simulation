@@ -34,8 +34,8 @@ Ready: Ubuntu-22.04 (WSL2) with Gazebo Classic 11.10.2 and libgazebo-dev, PX4 v1
 usbipd-win 5.3.0 on Windows with the Pixhawk already bound (it survives replug), and the ARM
 toolchain (`arm-none-eabi-gcc` 10.3.1) installed by `Tools/setup/ubuntu.sh`.
 
-Built on 2026-09-11: `~/PX4-Autopilot/build/px4_fmu-v6x_hitl/px4_fmu-v6x_hitl.px4` (1.72 MB),
-`pwm_out_sim` confirmed in the binary. Not yet uploaded to the board.
+Flashed 2026-09-11: `px4_fmu-v6x_hitl` (1.72 MB) is on the board with the HITL parameter set,
+`EKF2_EN 0` and the HIL sensor-presence set; the harness runs `hil_state_level 1`.
 
 ## 0. Firmware with `pwm_out_sim` (once)
 
@@ -144,4 +144,9 @@ before powering anything.
 | `ttyACM0 exists but cannot be opened` | not in `dialout` in this session | `wsl --terminate Ubuntu-22.04`, new shell |
 | QGC stays "Disconnected" while Gazebo runs | relay not running or firewall | check `qgc_udp_relay.py` in the launcher output, then the manual UDP link above |
 | second launch opens a grey or duplicate window, or Gazebo will not start again | `gzserver` from the previous run still holds the master port 11345, so the new client attaches to the old scene | the launcher now offers to stop it; by hand: `pkill -x gzclient; pkill -x gzserver` |
+| board attitude 25 deg or more off the level model, arms into a lunge; PX4's own `iris_hitl` shows it too | Classic IMU plugin feeds the EKF a tilted acceleration; not the geometry, not `hover_pitch_deg` | harness runs `hil_state_level 1` with `EKF2_EN 0`: the board takes attitude and position from `HIL_STATE_QUATERNION` and ekf2 never publishes against it |
+| `vz` alternating 0 and ~23 m/s, attitude garbage, after `hil_state_level 1` | ekf2 still running: two publishers on `vehicle_attitude` / `vehicle_local_position` | `EKF2_EN 0` (rcS:371 gates `ekf2 start` on it), in the exported .params |
+| `Preflight Fail: Accel/Gyro Sensor 0 missing`, `barometer 0 missing`, `Found 0 compass` at state level 1 | no `HIL_SENSOR` is sent at that level (mavlink_interface.cpp:277, :303); calibration slots still name the real ICM | exported: `SYS_HAS_MAG 0`, `SYS_HAS_BARO 0`, `CAL_ACC0_ID`/`CAL_GYRO0_ID 1310988` (DRV_IMU_DEVTYPE_SIM) with identity calibration, slot 1 cleared |
+| `Error opening serial device: set_option: Input/output error`, `Tx queue overflow`, no telemetry | board reboot re-enumerated through usbipd as `/dev/ttyACM1`; launcher pointed Gazebo at the stale ACM0 | launcher now uses the single `ttyACM*` present when the default is absent |
+| integer params land as garbage (`HIL_ACT_FUNC1` = 1120534528, `SYS_AUTOSTART` 0) after a MAVLink param load | PX4 carries INT32 params byte-wise in `PARAM_VALUE`; writing them as floats corrupts them and a float read-back agrees with itself | load through the board shell (`param set`) or decode INT32 with struct; never trust a float read-back for ints |
 | grey Gazebo window titled `[WARN:COPY MODE]` | WSLg lost its shared-memory channel at session start (`/mnt/wslg/weston.log`: `rdp_allocate_shared_memory ... Input/output error`, `use_gfxredir = 0`); nothing inside WSL fixes it | `wsl --shutdown` from Windows (closes every distro), then launch again |

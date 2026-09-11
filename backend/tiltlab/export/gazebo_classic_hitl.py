@@ -58,6 +58,7 @@ CONFIG_MODULES_VTOL_ATT_CONTROL=n
 # CONFIG_SENSORS_VEHICLE_AIRSPEED is not set
 CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y
 """
+HIL_IMU_DEVICE_ID = 1310988  # mavlink_receiver.cpp: PX4Accelerometer(1310988), DRV_IMU_DEVTYPE_SIM
 HIL_AIRFRAME = 1001  # PX4 "HIL Quadcopter X": sets SYS_HITL 1 and starts pwm_out_sim -m hil
 INPUT_SCALING = 1000.0  # rad/s at full command in the mavlink_interface control channels
 MAX_ROT_VELOCITY = 1100.0
@@ -281,7 +282,12 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None, serial: str) 
       <sdk_addr>INADDR_ANY</sdk_addr>
       <sdk_udp_port>14540</sdk_udp_port>
       <hil_mode>1</hil_mode>
-      <hil_state_level>0</hil_state_level>
+      <!-- 1: send HIL_STATE_QUATERNION (ground-truth attitude, position, velocity) so the
+           board takes the sim's state directly instead of running its EKF on simulated IMU
+           data. With 0 the Classic IMU plugin handed this board the airframe tilt instead of
+           base_link's level (HITL 2026-09-11: board -25.3 deg at rest, truth -0.04, PX4 SITL
+           0.04 on the same model), and the controller fought a lean that did not exist. -->
+      <hil_state_level>1</hil_state_level>
       <send_vision_estimation>0</send_vision_estimation>
       <send_odometry>1</send_odometry>
       <enable_lockstep>0</enable_lockstep>
@@ -368,6 +374,27 @@ def hitl_params(scenario: Scenario) -> dict[str, int | float]:
     # flown files carry 0) wins over the default and the board then refuses to arm on USB power
     # with "system power unavailable" / "Battery unhealthy". Set it explicitly for the HITL set.
     params["CBRK_SUPPLY_CHK"] = 894281
+    # The model runs the mavlink_interface with hil_state_level 1, so the board takes attitude
+    # and position from HIL_STATE_QUATERNION (mavlink_receiver.cpp handle_message_hil_state_
+    # quaternion publishes vehicle_attitude / vehicle_local_position directly). ekf2 must not
+    # publish the same topics at the same time; rcS:371 starts it only when EKF2_EN is 1.
+    params["EKF2_EN"] = 0
+    # At hil_state_level 1 the plugin sends no HIL_SENSOR (mavlink_interface.cpp:277, :303), so no
+    # magnetometer or barometer instance exists and the presence checks would refuse to arm.
+    params["SYS_HAS_MAG"] = 0
+    params["SYS_HAS_BARO"] = 0
+    # The only IMU is the one the receiver creates from HIL_STATE_QUATERNION, device id 1310988
+    # (DRV_IMU_DEVTYPE_SIM). accelerometerCheck.cpp:62 requires a calibration slot for the present
+    # device, so slot 0 points at it with identity calibration and slot 1 is cleared; a board that
+    # was calibrated for flight otherwise reports its real ICM as "Accel Sensor 0 missing".
+    params["CAL_ACC0_ID"] = HIL_IMU_DEVICE_ID
+    params["CAL_GYRO0_ID"] = HIL_IMU_DEVICE_ID
+    params["CAL_ACC1_ID"] = 0
+    params["CAL_GYRO1_ID"] = 0
+    for axis in "XYZ":
+        params[f"CAL_ACC0_{axis}OFF"] = 0.0
+        params[f"CAL_ACC0_{axis}SCALE"] = 1.0
+        params[f"CAL_GYRO0_{axis}OFF"] = 0.0
     return params
 
 
