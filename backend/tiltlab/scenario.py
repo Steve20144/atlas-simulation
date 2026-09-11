@@ -430,7 +430,6 @@ class Scenario(BaseModel):
         """Effective thrust direction (unit, FRD) in the hover frame."""
         return self.hover_rotation() @ np.asarray(self.effective_axis(fan), dtype=float)
 
-
     def fan_ct(self, fan: Fan) -> float:
         """PX4 CA_ROTORn_CT for a fan: curve thrust (N) at cmd 1.0, unless overridden
         by control.px4_params_override['CA_ROTOR<n>_CT']."""

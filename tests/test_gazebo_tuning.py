@@ -44,8 +44,20 @@ def test_tuning_sized_from_authority_and_lag(hover):
     for tag in ("ROLL", "PITCH", "YAW"):
         p = t[f"MC_{tag}RATE_P"]
         assert 0.02 <= p <= 0.6
-        assert t[f"MC_{tag}_P"] == pytest.approx(w_c / 2.5, abs=1e-3)
+        if tag != "YAW":
+            assert t[f"MC_{tag}_P"] == pytest.approx(w_c / 2.5, abs=1e-3)
         assert t[f"MC_{tag}RATE_K"] == 1.0
+    # outer loops sized below the attitude bandwidth (the quad defaults drove a 0.25 Hz limit cycle)
+    w_att = w_c / 2.5
+    assert (
+        t["MPC_XY_VEL_P_ACC"] == pytest.approx(0.75 * w_att, abs=1e-3)
+        and t["MPC_TILTMAX_AIR"] == 20.0
+    )
+    assert (
+        t["MPC_XY_P"] < 0.95
+        and t["MPC_Z_VEL_P_ACC"] < 4.0
+        and t["MC_YAW_P"] == pytest.approx(1.4 * w_att, abs=1e-3)
+    )
     # pitch has the least authority per inertia, so it needs the largest rate gain
     assert t["MC_PITCHRATE_P"] > t["MC_ROLLRATE_P"]
     assert t["MC_YAWRATE_D"] == 0.0

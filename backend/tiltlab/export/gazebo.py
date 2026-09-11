@@ -342,6 +342,31 @@ def px4_tuning(scenario: Scenario) -> dict[str, float]:
         out[f"MC_{tag}RATE_D"] = 0.0 if axis == "yaw" else round(0.02 * p, 5)
         out[f"MC_{tag}RATE_K"] = 1.0
         out[f"MC_{tag}_P"] = round(min(6.5, max(0.5, w_c / 2.5)), 3)
+    # Outer loops must be slower than the attitude loop they command. With PX4's quad defaults
+    # (MPC_XY_VEL_P_ACC 1.8, MPC_XY_P 0.95) over a 1 rad/s attitude loop the position controller
+    # pinned the attitude setpoint at the tilt limit in a 0.25 Hz limit cycle (roll and pitch
+    # 78 deg peak to peak, 9 m of wander, gz sim 2026-09-11). Scaled to the attitude bandwidth
+    # w_att = w_c / 2.5 these held 0.1 deg attitude noise and 15 cm position in the same sim.
+    w_att = w_c / 2.5
+    out.update(
+        {
+            "MPC_XY_VEL_P_ACC": round(0.75 * w_att, 3),
+            "MPC_XY_VEL_I_ACC": round(0.14 * w_att, 3),
+            "MPC_XY_VEL_D_ACC": round(0.28 * w_att, 3),
+            "MPC_XY_P": round(min(2.0, 0.47 * w_att), 3),
+            "MPC_Z_VEL_P_ACC": round(1.9 * w_att, 3),
+            "MPC_Z_VEL_I_ACC": round(0.94 * w_att, 3),
+            "MPC_Z_P": round(min(1.5, 0.56 * w_att), 3),
+            "MPC_TILTMAX_AIR": 20.0,
+            "MPC_ACC_HOR": 2.0,
+            "MPC_ACC_UP_MAX": 2.0,
+            "MPC_ACC_DOWN_MAX": 2.0,
+            "MPC_JERK_AUTO": 2.0,
+            "MPC_XY_VEL_MAX": 3.0,
+        }
+    )
+    if "MC_YAW_P" in out:
+        out["MC_YAW_P"] = round(min(6.5, 1.4 * w_att), 3)  # yaw may lead the tilt axes a little
     return out
 
 
