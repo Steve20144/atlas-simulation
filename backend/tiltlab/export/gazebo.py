@@ -374,6 +374,13 @@ def px4_tuning(scenario: Scenario) -> dict[str, float]:
     )
     # yaw keeps the same attitude/rate ratio as roll and pitch: raising MC_YAW_P to 1.4 w_att with
     # a lower rate gain produced a 0.4 Hz yaw limit cycle (114 deg peak to peak) in gz sim
+    # A geometry tuned by hand in the sim keeps its gains in control.px4_params_override, which
+    # wins over the rule here and reaches the SITL airframe and the HITL .params through the same
+    # call. CA_* entries are geometry, not tuning, and are applied by ca_geometry_params instead.
+    out.update(
+        {k: float(v) for k, v in scenario.control.px4_params_override.items()
+         if not k.startswith("CA_")}
+    )
     return out
 
 

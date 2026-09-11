@@ -92,3 +92,13 @@ def test_export_carries_tuning_lag_and_mass(hover, tmp_path):
     assert float(plugin.find("timeConstantUp").text) == pytest.approx(0.15)
     readme = open(out["readme"], encoding="utf-8").read()
     assert "## PX4 controller sizing" in readme and "MC_PITCHRATE_P" in readme
+
+def test_px4_params_override_wins_over_the_rule(cad):
+    # a geometry tuned by hand in the sim keeps its gains in the scenario, and both exports use it
+    tuned = {"MC_YAWRATE_P": 0.07, "MPC_TILTMAX_AIR": 10.0}
+    sc = cad.model_copy(
+        update={"control": cad.control.model_copy(update={"px4_params_override": tuned})}
+    )
+    out = px4_tuning(sc)
+    assert out["MC_YAWRATE_P"] == 0.07 and out["MPC_TILTMAX_AIR"] == 10.0
+    assert px4_tuning(cad).get("MC_YAWRATE_P") != 0.07  # the rule alone gives something else
