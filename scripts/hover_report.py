@@ -75,7 +75,8 @@ def main() -> int:
         print(f"\n{lo:.0f} to {hi:.0f} s")
         for name, sig in (("roll", roll), ("pitch", pitch), ("yaw", yaw)):
             print(
-                f"  {name:5s} pk-pk {np.ptp(sig[m]):6.1f} deg  std {sig[m].std():5.2f}  @ {dominant_hz(sig[m], t[m]):.2f} Hz"
+                f"  {name:5s} pk-pk {np.ptp(sig[m]):6.1f} deg  std {sig[m].std():5.2f}"
+                f"  @ {dominant_hz(sig[m], t[m]):.2f} Hz"
             )
         if sp is not None:
             ts = sp["timestamp"] / 1e6 - t0
@@ -89,7 +90,8 @@ def main() -> int:
             mr, ma = (tr > lo) & (tr < hi), (ta > lo) & (ta < hi)
             for i, name in enumerate(("roll", "pitch", "yaw")):
                 print(
-                    f"  {name:5s} rate sp pk-pk {np.degrees(np.ptp(rs[name][mr])):5.0f} deg/s, measured {np.degrees(np.ptp(av[f'xyz[{i}]'][ma])):5.0f} deg/s"
+                    f"  {name:5s} rate sp pk-pk {np.degrees(np.ptp(rs[name][mr])):5.0f} deg/s,"
+                    f" measured {np.degrees(np.ptp(av[f'xyz[{i}]'][ma])):5.0f} deg/s"
                 )
         if tq is not None:
             tt = tq["timestamp"] / 1e6 - t0
@@ -105,7 +107,8 @@ def main() -> int:
             tl = lp["timestamp"] / 1e6 - t0
             ml = (tl > lo) & (tl < hi)
             print(
-                f"  position pk-pk x {np.ptp(lp['x'][ml]):.2f} y {np.ptp(lp['y'][ml]):.2f} z {np.ptp(lp['z'][ml]):.2f} m, altitude {-lp['z'][ml].mean():.2f} m"
+                f"  position pk-pk x {np.ptp(lp['x'][ml]):.2f} y {np.ptp(lp['y'][ml]):.2f}"
+                f" z {np.ptp(lp['z'][ml]):.2f} m, altitude {-lp['z'][ml].mean():.2f} m"
             )
         if am is not None:
             tm = am["timestamp"] / 1e6 - t0
