@@ -345,6 +345,10 @@ def hitl_params(scenario: Scenario) -> dict[str, int | float]:
     # thrust = k * omega^2 with omega = command * input_scaling (zero_position_armed 0), so
     # THR_MDL_FAC 1 linearises it and the gains sized from authority, inertia and fan lag apply
     params.update(px4_tuning(scenario))
+    # The HIL airframe only *defaults* CBRK_SUPPLY_CHK; a value saved by a real-flight setup (the
+    # flown files carry 0) wins over the default and the board then refuses to arm on USB power
+    # with "system power unavailable" / "Battery unhealthy". Set it explicitly for the HITL set.
+    params["CBRK_SUPPLY_CHK"] = 894281
     return params
 
 

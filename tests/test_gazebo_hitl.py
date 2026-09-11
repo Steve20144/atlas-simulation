@@ -71,6 +71,7 @@ def test_export(cad, tmp_path):
     d = pf.to_dict()
     assert d["SYS_HITL"] == 1 and d["HIL_ACT_FUNC10"] == 110 and d["CA_ROTOR_COUNT"] == 10
     assert d["THR_MDL_FAC"] == 1.0  # controller sizing rides along with the geometry
+    assert d["CBRK_SUPPLY_CHK"] == 894281  # USB-powered HITL: skip the power and battery checks
     assert channels[0].find("zero_position_armed").text == "0"
     assert "pwm_out_sim" in open(out["readme"], encoding="utf-8").read()
     if out["mesh"]:
