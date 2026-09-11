@@ -54,7 +54,7 @@ fixed-wing and VTOL modules a multirotor HITL never runs, exactly the set PX4's 
 `default.px4board` untouched for flight builds.
 
 ```bash
-wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/wsl/tiltlab_gazebo.sh --build-firmware --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
+wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --build-firmware --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
 ```
 
 The launcher copies the label to `boards/px4/fmu-v6x/hitl.px4board`, runs `make px4_fmu-v6x_hitl`
@@ -116,7 +116,7 @@ auto-attach picks it up again.
 Fans and ESCs unpowered. From PowerShell:
 
 ```powershell
-wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/wsl/tiltlab_gazebo.sh --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
+wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
 ```
 
 HITL is the launcher's default mode. It copies the model and world into
@@ -126,7 +126,7 @@ delivers the plugin's UDP broadcast to Windows) and runs `gazebo --verbose`. Exp
 `Opened serial device /dev/ttyACM0`. Reopen QGC after the window is up; it connects over UDP 14550,
 and the fallback is a manual UDP link, listening port 14551, server `<WSL ip>:18570`.
 
-Arm and fly from QGC or the transmitter. `bash ~/utopia/wsl/px4ctl.sh takeoff|land|log|param`
+Arm and fly from QGC or the transmitter. `bash ~/utopia/vibe-coded/scripts/wsl/px4ctl.sh takeoff|land|log|param`
 works the same as in SITL, and `scripts/hover_report.py` reads the copied ulog.
 
 ## Returning to flight configuration

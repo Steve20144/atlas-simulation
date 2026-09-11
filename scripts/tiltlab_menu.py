@@ -24,7 +24,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 WSL_REPO = "~/utopia/vibe-coded"
-WSL_HELPERS = "~/utopia/wsl"
+WSL_HELPERS = "~/utopia/vibe-coded/scripts/wsl"
 SITL_DISTRO = "Ubuntu-24.04"  # gz sim (Harmonic)
 HITL_DISTRO = "Ubuntu-22.04"  # Gazebo Classic 11, the only one PX4 speaks HIL through
 DRY_RUN = False

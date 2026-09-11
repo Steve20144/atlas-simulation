@@ -8,7 +8,7 @@ description: Operate the Atlas 10-EDF simulation stack: sweep foil deflections a
 Everything below was verified on this machine on 2026-09-10/11. Paths are fixed: the repo is
 `C:\Users\stefa\Documents\Utopia Labs\vibe-coded` (in WSL: `~/utopia/vibe-coded`, a symlink that
 exists in both distros because the space in "Utopia Labs" breaks quoting through `wsl.exe`).
-The helper scripts live in `~/utopia/wsl/` (outside the repo).
+The helper scripts live in `~/utopia/vibe-coded/scripts/wsl/` (outside the repo).
 
 ## The stack in one picture
 
@@ -19,10 +19,10 @@ The helper scripts live in `~/utopia/wsl/` (outside the repo).
    (`exports/gazebo/<scenario>/`); `gazebo_classic_hitl.py` writes the Gazebo Classic model and a QGC
    `.params` file for the real Pixhawk (`exports/gazebo_hitl/<scenario>_hitl/`). Both carry the PX4
    controller gains from `px4_tuning()`.
-3. **WSL launcher** `~/utopia/wsl/tiltlab_gazebo.sh`: installs a harness into the PX4 v1.17.0 checkout
+3. **WSL launcher** `~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh`: installs a harness into the PX4 v1.17.0 checkout
    (`~/PX4-Autopilot`), applies the required PX4 patches, clears saved params, launches.
    SITL runs in **Ubuntu-24.04** (gz sim Harmonic). HITL runs in **Ubuntu-22.04** (Gazebo Classic 11).
-4. **Live control** `~/utopia/wsl/px4ctl.sh`: takeoff, land, set/show parameters, copy logs, stop.
+4. **Live control** `~/utopia/vibe-coded/scripts/wsl/px4ctl.sh`: takeoff, land, set/show parameters, copy logs, stop.
 5. **Log analysis** `scripts/hover_report.py`: attitude, setpoints, torque demand, position hold, gains.
 
 ## Workflow A: find a geometry (sweep)
@@ -57,12 +57,12 @@ uv run --project backend python -c "import json,pathlib;from tiltlab.scenario im
 Launch from PowerShell (opens Gazebo GUI and the PX4 console in that window):
 
 ```bash
-wsl -d Ubuntu-24.04 -- bash -lc "bash ~/utopia/wsl/tiltlab_gazebo.sh --mode sitl --harness ~/utopia/vibe-coded/exports/gazebo/atlas_phase01_cad_control"
+wsl -d Ubuntu-24.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --mode sitl --harness ~/utopia/vibe-coded/exports/gazebo/atlas_phase01_cad_control"
 ```
 
 Answer yes to clearing saved SITL parameters. Wait for `Ready for takeoff!` plus ~10 s (height
 estimate), then `commander takeoff` in the PX4 console, `commander land` to finish. From another
-shell you can drive it without the console: `wsl -d Ubuntu-24.04 -- bash ~/utopia/wsl/px4ctl.sh takeoff`.
+shell you can drive it without the console: `wsl -d Ubuntu-24.04 -- bash ~/utopia/vibe-coded/scripts/wsl/px4ctl.sh takeoff`.
 
 Headless variant for scripted tests: prefix `HEADLESS=1` inside the quotes; watch via QGC or
 `gz topic -e -t /<model>_0/command/motor_speed`.
@@ -76,7 +76,7 @@ Prerequisites once: firmware with `pwm_out_sim` (`--build-firmware`), usbipd-win
 `listener vehicle_status` shows `hil_state: 1` (HIL is set only at boot), close QGC, then:
 
 ```bash
-wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/wsl/tiltlab_gazebo.sh --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
+wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
 ```
 
 The script starts `qgc_udp_relay.py` so QGC on Windows reconnects over UDP. Fans and ESCs unpowered.
@@ -84,9 +84,9 @@ Before a real flight reload the flight parameter file and confirm `SYS_HITL` is 
 
 ## Workflow D: tune parameters live, then bake them in
 
-1. Change while hovering: `bash ~/utopia/wsl/px4ctl.sh param MC_PITCHRATE_P 0.15 MC_PITCH_P 0.8`
+1. Change while hovering: `bash ~/utopia/vibe-coded/scripts/wsl/px4ctl.sh param MC_PITCHRATE_P 0.15 MC_PITCH_P 0.8`
    (repeat name value pairs). Land and take off again so integrators restart.
-2. Measure: `bash ~/utopia/wsl/px4ctl.sh log` copies the newest ulog to `exports/logs/`, then
+2. Measure: `bash ~/utopia/vibe-coded/scripts/wsl/px4ctl.sh log` copies the newest ulog to `exports/logs/`, then
    `uv run --project backend python scripts/hover_report.py exports/logs/<file>.ulg`.
    Good hover on this airframe: attitude pk-pk under 1 deg, position under 0.3 m, torque demand well below 1.
 3. Bake: edit `px4_tuning()` in `backend/tiltlab/export/gazebo.py` (rule-based, scales with fan lag,
