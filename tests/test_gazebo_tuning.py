@@ -40,7 +40,7 @@ def test_tuning_sized_from_authority_and_lag(hover):
     assert 0.3 < t["MPC_THR_HOVER"] < 0.6  # tiltlab hover collective for the per-pair set
     lag = fan_lag_s(hover)
     assert lag == pytest.approx(0.15)
-    w_c = min(4.0, 1.0 / (2.5 * lag))
+    w_c = min(4.0, 1.0 / (3.5 * lag))
     for tag in ("ROLL", "PITCH", "YAW"):
         p = t[f"MC_{tag}RATE_P"]
         assert 0.02 <= p <= 0.6
@@ -56,7 +56,8 @@ def test_tuning_sized_from_authority_and_lag(hover):
     # pitch has the least authority per inertia, so it needs the largest rate gain
     assert t["MC_PITCHRATE_P"] > t["MC_ROLLRATE_P"]
     assert t["MC_YAWRATE_D"] == 0.0
-    assert t["MC_PITCHRATE_D"] == pytest.approx(0.02 * t["MC_PITCHRATE_P"], abs=1e-5)
+    assert t["MC_PITCHRATE_D"] == pytest.approx(0.05 * t["MC_PITCHRATE_P"], abs=1e-5)
+    assert t["MC_AT_EN"] == 0.0 and t["MC_PR_INT_LIM"] == 0.15
 
 
 def test_unattainable_axes_keep_defaults(cad):

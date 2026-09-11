@@ -298,6 +298,9 @@ def geometry_summary(scenario: Scenario) -> list[str]:
 
 
 RATE_CROSSOVER_MAX_RAD_S = 4.0  # rate-loop crossover asked for when the fans are fast enough
+LAG_PERIODS_PER_CROSSOVER = (
+    3.5  # w_c = 1 / (3.5 x fan lag): 2.5 rang the weakest axis at saturation
+)
 
 
 def px4_tuning(scenario: Scenario) -> dict[str, float]:
@@ -309,9 +312,9 @@ def px4_tuning(scenario: Scenario) -> dict[str, float]:
     several times slower than the attitude loop above it and the cascade oscillates and flips
     (seen in gz: pitch swinging to +50 then -80 deg within two seconds of lift-off).
 
-    Rule used here, per axis: crossover w_c = min(4 rad/s, 1 / (2.5 * fan lag)), rate P =
-    w_c / (torque authority / inertia), I = 1.3 P (yaw 0.5 P), D = 0.02 P (yaw 0), attitude
-    P = w_c / 2.5. Authority is tiltlab's attainable torque at hover (N m), inertia the
+    Rule used here, per axis: crossover w_c = min(4 rad/s, 1 / (3.5 * fan lag)), rate P =
+    w_c / (torque authority / inertia), I = 0.6 P (yaw 0.5 P), D = 0.05 P (yaw 0), integrator
+    limit 0.15, attitude P = w_c / 2.5, autotune off. Authority is tiltlab's attainable torque at hover (N m), inertia the
     scenario's (or the box placeholder). THR_MDL_FAC 1 with a zero idle command makes the
     gz thrust (motorConstant * omega^2) linear in PX4's command. MPC_THR_HOVER is the hover
     collective. Axes tiltlab marks unattainable keep the PX4 defaults.
@@ -319,8 +322,10 @@ def px4_tuning(scenario: Scenario) -> dict[str, float]:
     m = compute_metrics(scenario)
     inertia = _inertia(scenario)
     lag = fan_lag_s(scenario)
-    w_c = min(RATE_CROSSOVER_MAX_RAD_S, 1.0 / (2.5 * lag))
-    out: dict[str, float] = {"THR_MDL_FAC": 1.0}
+    w_c = min(RATE_CROSSOVER_MAX_RAD_S, 1.0 / (LAG_PERIODS_PER_CROSSOVER * lag))
+    # autotune is on by default in PX4 and QGC can trigger it; on this airframe it produced gains
+    # three to four times these and every axis rang (gz sim 2026-09-11), so it stays off
+    out: dict[str, float] = {"THR_MDL_FAC": 1.0, "MC_AT_EN": 0.0, "MC_AT_APPLY": 0.0}
     hover = m.get("hover", {})
     if hover.get("exact") and hover.get("u"):
         out["MPC_THR_HOVER"] = round(min(0.8, max(0.2, float(np.mean(hover["u"])))), 3)
@@ -338,8 +343,9 @@ def px4_tuning(scenario: Scenario) -> dict[str, float]:
         acc_per_unit = tau / inertia[key]  # rad/s^2 per unit normalised torque
         p = min(0.6, max(0.02, w_c / acc_per_unit))
         out[f"MC_{tag}RATE_P"] = round(p, 4)
-        out[f"MC_{tag}RATE_I"] = round((0.5 if axis == "yaw" else 1.3) * p, 4)
-        out[f"MC_{tag}RATE_D"] = 0.0 if axis == "yaw" else round(0.02 * p, 5)
+        out[f"MC_{tag}RATE_I"] = round((0.5 if axis == "yaw" else 0.6) * p, 4)
+        out[f"MC_{tag}RATE_D"] = 0.0 if axis == "yaw" else round(0.05 * p, 5)
+        out[f"MC_{tag[0]}R_INT_LIM"] = 0.15  # windup at saturation sustained the pitch limit cycle
         out[f"MC_{tag}RATE_K"] = 1.0
         out[f"MC_{tag}_P"] = round(min(6.5, max(0.5, w_c / 2.5)), 3)
     # Outer loops must be slower than the attitude loop they command. With PX4's quad defaults
@@ -407,7 +413,7 @@ def px4_airframe(scenario: Scenario, name: str) -> str:
     lines += [
         "",
         "# Controller sizing from tiltlab (see px4_tuning in tiltlab/export/gazebo.py): rate-loop",
-        f"# crossover min(4 rad/s, 1/(2.5 x fan lag {fan_lag_s(scenario):.2f} s)) over torque",
+        f"# crossover min(4 rad/s, 1/(3.5 x fan lag {fan_lag_s(scenario):.2f} s)) over torque",
         "# authority / inertia per axis; THR_MDL_FAC 1 linearises motorConstant x omega^2.",
         *(f"param set-default {k} {v:g}" for k, v in tuning.items()),
         "",
@@ -533,8 +539,9 @@ normalised torque, 10 to 25 ms motor spool). This airframe gives far less angula
 unit and its fans spool in {fan_lag_s(scenario) * 1000:.0f} ms, so with the defaults the rate
 loop is slower than the attitude loop above it and the vehicle flips within two seconds of
 lift-off (seen in gz before this sizing was added). The airframe therefore sets, per axis:
-rate-loop crossover w_c = min(4 rad/s, 1 / (2.5 x fan lag)), rate P = w_c / (torque authority /
-inertia), I = 1.3 P (yaw 0.5 P), D = 0.02 P, attitude P = w_c / 2.5, plus THR_MDL_FAC 1 with a
+rate-loop crossover w_c = min(4 rad/s, 1 / (3.5 x fan lag)), rate P = w_c / (torque authority /
+inertia), I = 0.6 P (yaw 0.5 P), D = 0.05 P, integrator limit 0.15, attitude P = w_c / 2.5,
+autotune disabled (MC_AT_EN 0), plus THR_MDL_FAC 1 with a
 zero idle command so the gz thrust (motorConstant x omega^2) is linear in PX4's command, and
 MPC_THR_HOVER at tiltlab's hover collective. Axes tiltlab marks unattainable keep PX4 defaults.
 {chr(10).join(f"- {k} = {v:g}" for k, v in px4_tuning(scenario).items())}
