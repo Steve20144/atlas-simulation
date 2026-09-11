@@ -393,7 +393,10 @@ The build target is the same for Pixhawk 6X and 6X Pro.
 2. Reboot the Pixhawk. The console should show `pwm_out_sim` running (`pwm_out_sim status` in
    Analyze Tools > MAVLink Console) and the sensors reported as simulated.
 3. Close QGroundControl before starting Gazebo (only one program can own the serial port); Gazebo
-   forwards MAVLink to QGC on UDP 14550, reconnect QGC after step 5.
+   forwards MAVLink to QGC on UDP 14550, reconnect QGC after step 5. The plugin sends that to
+   localhost (it binds its QGC socket to `qgc_addr`, so leave it INADDR_ANY), which under WSL2
+   never reaches QGC on Windows: run `wsl/qgc_udp_relay.py` in WSL alongside Gazebo (the helper
+   script starts it), which unicasts the telemetry to the Windows host and returns QGC's replies.
 
 ## 4. Build the Gazebo Classic plugins and install this model
 ```bash
