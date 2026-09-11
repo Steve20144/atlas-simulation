@@ -143,4 +143,5 @@ before powering anything.
 | no `/dev/ttyACM*` in WSL | not attached, or the board rebooted | repeat `usbipd attach`, use `--auto-attach` |
 | `ttyACM0 exists but cannot be opened` | not in `dialout` in this session | `wsl --terminate Ubuntu-22.04`, new shell |
 | QGC stays "Disconnected" while Gazebo runs | relay not running or firewall | check `qgc_udp_relay.py` in the launcher output, then the manual UDP link above |
-| grey Gazebo window, `[WARN:COPY MODE]` | WSLg shared memory failed | `wsl --shutdown`, relaunch |
+| second launch opens a grey or duplicate window, or Gazebo will not start again | `gzserver` from the previous run still holds the master port 11345, so the new client attaches to the old scene | the launcher now offers to stop it; by hand: `pkill -x gzclient; pkill -x gzserver` |
+| grey Gazebo window titled `[WARN:COPY MODE]` | WSLg lost its shared-memory channel at session start (`/mnt/wslg/weston.log`: `rdp_allocate_shared_memory ... Input/output error`, `use_gfxredir = 0`); nothing inside WSL fixes it | `wsl --shutdown` from Windows (closes every distro), then launch again |
