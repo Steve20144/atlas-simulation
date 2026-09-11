@@ -365,8 +365,8 @@ def px4_tuning(scenario: Scenario) -> dict[str, float]:
             "MPC_XY_VEL_MAX": 3.0,
         }
     )
-    if "MC_YAW_P" in out:
-        out["MC_YAW_P"] = round(min(6.5, 1.4 * w_att), 3)  # yaw may lead the tilt axes a little
+    # yaw keeps the same attitude/rate ratio as roll and pitch: raising MC_YAW_P to 1.4 w_att with
+    # a lower rate gain produced a 0.4 Hz yaw limit cycle (114 deg peak to peak) in gz sim
     return out
 
 
