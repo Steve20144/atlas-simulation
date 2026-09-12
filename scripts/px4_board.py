@@ -29,7 +29,9 @@ INT32 = 6  # MAV_PARAM_TYPE_INT32
 REAL32 = 9  # MAV_PARAM_TYPE_REAL32
 HIL_FLAG = 32  # MAV_MODE_FLAG_HIL_ENABLED
 SHELL_DEV = 10  # SERIAL_CONTROL_DEV_SHELL
-SHELL_FLAGS = 1 | 8  # SERIAL_CONTROL_FLAG_REPLY | SERIAL_CONTROL_FLAG_RESPOND
+# SERIAL_CONTROL_FLAG_RESPOND | SERIAL_CONTROL_FLAG_EXCLUSIVE, as Tools/mavlink_shell.py sends
+# them. REPLY (1) marks a message as coming from the board, and the board ignores it.
+SHELL_FLAGS = 2 | 4
 
 
 # ---------------------------------------------------------------- pure helpers (unit tested)
@@ -134,9 +136,10 @@ def cmd_push(m, path: Path) -> int:
     params = parse_params_file(path.read_text())
     text = shell(m, shell_commands(params), settle_s=0.4)
     changed = [ln.strip() for ln in text.splitlines() if "curr:" in ln]
-    print(f"{len(params)} parameters sent, {len(changed)} changed:")
+    print(f"{len(params)} parameters sent, {len(changed)} changed (console echo):")
     for ln in changed:
         print("  " + ln)
+    print("run `verify` to confirm; the echo is advisory, the read-back is the truth")
     return 0
 
 
