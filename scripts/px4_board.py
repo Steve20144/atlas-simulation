@@ -117,8 +117,15 @@ def read_param(m, name: str, timeout: float = 3.0) -> tuple[float, int] | None:
 def cmd_status(m) -> int:
     import math
 
-    hb = m.recv_match(type="HEARTBEAT", blocking=True, timeout=10)
-    print("HIL flag:", bool(hb.base_mode & HIL_FLAG) if hb else "no heartbeat")
+    # the sim's mavlink_interface also heartbeats (sysid 1, compid 200) with no HIL flag; only the
+    # autopilot component (compid 1) tells the truth here
+    hb, end = None, time.time() + 10
+    while time.time() < end:
+        msg = m.recv_match(type="HEARTBEAT", blocking=True, timeout=3)
+        if msg and msg.get_srcComponent() == 1:
+            hb = msg
+            break
+    print("HIL flag:", bool(hb.base_mode & HIL_FLAG) if hb else "no autopilot heartbeat")
     att = m.recv_match(type="ATTITUDE", blocking=True, timeout=5)
     pos = m.recv_match(type="LOCAL_POSITION_NED", blocking=True, timeout=5)
     if att:
@@ -126,9 +133,13 @@ def cmd_status(m) -> int:
         print(f"attitude deg: roll {r:.2f} pitch {pch:.2f} yaw {y:.2f}")
     if pos:
         print(f"velocity m/s: {pos.vx:.2f} {pos.vy:.2f} {pos.vz:.2f}   z {pos.z:.2f} m")
-    text = shell(m, ["commander check"], settle_s=3.0)
-    line = next((ln for ln in text.splitlines() if "Preflight check" in ln), "(no preflight line)")
-    print(line.strip())
+    # vehicle_status.hil_state is the authoritative answer; the heartbeat flag above is advisory
+    text = shell(m, ["listener vehicle_status 1", "commander check"], settle_s=3.0)
+    lines = [ln.strip() for ln in text.splitlines()]
+    hil = next((ln for ln in lines if "hil_state:" in ln), "hil_state: (unread)")
+    pre = next((ln for ln in lines if "Preflight check" in ln), "(no preflight line)")
+    print(hil)
+    print(pre)
     return 0
 
 
