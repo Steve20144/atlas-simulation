@@ -137,13 +137,15 @@ def test_axis_to_rpy_round_trips_through_the_sdf_rotation_order():
     import numpy as np
 
     def sdf_rotation(r, p, y):
-        cr, sr, cp, sp, cy, sy = math.cos(r), math.sin(r), math.cos(p), math.sin(p), math.cos(y), math.sin(y)
+        cr, sr, cp, sp = math.cos(r), math.sin(r), math.cos(p), math.sin(p)
+        cy, sy = math.cos(y), math.sin(y)
         rx = np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
         ry = np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]])
         rz = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
         return rz @ ry @ rx
 
-    for axis in [(0, 0, 1), (0.5, 0, 0.866), (0, 0.5, 0.866), (0.32, -0.34, 0.88), (0.7, 0.7, 0.14)]:
+    axes = [(0, 0, 1), (0.5, 0, 0.866), (0, 0.5, 0.866), (0.32, -0.34, 0.88), (0.7, 0.7, 0.14)]
+    for axis in axes:
         a = np.array(axis, dtype=float)
         a /= np.linalg.norm(a)
         r, p, y = axis_to_rpy(tuple(a))
