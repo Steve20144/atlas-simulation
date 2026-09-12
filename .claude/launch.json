@@ -6,6 +6,12 @@
       "runtimeExecutable": "C:\\Users\\stefa\\.local\\bin\\uv.exe",
       "runtimeArgs": ["run", "--project", "backend", "uvicorn", "tiltlab.api.app:app", "--port", "8000"],
       "port": 8000
+    },
+    {
+      "name": "tiltlab-frontend",
+      "runtimeExecutable": "C:\\Users\\stefa\\AppData\\Local\\Programs\\nodejs\\npm.cmd",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "port": 5173
     }
   ]
 }

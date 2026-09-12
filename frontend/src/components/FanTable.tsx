@@ -10,9 +10,9 @@ export default function FanTable() {
   const massKg = useTiltlabStore((s) => s.scenario.mass.total_kg);
 
   return (
-    <section className="flex h-full flex-col overflow-auto border-r border-slate-700 bg-slate-900/60 p-2">
+    <section className="ui-card flex h-full flex-col overflow-auto">
       <div className="mb-1 flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">Fans</h2>
+        <h2>Fans</h2>
         <span className="text-xs text-slate-400">mass {massKg.toFixed(2)} kg</span>
       </div>
       {fans.length === 0 ? (

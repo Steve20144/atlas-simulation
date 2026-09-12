@@ -20,9 +20,9 @@ export default function ParamsPreview() {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold">PX4 params preview</h3>
+        <h3>PX4 params preview</h3>
         <button
-          className="rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700"
+          className="ui-btn"
           onClick={() => void copy()}
           disabled={lines.length === 0}
         >

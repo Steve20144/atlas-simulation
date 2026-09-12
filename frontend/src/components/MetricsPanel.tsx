@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useTiltlabStore } from "../store";
 import type { MetricGroup } from "../types";
 import AuthorityTable, { Badge } from "./AuthorityTable";
+import BoardPanel from "./BoardPanel";
 import ControlTable from "./ControlTable";
 import CouplingTable from "./CouplingTable";
 import ExportPanel from "./ExportPanel";
@@ -21,8 +22,8 @@ const GROUPS: { id: MetricGroup; label: string }[] = [
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded border border-slate-800 p-2">
-      <h3 className="mb-1 text-xs font-semibold">{title}</h3>
+    <div className="ui-sub">
+      <h3 className="mb-1">{title}</h3>
       {children}
     </div>
   );
@@ -37,8 +38,8 @@ export default function MetricsPanel() {
   const estimated = Boolean(metrics?.estimated) || massEstimated;
 
   return (
-    <section className="flex h-full flex-col gap-2 overflow-auto border-l border-slate-700 bg-slate-900/60 p-2">
-      <h2 className="text-sm font-semibold">Metrics</h2>
+    <section className="ui-card flex h-full flex-col gap-2 overflow-auto">
+      <h2>Metrics</h2>
       {estimated && (
         <div
           role="status"
@@ -132,9 +133,10 @@ export default function MetricsPanel() {
       )}
 
       {metrics && <SweepPanel />}
-      <ParamsPreview />
-      <ExportPanel />
-      <GazeboPanel />
+      <div className="ui-sub"><ParamsPreview /></div>
+      <div className="ui-sub"><ExportPanel /></div>
+      <div className="ui-sub"><GazeboPanel /></div>
+      <div className="ui-sub"><BoardPanel /></div>
     </section>
   );
 }

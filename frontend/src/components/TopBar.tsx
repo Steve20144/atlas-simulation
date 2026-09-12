@@ -1,8 +1,7 @@
 import { useEffect } from "react";
-import { PRESETS } from "../presets";
-import HoverPitchControl from "./HoverPitchControl";
 import { useTiltlabStore } from "../store";
 import type { ControlConcept } from "../types";
+import BoardPill from "./BoardPill";
 
 const CONCEPTS: { id: ControlConcept; label: string; title: string }[] = [
   {
@@ -19,56 +18,69 @@ const CONCEPTS: { id: ControlConcept; label: string; title: string }[] = [
   },
 ];
 
-const btn = "rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-700";
-const btnActive = "rounded border border-sky-400 bg-sky-900 px-2 py-1 text-xs";
+/** Brand mark: four fan discs in a ring. */
+function Mark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <circle cx="7" cy="7" r="3.2" />
+      <circle cx="17" cy="7" r="3.2" />
+      <circle cx="7" cy="17" r="3.2" />
+      <circle cx="17" cy="17" r="3.2" />
+      <path d="M10 10l4 4M14 10l-4 4" strokeWidth="1.2" />
+    </svg>
+  );
+}
 
+/** Top bar: brand and scenario on the left, concept tabs centred, board status and activity right. */
 export default function TopBar() {
   const scenarioName = useTiltlabStore((s) => s.scenario.meta.name);
   const scenarioNames = useTiltlabStore((s) => s.scenarioNames);
   const concept = useTiltlabStore((s) => s.concept);
-  const collective = useTiltlabStore((s) => s.collective);
-  const collectiveHover = useTiltlabStore((s) => s.metrics?.collective_hover);
   const loading = useTiltlabStore((s) => s.loading);
   const error = useTiltlabStore((s) => s.error);
-  const { loadScenarioNames, loadScenario, saveScenario, setConcept, setCollective, applyPreset } =
-    useTiltlabStore.getState();
+  const { loadScenarioNames, loadScenario, saveScenario, setConcept } = useTiltlabStore.getState();
 
   useEffect(() => {
     void loadScenarioNames();
   }, [loadScenarioNames]);
 
-  // In hover mode the slider sits where the backend's hover solution is (fraction of Fz_max).
-  const sliderValue = collective ?? collectiveHover ?? 0.5;
-
   return (
-    <header className="flex flex-wrap items-center gap-4 border-b border-slate-700 bg-slate-900 px-4 py-2">
-      <h1 className="text-lg font-semibold tracking-tight">tiltlab</h1>
+    <header
+      className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-3 py-2"
+      style={{ borderBottom: "1px solid var(--ui-line-soft)" }}
+    >
+      <div className="flex items-center gap-3">
+        <h1 className="flex items-center gap-2 text-sm">
+          <Mark />
+          tiltlab
+        </h1>
+        <span className="h-4 w-px" style={{ background: "var(--ui-line)" }} />
+        <label className="flex items-center gap-2">
+          <span className="ui-label">Scenario</span>
+          <select
+            aria-label="Scenario"
+            className="max-w-[220px]"
+            value={scenarioNames.includes(scenarioName) ? scenarioName : ""}
+            onChange={(e) => e.target.value && void loadScenario(e.target.value)}
+          >
+            {!scenarioNames.includes(scenarioName) && <option value="">{scenarioName}</option>}
+            {scenarioNames.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <button className="ui-btn" onClick={() => void saveScenario()} title="POST /api/scenarios/{name}">
+            Save
+          </button>
+        </label>
+      </div>
 
-      <label className="flex items-center gap-2 text-xs">
-        Scenario
-        <select
-          aria-label="Scenario"
-          className="rounded border border-slate-600 bg-slate-800 px-2 py-1"
-          value={scenarioNames.includes(scenarioName) ? scenarioName : ""}
-          onChange={(e) => e.target.value && void loadScenario(e.target.value)}
-        >
-          {!scenarioNames.includes(scenarioName) && <option value="">{scenarioName}</option>}
-          {scenarioNames.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-        <button className={btn} onClick={() => void saveScenario()} title="POST /api/scenarios/{name}">
-          Save
-        </button>
-      </label>
-
-      <div className="flex items-center gap-1 text-xs" role="group" aria-label="Concept">
+      <div className="ui-tabs" role="group" aria-label="Concept">
         {CONCEPTS.map((c) => (
           <button
             key={c.id}
-            className={c.id === concept ? btnActive : btn}
+            className="ui-tab"
             aria-pressed={c.id === concept}
             title={c.title}
             onClick={() => setConcept(c.id)}
@@ -78,45 +90,18 @@ export default function TopBar() {
         ))}
       </div>
 
-      <label className="flex items-center gap-2 text-xs">
-        Collective
-        <input
-          aria-label="Collective"
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={sliderValue}
-          onChange={(e) => setCollective(Number(e.target.value))}
-        />
-        <span className="w-10 tabular-nums">{sliderValue.toFixed(2)}</span>
-        <button
-          className={collective === null ? btnActive : btn}
-          onClick={() => setCollective(null)}
-          title="Let the backend solve for hover"
-        >
-          hover
-        </button>
-      </label>
-
-      <HoverPitchControl />
-
-      <div className="flex items-center gap-1 text-xs" role="group" aria-label="Presets">
-        <span className="text-slate-400">Presets</span>
-        {PRESETS.map((p) => (
-          <button key={p.id} className={btn} title={p.title} onClick={() => void applyPreset(p.id)}>
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="ml-auto text-xs">
-        {loading && <span className="text-slate-400">computing...</span>}
+      <div className="flex items-center justify-end gap-3">
+        {loading && (
+          <span className="ui-label flex items-center gap-2">
+            <span className="ui-dot ui-dot-busy" /> computing
+          </span>
+        )}
         {error && (
-          <span className="text-rose-400" role="alert">
+          <span className="max-w-[360px] truncate text-[11px]" style={{ color: "var(--ui-bad)" }} role="alert">
             {error}
           </span>
         )}
+        <BoardPill />
       </div>
     </header>
   );

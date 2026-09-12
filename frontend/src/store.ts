@@ -3,6 +3,8 @@ import { api } from "./api";
 import { mirrorAzimuth } from "./geometry";
 import { DIHEDRAL_SCENARIO_NAME, presetOmni, presetVertical, type PresetId } from "./presets";
 import type {
+  BoardPushResult,
+  BoardStatus,
   GazeboMode,
   GazeboStatus,
   Coanda,
@@ -59,6 +61,23 @@ function defaultMirrorLock(scenario: Scenario): Record<number, boolean> {
 
 export type FanPatch = Partial<Pick<Fan, "tilt_deg" | "azimuth_deg" | "output" | "spin">>;
 
+/** Which panels and viewer layers are shown; toggled from the side rail. */
+export type ViewFlag = "geometry" | "metrics" | "cad" | "flow";
+
+/** Pixhawk over USB: last status check, last push, and the port the user picked ("auto"). */
+export interface BoardState {
+  status: BoardStatus | null;
+  checking: boolean;
+  pushing: boolean;
+  result: BoardPushResult | null;
+  message: string;
+  port: string;
+}
+
+const idleBoard = (): BoardState => ({
+  status: null, checking: false, pushing: false, result: null, message: "", port: "auto",
+});
+
 export interface TiltlabState {
   scenario: Scenario;
   scenarioNames: string[];
@@ -75,7 +94,15 @@ export interface TiltlabState {
   foilLinked: boolean;
   /** Gazebo session started from the app (SITL or HITL); message is the last outcome shown. */
   gazebo: GazeboStatus & { message: string };
+  view: Record<ViewFlag, boolean>;
+  board: BoardState;
 
+  toggleView: (flag: ViewFlag) => void;
+  setBoardPort: (port: string) => void;
+  /** GET /api/board/status: the status button in the top bar and the board panel. */
+  checkBoard: () => Promise<void>;
+  /** POST /api/board/push for the current scenario and concept (the previewed lines). */
+  pushBoard: () => Promise<void>;
   setScenario: (scenario: Scenario) => void;
   setFoilLinked: (on: boolean) => void;
   /** Hover attitude of the airframe, nose-up degrees. PX4's body frame is this hover frame, so the
@@ -144,6 +171,32 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     visibleGroups: { hover: true, authority: true, control: true, coupling: true, conditioning: true, composite: true },
     foilLinked: true,
     gazebo: idleGazebo(),
+    view: { geometry: true, metrics: true, cad: true, flow: true },
+    board: idleBoard(),
+    toggleView: (flag) => set({ view: { ...get().view, [flag]: !get().view[flag] } }),
+    setBoardPort: (port) => set({ board: { ...get().board, port } }),
+    checkBoard: async () => {
+      set({ board: { ...get().board, checking: true } });
+      try {
+        const status = await api.boardStatus(get().board.port);
+        set({ board: { ...get().board, status, checking: false, message: status.message } });
+      } catch (e) {
+        set({ board: { ...get().board, status: null, checking: false, message: (e as Error).message } });
+      }
+    },
+    pushBoard: async () => {
+      set({ board: { ...get().board, pushing: true, result: null } });
+      try {
+        const result = await api.boardPush(get().scenario, get().concept, get().board.port);
+        const ok = result.mismatches.length === 0;
+        const message = ok
+          ? `${result.verified} of ${result.sent} parameters verified on ${result.port}, ${result.changed.length} changed`
+          : `${result.mismatches.length} of ${result.sent} parameters did not read back`;
+        set({ board: { ...get().board, result, pushing: false, message } });
+      } catch (e) {
+        set({ board: { ...get().board, pushing: false, message: (e as Error).message } });
+      }
+    },
 
     launchGazebo: async (mode) => {
       try {
@@ -358,6 +411,8 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
       set({
         scenario: emptyScenario(),
         gazebo: idleGazebo(),
+        board: idleBoard(),
+        view: { geometry: true, metrics: true, cad: true, flow: true },
         concept: "stock",
         collective: null,
         metrics: null,

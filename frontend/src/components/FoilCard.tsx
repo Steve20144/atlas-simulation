@@ -20,9 +20,9 @@ export default function FoilCard({ foil, title }: Props) {
   const eff = first ? effectiveFan(first, foils) : null;
 
   return (
-    <div className="rounded border border-slate-800 p-2" data-testid={`foil-${foil.id}`}>
+    <div className="ui-sub" data-testid={`foil-${foil.id}`}>
       <div className="flex items-baseline justify-between">
-        <h3 className="text-xs font-semibold">{title}</h3>
+        <h3>{title}</h3>
         <span className="text-[10px] text-slate-400">motors {foil.fan_ids.join(", ")}</span>
       </div>
       <label className="mt-1 flex items-center gap-2 text-xs">

@@ -6,7 +6,7 @@ import SweepNoseControls, { DEFAULT_NOSE_GRID, noseCount, noseValues, type NoseG
 import SweepSummary from "./SweepSummary";
 import SweepTable from "./SweepTable";
 
-const btn = "rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700 disabled:opacity-40";
+const btn = "ui-btn";
 const input = "w-14 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-xs tabular-nums";
 const TILT_MODES = ["forward", "aft", "alternating", "outer_fwd_inner_aft", "outer_aft_inner_fwd", "inward", "outward"] as const;
 const GROUPINGS: { id: NonNullable<SweepRequestBody["foil_grouping"]>; label: string; pow: number }[] = [
@@ -82,8 +82,8 @@ export default function SweepPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-1 rounded border border-slate-800 p-2" data-testid="sweep-panel">
-      <h3 className="text-xs font-semibold">{hasFoils ? "Foil sweep" : "Tilt sweep"}</h3>
+    <div className="flex flex-col gap-1 ui-sub" data-testid="sweep-panel">
+      <h3>{hasFoils ? "Foil sweep" : "Tilt sweep"}</h3>
       <p className="text-[10px] text-slate-400">
         Tries every {hasFoils ? "foil deflection" : "wing-fan tilt"} in the grid. A candidate passes when it hovers level and gives the pilot at least the angular acceleration you ask for on roll, pitch and yaw (attainable torque over inertia, at hover) without leaking into the other axes. Rank by control authority to find the deflector set that is easiest to fly. Tick "nose fans sideways" to also tilt the two nose fans left or right about the aircraft's axis.
       </p>

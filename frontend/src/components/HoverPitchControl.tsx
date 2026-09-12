@@ -1,7 +1,7 @@
 import { useTiltlabStore } from "../store";
 
-const btn = "rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-700";
-const btnActive = "rounded border border-sky-400 bg-sky-900 px-2 py-1 text-xs";
+const btn = "ui-btn";
+const btnActive = "ui-btn-active";
 const QUICK = [0, 15, 25];
 
 /**
@@ -18,7 +18,7 @@ export default function HoverPitchControl() {
       className="flex items-center gap-2 text-xs"
       title="Nose-up hover attitude of the airframe. PX4 holds 'level' in this frame, so 25 means the aircraft hovers 25 degrees nose-up. Changes the trim, the authority numbers and both exports."
     >
-      Hover pitch
+      <span className="ui-label">Hover pitch</span>
       <input
         aria-label="Hover pitch"
         type="number"
@@ -26,7 +26,7 @@ export default function HoverPitchControl() {
         max={90}
         step={1}
         value={pitch}
-        className="w-16 rounded border border-slate-600 bg-slate-800 px-2 py-1 tabular-nums"
+        className="w-16 tabular-nums"
         onChange={(e) => {
           const v = Number(e.target.value);
           if (Number.isFinite(v)) setHoverPitch(v);
@@ -35,7 +35,7 @@ export default function HoverPitchControl() {
       <span className="text-slate-400">deg</span>
       <span className="flex gap-1" role="group" aria-label="Hover pitch presets">
         {QUICK.map((q) => (
-          <button key={q} className={q === pitch ? btnActive : btn} onClick={() => setHoverPitch(q)}>
+          <button key={q} className={q === pitch ? btnActive : btn} aria-pressed={q === pitch} onClick={() => setHoverPitch(q)}>
             {q}
           </button>
         ))}

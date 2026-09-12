@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { useTiltlabStore } from "../store";
 
-const btn = "rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700 disabled:opacity-40";
+const btn = "ui-btn";
 
 /** Two export buttons: PX4 .params and a one-row metrics CSV, both written to exports/ by the backend. */
 export default function ExportPanel() {
@@ -19,7 +19,7 @@ export default function ExportPanel() {
   };
   return (
     <div className="flex flex-col gap-1">
-      <h3 className="text-xs font-semibold">Export</h3>
+      <h3>Export</h3>
       <div className="flex gap-2">
         <button className={btn} onClick={() => void run(api.exportParams(scenario, concept))}>.params</button>
         <button className={btn} disabled={!row} onClick={() => row && void run(api.exportCsv([row], scenario.meta.name))}>CSV</button>

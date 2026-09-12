@@ -406,3 +406,37 @@ export interface GazeboStatus {
   stopped?: boolean;
 }
 
+
+/** A serial port on the backend host (GET /api/board/ports); pixhawk is the USB id / name match. */
+export interface SerialPortInfo {
+  device: string;
+  description: string;
+  vid: number | null;
+  pid: number | null;
+  pixhawk: boolean;
+}
+
+/** GET /api/board/status: heartbeat flags and firmware of the Pixhawk on USB. */
+export interface BoardStatus {
+  connected: boolean;
+  port: string | null;
+  system_id: number | null;
+  firmware: string | null;
+  board_id: number | null;
+  armed: boolean | null;
+  hil: boolean | null;
+  mode: string | null;
+  ports: SerialPortInfo[];
+  message: string;
+}
+
+/** POST /api/board/push: what was written through the NSH shell and what read back. */
+export interface BoardPushResult {
+  port: string;
+  sent: number;
+  changed: string[];
+  verified: number;
+  mismatches: { name: string; wanted: number; board: number | null }[];
+  backup: string | null;
+  console: string;
+}

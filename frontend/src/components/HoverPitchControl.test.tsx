@@ -31,8 +31,8 @@ describe("HoverPitchControl", () => {
     render(<HoverPitchControl />);
     fireEvent.click(screen.getByRole("button", { name: "15" }));
     expect(useTiltlabStore.getState().scenario.frame.hover_pitch_deg).toBe(15);
-    expect(screen.getByRole("button", { name: "15" }).className).toContain("border-sky-400");
-    expect(screen.getByRole("button", { name: "0" }).className).not.toContain("border-sky-400");
+    expect(screen.getByRole("button", { name: "15" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "0" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("clamps to the backend bounds and triggers a metrics refresh", async () => {

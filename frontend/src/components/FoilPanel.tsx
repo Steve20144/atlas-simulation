@@ -18,9 +18,9 @@ export default function FoilPanel() {
   const coanda = foils[0]?.coanda ?? null;
 
   return (
-    <section className="flex h-full flex-col gap-2 overflow-auto border-r border-slate-700 bg-slate-900/60 p-2">
+    <section className="ui-card flex h-full flex-col gap-2 overflow-auto">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">Geometry</h2>
+        <h2>Geometry</h2>
         <span className="text-xs text-slate-400">mass {scenario.mass.total_kg.toFixed(2)} kg</span>
       </div>
       <p className="text-[11px] leading-snug text-slate-400">
@@ -36,9 +36,9 @@ export default function FoilPanel() {
         <FoilCard key={f.id} foil={f} title={`${f.id[0].toUpperCase()}${f.id.slice(1)} foil`} />
       ))}
       {coanda ? (
-        <div className="rounded border border-slate-800 p-2 text-[11px]">
+        <div className="ui-sub text-[11px]">
           <div className="flex items-baseline justify-between">
-            <h3 className="text-xs font-semibold">Coanda surface</h3>
+            <h3>Coanda surface</h3>
             <span className="text-slate-400">jet stays attached up to {coandaSeparationDeg(coanda).toFixed(0)} deg</span>
           </div>
           <p className="mt-1 text-slate-400">
@@ -80,8 +80,8 @@ export default function FoilPanel() {
       )}
 
       {plainFans.length > 0 && (
-        <div className="rounded border border-slate-800 p-2">
-          <h3 className="text-xs font-semibold">Centreline fans</h3>
+        <div className="ui-sub">
+          <h3>Centreline fans</h3>
           <table className="mt-1 w-full text-[11px]">
             <thead>
               <tr className="text-slate-400">

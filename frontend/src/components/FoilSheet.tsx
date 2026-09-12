@@ -3,7 +3,7 @@ import { api } from "../api";
 import { useTiltlabStore } from "../store";
 import type { FoilSheetRow } from "../types";
 
-const btn = "rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700 disabled:opacity-40";
+const btn = "ui-btn";
 
 /**
  * Foil design sheet: for each motor, the chosen deflection translated into what to model in the
@@ -29,7 +29,7 @@ export default function FoilSheet() {
   const fmtPt = (v: unknown) => (Array.isArray(v) ? v.map((x) => Number(x).toFixed(0)).join(", ") : "-");
 
   return (
-    <details className="rounded border border-slate-800 p-2 text-[11px]" data-testid="foil-sheet">
+    <details className="ui-sub text-[11px]" data-testid="foil-sheet">
       <summary className="cursor-pointer text-xs font-semibold">Foil design sheet (for the CAD)</summary>
       <p className="mt-1 text-slate-400">
         CAD frame: forward {scenario.frame.cad_forward_axis}, up {scenario.frame.cad_up_axis}, {units}. Model each

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useTiltlabStore } from "../store";
 
-const btn = "rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700 disabled:opacity-40";
+const btn = "ui-btn";
 const POLL_MS = 3000;
 
 /**
@@ -25,7 +25,7 @@ export default function GazeboPanel() {
 
   return (
     <div className="flex flex-col gap-1" data-testid="gazebo-panel">
-      <h3 className="text-xs font-semibold">Launch Gazebo</h3>
+      <h3>Launch Gazebo</h3>
       <div className="flex gap-2">
         <button
           className={btn}

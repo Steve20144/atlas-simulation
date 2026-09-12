@@ -1,7 +1,7 @@
 import type { SweepCandidate, SweepResponse } from "../types";
 import { fmt } from "./format";
 
-const btn = "rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700 disabled:opacity-40";
+const btn = "ui-btn";
 
 function num(v: number | null | undefined, digits: number): string {
   return v === null || v === undefined ? "-" : fmt(v, digits);

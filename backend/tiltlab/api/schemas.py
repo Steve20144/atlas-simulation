@@ -106,3 +106,13 @@ class GazeboLaunchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     scenario: Scenario
     mode: Literal["sitl", "hitl"]
+
+
+class BoardPushRequest(BaseModel):
+    """Push the scenario CA_* set (plus concept extras) to the Pixhawk over USB."""
+
+    model_config = ConfigDict(extra="forbid")
+    scenario: Scenario
+    concept: Concept | None = None
+    port: str = Field(default="auto", description="COMn, /dev/ttyACMn, or auto to pick a Pixhawk")
+    backup: bool = Field(default=True, description="write the board current values first")

@@ -158,6 +158,10 @@ The **Gazebo** button in the Export panel (or `POST /api/export/gazebo`) writes 
 
 PX4 HITL runs over MAVLink HIL messages on the Pixhawk's USB port, which only the Gazebo Classic `mavlink_interface` plugin speaks (the new gz sim bridge has no HITL mode). The **HITL** button in the Export panel (or `POST /api/export/gazebo_hitl`) writes `exports/gazebo_hitl/<scenario>_hitl/`: a Gazebo Classic model mirroring PX4's `iris_hitl` with one rotor per fan at the effective direction, the sensor plugins, the MAVLink interface in HIL serial mode with ten control channels, a world, a QGroundControl parameter file that puts the Pixhawk into HITL with this geometry (`SYS_AUTOSTART 1001`, `SYS_HITL 1`, `CA_ROTOR*`, `HIL_ACT_FUNC1..10`), and a README with the full procedure. Two facts verified in the pinned PX4 tree: HITL needs the `pwm_out_sim` module (`rcS` starts `pwm_out_sim start -m hil` when `SYS_HITL` is set) and no fmu-v6x board configuration compiles it, so one custom firmware build with `CONFIG_MODULES_SIMULATION_PWM_OUT_SIM=y` is required. Fans and ESCs must be unpowered for every HITL session.
 
+### Upload parameters to the Pixhawk from the app
+
+The **board** pill in the top bar (and the chip icon at the bottom of the left rail) asks the backend whether a Pixhawk 6X Pro is heartbeating on USB: the backend scans the serial ports for the fmu-v6x USB id (Holybro 0x3185:0x0035 in the pinned tree's `boards/px4/fmu-v6x/nuttx-config/nsh/defconfig`) or a PX4-looking name, opens the port, waits for the autopilot heartbeat and reads `AUTOPILOT_VERSION`. The **Pixhawk 6X Pro** card in the right column has the same check with a port selector, and **Upload params**, which needs a second confirming click, writes exactly the lines shown in the params preview to the board. Writes go through the NSH shell (`param set NAME VALUE` over `SERIAL_CONTROL`, then `param save`) because PX4 carries INT32 parameters byte-wise in `PARAM_VALUE` and a plain float `PARAM_SET` corrupts every integer parameter; before writing, the backend reads the board's current values of those parameters into `exports/board/<timestamp>_<scenario>_before.params`, and after writing it reads every value back and lists mismatches. The backend must run natively on the machine that has the USB cable (not in Docker), the fans and ESCs must be unpowered, and a running HITL session owns the port, so stop it first (the endpoints answer 409). The CLI equivalent is `scripts/px4_board.py`.
+
 ## API
 
 | Method and path | Purpose |
@@ -168,6 +172,8 @@ PX4 HITL runs over MAVLink HIL messages on the Pixhawk's USB port, which only th
 | `POST /api/px4_params_preview` `{scenario, concept?}` | CA_* parameter lines |
 | `POST /api/export/params` `{scenario, concept?, base?}` | write timestamped `.params` into `exports/` |
 | `POST /api/export/csv` `{rows, stem}` | write metrics CSV |
+| `GET /api/board/status?port=auto`, `GET /api/board/ports` | is a Pixhawk heartbeating on USB (firmware, armed and HIL flags, mode); serial ports on the host |
+| `POST /api/board/push` `{scenario, concept?, port?, backup?}` | write the previewed `CA_*` set to the Pixhawk through its NSH shell, `param save`, read back; previous values backed up to `exports/board/` |
 
 `docs/v1_metrics_snapshot.md` holds the metrics of the three shipped scenarios as returned by the API.
 

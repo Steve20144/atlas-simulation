@@ -1,12 +1,19 @@
 import type {
-  ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario, SweepRequestBody, SweepResponse,
+  BoardPushResult, BoardStatus, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
+  SweepRequestBody, SweepResponse,
 } from "./types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`${init?.method ?? "GET"} ${url} failed (${res.status}) ${text}`.trim());
+    let detail = text;
+    try {
+      detail = String((JSON.parse(text) as { detail?: unknown }).detail ?? text); // FastAPI error body
+    } catch {
+      // not JSON: keep the raw text
+    }
+    throw new Error(`${init?.method ?? "GET"} ${url} failed (${res.status}) ${detail}`.trim());
   }
   return (await res.json()) as T;
 }
@@ -59,4 +66,9 @@ export const api = {
       "/api/export/gazebo",
       { scenario },
     ),
+  /** Is a Pixhawk heartbeating on USB; answers at once when no Pixhawk-looking port exists. */
+  boardStatus: (port = "auto") => request<BoardStatus>(`/api/board/status?port=${encodeURIComponent(port)}`),
+  /** Write the previewed CA_* set to the board through its shell, save, read back; backup first. */
+  boardPush: (scenario: Scenario, concept: ControlConcept, port = "auto") =>
+    post<BoardPushResult>("/api/board/push", { scenario, concept, port }),
 };

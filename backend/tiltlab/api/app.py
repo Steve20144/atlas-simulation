@@ -324,3 +324,76 @@ def gazebo_reset_endpoint() -> dict[str, Any]:
         return gazebo_launch.reset()
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------- pixhawk over usb
+from tiltlab.api.schemas import BoardPushRequest  # noqa: E402
+from tiltlab.px4 import board  # noqa: E402
+
+BOARD_BACKUP_DIR = EXPORTS_DIR / "board"
+
+
+def _board_free() -> None:
+    st = gazebo_launch.status()
+    if st.get("running") and st.get("mode") == "hitl":
+        raise HTTPException(
+            status_code=409, detail="the HITL session owns the serial port; stop it first"
+        )
+    if not board.LOCK.acquire(timeout=0.1):
+        raise HTTPException(status_code=409, detail="another board operation is in progress")
+
+
+@app.get("/api/board/ports")
+def board_ports_endpoint() -> dict[str, Any]:
+    """Serial ports on the host running the backend, Pixhawks flagged and listed first."""
+    return {"ports": board.list_ports()}
+
+
+@app.get("/api/board/status")
+def board_status_endpoint(port: str = "auto") -> dict[str, Any]:
+    """Is a Pixhawk plugged in and heartbeating: firmware, armed and HIL flags, flight mode.
+    Answers at once when no Pixhawk-looking port exists, otherwise waits up to 5 s."""
+    ports = board.list_ports()
+    dev = board.pick_port(port)
+    if dev is None:
+        st = board.BoardStatus(connected=False, message="no Pixhawk on any serial port")
+    else:
+        _board_free()
+        try:
+            m = board.connect(dev)
+            try:
+                st = board.read_status(m, dev)
+            finally:
+                m.close()
+        except board.BoardError as exc:
+            st = board.BoardStatus(connected=False, port=dev, message=str(exc))
+        finally:
+            board.LOCK.release()
+    st.ports = ports
+    return st.as_dict()
+
+
+@app.post("/api/board/push")
+def board_push_endpoint(req: BoardPushRequest) -> dict[str, Any]:
+    """Write the same lines as /api/px4_params_preview to the board through its NSH shell, save
+    them to flash and read every value back. The previous values are backed up in exports/board/."""
+    concept = req.concept or req.scenario.control.concept
+    preview = px4_params_preview(req.scenario, concept)
+    params: dict[str, int | float] = {**preview.params, **preview.extras}
+    types = {name: _param_type(name) for name in params}
+    dev = board.pick_port(req.port)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="no Pixhawk on any serial port")
+    _board_free()
+    try:
+        m = board.connect(dev)
+        try:
+            backup_dir = BOARD_BACKUP_DIR if req.backup else None
+            result = board.push_params(m, dev, params, types, backup_dir, req.scenario.meta.name)
+        finally:
+            m.close()
+    except board.BoardError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    finally:
+        board.LOCK.release()
+    return result.as_dict()
