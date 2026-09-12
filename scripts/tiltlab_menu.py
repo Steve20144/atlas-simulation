@@ -203,6 +203,20 @@ def hover_report() -> None:
     run([sys.executable, str(REPO / "scripts/hover_report.py"), str(log)], cwd=REPO)
 
 
+def reset_sim() -> None:
+    """Disarm and put the model back where it spawned; after a flip in HITL use the hard path."""
+    mode = ask("which sim is running, sitl / hitl", "hitl").lower()
+    root = REPO / "exports" / ("gazebo_hitl" if mode == "hitl" else "gazebo")
+    harness = pick_dir(root, f"{mode.upper()} harness in use")
+    if harness is None:
+        return
+    hard = ask("hard reset (stop, reboot the board, relaunch)? y/n", "n").lower().startswith("y")
+    arg = str(harness) if str(harness).startswith(("/", "~")) else to_wsl(harness)
+    inner = (f"bash {bash_path(WSL_HELPERS + '/tiltlab_gazebo.sh')} --reset "
+             f"{'--hard ' if hard else ''}--mode {mode} --harness {bash_path(arg)}")
+    run_wsl(HITL_DISTRO if mode == "hitl" else SITL_DISTRO, inner)
+
+
 def stop_sim() -> None:
     """Gazebo Classic leaves gzserver on port 11345; a stale one blocks the next launch."""
     inner = "pkill -x gzclient; pkill -x gzserver; pkill -f qgc_udp_relay.py; echo stopped"
@@ -219,6 +233,7 @@ MENU: tuple[tuple[str, Callable[[], None]], ...] = (
     ("build the HITL firmware (px4_fmu-v6x_hitl)", build_firmware),
     ("hover report from a ulog", hover_report),
     ("stop a running Gazebo (clear a stale gzserver)", stop_sim),
+    ("reset the running sim (disarm, poses back; hard = reboot board and relaunch)", reset_sim),
 )
 
 

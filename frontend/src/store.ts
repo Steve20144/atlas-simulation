@@ -105,6 +105,7 @@ export interface TiltlabState {
   launchGazebo: (mode: GazeboMode) => Promise<void>;
   pollGazebo: () => Promise<void>;
   stopGazebo: () => Promise<void>;
+  resetGazebo: () => Promise<void>;
   reset: () => void;
 }
 
@@ -159,6 +160,17 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
       try {
         const st = await api.gazeboStatus();
         set({ gazebo: { ...st, message: get().gazebo.message } });
+      } catch (e) {
+        set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
+    resetGazebo: async () => {
+      try {
+        const st = await api.resetGazebo();
+        const message = st.rebooted
+          ? "flight termination was latched: board rebooted and the sim relaunched"
+          : `reset: ${(st.note ?? []).join(" | ") || "poses back, disarmed"}`;
+        set({ gazebo: { ...st, message } });
       } catch (e) {
         set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
       }

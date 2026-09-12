@@ -52,6 +52,8 @@ export const api = {
     post<GazeboStatus>("/api/gazebo/launch", { scenario, mode }),
   gazeboStatus: () => request<GazeboStatus>("/api/gazebo/status"),
   stopGazebo: () => post<GazeboStatus>("/api/gazebo/stop", {}),
+  /** Disarm and put the model back where it spawned; HITL reboots the board if termination latched. */
+  resetGazebo: () => post<GazeboStatus & { rebooted?: boolean; note?: string[] }>("/api/gazebo/reset", {}),
   exportGazebo: (scenario: Scenario) =>
     post<{ root: string; model_sdf: string; world_sdf: string; airframe: string; readme: string }>(
       "/api/export/gazebo",

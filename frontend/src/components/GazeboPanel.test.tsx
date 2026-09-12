@@ -33,6 +33,10 @@ describe("GazeboPanel", () => {
         expect(body.scenario.fans).toHaveLength(10);
         return Promise.resolve({ ok: true, status: 200, json: async () => running } as Response);
       }
+      if (url === "/api/gazebo/reset") {
+        return Promise.resolve({ ok: true, status: 200,
+          json: async () => ({ ...running, note: ["reset done"] }) } as Response);
+      }
       if (url === "/api/gazebo/stop") {
         return Promise.resolve({ ok: true, status: 200,
           json: async () => status({ stopped: true }) } as Response);
@@ -50,6 +54,13 @@ describe("GazeboPanel", () => {
     expect(screen.getByText("SITL running")).toBeInTheDocument();
     expect(screen.getByText(/Ready for takeoff!/)).toBeInTheDocument();
     expect((screen.getByText("HITL") as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Reset"));
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/gazebo/reset", expect.anything());
+    expect(useTiltlabStore.getState().gazebo.message).toContain("reset done");
+    expect(screen.getByText("SITL running")).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByText("Stop"));

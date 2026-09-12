@@ -312,3 +312,13 @@ def gazebo_status_endpoint() -> dict[str, Any]:
 def gazebo_stop_endpoint() -> dict[str, Any]:
     """Stop PX4 SITL, gz sim, Gazebo Classic and the QGC relay in both distros."""
     return gazebo_launch.stop()
+
+
+@app.post("/api/gazebo/reset")
+def gazebo_reset_endpoint() -> dict[str, Any]:
+    """Disarm and reset model poses; in HITL a latched flight termination triggers stop, board
+    reboot and relaunch of the same harness."""
+    try:
+        return gazebo_launch.reset()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

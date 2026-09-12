@@ -11,6 +11,8 @@
 #   bash tiltlab_gazebo.sh --build-firmware   # HITL: also build px4_fmu-v6x with pwm_out_sim (and offer upload)
 #   bash tiltlab_gazebo.sh --yes              # answer yes to every question
 #   bash tiltlab_gazebo.sh --stop             # stop PX4 SITL, gz sim, Gazebo Classic and the QGC relay
+#   bash tiltlab_gazebo.sh --reset --mode M --harness D   # disarm, reset model poses; exit 3 if termination latched
+#   bash tiltlab_gazebo.sh --reset --hard ... # also stop, reboot the board, relaunch (HITL after a flip)
 #
 # Steps: 1 check packages (with versions), 2 install what is missing (asks first), 3 ask whether to
 # continue when everything is present, 4 copy the harness into PX4's Gazebo tree and launch.
@@ -23,6 +25,8 @@ CHECK_ONLY=0
 YES=0
 BUILD_FW=0
 STOP=0
+RESET=0
+HARD=0
 HARNESS=""
 PX4_DIR="${PX4_DIR:-$HOME/PX4-Autopilot}"
 PX4_TAG="v1.17.0"
@@ -36,6 +40,8 @@ while [ $# -gt 0 ]; do
     --yes|-y) YES=1; shift ;;
     --build-firmware) BUILD_FW=1; shift ;;
     --stop) STOP=1; shift ;;
+    --reset) RESET=1; shift ;;
+    --hard) HARD=1; shift ;;
     --harness) HARNESS="$2"; shift 2 ;;
     --px4) PX4_DIR="$2"; shift 2 ;;
     --serial) SERIAL_DEV="$2"; shift 2 ;;
@@ -55,6 +61,39 @@ if [ "$STOP" = 1 ]; then
   sleep 1
   pgrep -af "bin/px4|gz sim|gzserver|gzclient|qgc_udp_relay" && exit 1
   echo "stopped"; exit 0
+fi
+
+if [ "$RESET" = 1 ]; then
+  # Gazebo's "Reset Time" only rewinds the clock. A usable reset is: disarm the flight controller,
+  # put the model back where it spawned (poses only: a time reset sends timestamps backwards into
+  # PX4), and, in HITL, notice a latched flight termination (past 60 deg of roll or pitch), which
+  # only a board reboot clears. --hard does that reboot and relaunches the same harness.
+  [ -n "$HARNESS" ] || { echo "--reset needs --harness <dir> (and --mode)"; exit 2; }
+  W="$(grep -ho '<world name="[^"]*"' "$HARNESS"/worlds/* 2>/dev/null | head -1 | sed 's/.*="//; s/"//')"
+  [ -n "$W" ] || { echo "no <world name=...> in $HARNESS/worlds"; exit 2; }
+  BOARD="python3 $TILTLAB_WIN/scripts/px4_board.py"
+  if [ "$MODE" = hitl ]; then
+    (cd "$TILTLAB_WIN" && timeout 40 $BOARD shell 'commander disarm -f' >/dev/null 2>&1) || true
+    gz world -w "$W" --reset-models >/dev/null 2>&1 && echo "Gazebo Classic: model poses reset in $W"
+    FD="$(cd "$TILTLAB_WIN" && timeout 40 $BOARD shell 'listener vehicle_status 1' 2>/dev/null | awk '/failure_detector_status:/{print $2}' | tr -d '\r')"
+    if [ "${FD:-0}" != 0 ] || [ "$HARD" = 1 ]; then
+      echo "board: failure_detector_status ${FD:-0}; flight termination latches until reboot"
+      if [ "$HARD" = 1 ]; then
+        "$0" --stop >/dev/null 2>&1 || true
+        DEV="$(ls /dev/ttyACM* 2>/dev/null | head -1)"
+        (cd "$TILTLAB_WIN" && timeout 30 $BOARD --dev "$DEV" shell reboot >/dev/null 2>&1) || true
+        sleep 25
+        exec "$0" --mode "$MODE" --yes --harness "$HARNESS"
+      fi
+      exit 3
+    fi
+  else
+    R="$PX4_DIR/build/px4_sitl_default/rootfs"
+    (cd "$R" && timeout 10 ../bin/px4-commander disarm -f >/dev/null 2>&1) || true
+    gz service -s "/world/$W/control" --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
+      --timeout 3000 --req 'reset: {model_only: true}' >/dev/null 2>&1 && echo "gz sim: model poses reset in $W"
+  fi
+  echo "reset done"; exit 0
 fi
 
 # ---------------------------------------------------------------- helpers

@@ -15,6 +15,7 @@ export default function GazeboPanel() {
   const launch = useTiltlabStore((s) => s.launchGazebo);
   const poll = useTiltlabStore((s) => s.pollGazebo);
   const stop = useTiltlabStore((s) => s.stopGazebo);
+  const reset = useTiltlabStore((s) => s.resetGazebo);
 
   useEffect(() => {
     if (!gazebo.running) return;
@@ -41,6 +42,14 @@ export default function GazeboPanel() {
           onClick={() => void launch("hitl")}
         >
           HITL
+        </button>
+        <button
+          className={btn}
+          disabled={!gazebo.running}
+          title="Disarm and put the model back where it spawned (Gazebo's own Reset Time only rewinds the clock). In HITL, a flight termination latched by a flip needs a board reboot: this does it and relaunches."
+          onClick={() => void reset()}
+        >
+          Reset
         </button>
         <button className={btn} disabled={!gazebo.running} onClick={() => void stop()}>
           Stop

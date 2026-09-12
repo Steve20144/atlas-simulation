@@ -134,3 +134,42 @@ def stop() -> dict[str, Any]:
         _proc.terminate()
     _proc = None
     return status() | {"stopped": True}
+
+
+def relaunch() -> dict[str, Any]:
+    """Start the launcher again for the harness already exported (no re-export)."""
+    global _proc
+    mode, harness = _state["mode"], _state["harness"]
+    if not mode or not harness:
+        raise RuntimeError("nothing to relaunch")
+    cmd = wsl_command(mode, wsl_path(Path(harness), Path(harness).parents[2]))
+    log = Path(_state["log"])
+    with open(log, "ab") as fh:
+        _proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+    return status()
+
+
+def reset() -> dict[str, Any]:
+    """Disarm and put the model back where it spawned; in HITL, if flight termination has latched
+    (past 60 deg of roll or pitch) do the hard path: stop, reboot the board, relaunch."""
+    mode, harness = _state["mode"], _state["harness"]
+    if not mode or not harness:
+        raise RuntimeError("no session to reset")
+    if dry_run() or not available():
+        return status() | {"reset": True, "dry_run": True}
+    inner = (f"bash {bash_path(WSL_REPO + '/' + LAUNCHER)} --reset --mode {mode} "
+             f"--harness {bash_path(wsl_path(Path(harness), Path(harness).parents[2]))}")
+    r = subprocess.run(["wsl.exe", "-d", DISTRO[mode], "--", "bash", "-lc", inner],
+                       capture_output=True, text=True, timeout=180, check=False)
+    out = _ANSI.sub("", r.stdout + r.stderr).strip().splitlines()[-4:]
+    if r.returncode == 3:  # termination latched: the board must reboot, which drops the serial link
+        stop()
+        dev_cmd = ('D=$(ls /dev/ttyACM* | head -1); '
+                   'python3 "$HOME"/utopia/vibe-coded/scripts/px4_board.py --dev "$D" shell reboot')
+        subprocess.run(["wsl.exe", "-d", DISTRO[mode], "--", "bash", "-lc", dev_cmd],
+                       capture_output=True, timeout=60, check=False)
+        import time
+
+        time.sleep(25)
+        return relaunch() | {"reset": True, "rebooted": True, "note": out}
+    return status() | {"reset": r.returncode == 0, "note": out}

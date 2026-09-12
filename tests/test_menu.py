@@ -23,5 +23,5 @@ def test_repo_paths_map_onto_the_wsl_symlink():
 
 
 def test_every_menu_entry_is_callable():
-    assert len(menu.MENU) == 8
+    assert len(menu.MENU) == 9  # app, SITL, HITL, export, USB, firmware, report, stop, reset
     assert all(callable(action) for _, action in menu.MENU)

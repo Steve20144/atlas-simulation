@@ -168,4 +168,5 @@ def test_gazebo_launch_status_stop_dry_run(client: TestClient, tmp_path: Path,
     assert "Ubuntu-22.04" in d["command"] and d["harness"].endswith("_hitl")
     assert client.get("/api/gazebo/status").json()["running"] is False
     assert client.post("/api/gazebo/stop").json()["stopped"] is True
+    assert client.post("/api/gazebo/reset").json()["reset"] is True  # dry run: no WSL call
     assert client.post("/api/gazebo/launch", json={**body, "mode": "vtol"}).status_code == 422
