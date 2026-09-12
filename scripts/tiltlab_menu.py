@@ -116,13 +116,46 @@ def pick_file(root: Path, pattern: str, what: str) -> Path | None:
     return Path(answer).expanduser()
 
 
+def find_tool(name: str, *extra_dirs: Path) -> str | None:
+    """A user-space tool: on PATH, or in the directories scripts/env.sh adds (Windows installs)."""
+    found = shutil.which(name)
+    for d in extra_dirs:
+        found = found or shutil.which(name, path=str(d))
+    return found
+
+
+def build_ui() -> bool:
+    """npm run build, so :8000 serves the current UI instead of a stale frontend/dist."""
+    npm = find_tool("npm", Path.home() / "AppData/Local/Programs/nodejs")
+    if not npm:
+        print("  npm is not on PATH: run `source scripts/env.sh` first; serving the last build")
+        return False
+    return run([npm, "--prefix", str(REPO / "frontend"), "run", "build"], cwd=REPO) == 0
+
+
+def open_browser_later(url: str, delay_s: float = 4.0) -> None:
+    """Open the UI once uvicorn has had time to bind; a daemon thread so Ctrl-C still stops make."""
+    if DRY_RUN:
+        return
+    import threading
+    import webbrowser
+
+    threading.Timer(delay_s, lambda: webbrowser.open(url)).start()
+
+
 def open_app() -> None:
-    """make dev: backend on :8000 (serves the built UI), Vite on :5173. Ctrl-C stops both."""
-    make = shutil.which("make") or shutil.which("make", path=str(Path.home() / ".local/bin"))
+    """Rebuild the UI, then make dev: backend on :8000 (serves the build, board USB access),
+    Vite on :5173 (hot reload). Opens the browser on :8000. Ctrl-C stops both servers."""
+    make = find_tool("make", Path.home() / ".local/bin")
     if not make:
         print("  make is not on PATH: run `source scripts/env.sh` in this shell first")
         return
-    print("  UI: http://127.0.0.1:8000 (built UI) or http://127.0.0.1:5173 (Vite, hot reload)")
+    if ask("rebuild the UI first (npm run build)? y/n", "y").lower().startswith("y"):
+        build_ui()
+    url = "http://127.0.0.1:8000"
+    print(f"  UI: {url} (built UI, opened in the browser); Vite hot reload on :5173")
+    print("  the board pill checks the Pixhawk over USB; the backend must run natively for that")
+    open_browser_later(url)
     run([make, "dev"], cwd=REPO)
 
 
@@ -229,7 +262,7 @@ def stop_sim() -> None:
 
 
 MENU: tuple[tuple[str, Callable[[], None]], ...] = (
-    ("tiltlab simulator (make dev, UI on :8000)", open_app),
+    ("tiltlab app (rebuild UI, make dev, opens :8000)", open_app),
     (f"launch SITL  (gz sim, {SITL_DISTRO})", lambda: launch("sitl")),
     (f"launch HITL  (Gazebo Classic + Pixhawk, {HITL_DISTRO})", lambda: launch("hitl")),
     ("export a harness from a scenario", export_harness),
