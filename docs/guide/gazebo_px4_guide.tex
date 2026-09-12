@@ -3,6 +3,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
+\usepackage{textcomp}
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{enumitem}
@@ -382,6 +383,119 @@ QGroundControl ``Disconnected'' while Gazebo runs & WSL2 dropped the broadcast &
 running (launcher output); manual UDP link: listen 14551, server \texttt{<WSL ip>:18570} \\
 \bottomrule
 \end{longtable}
+
+%=====================================================================
+\section{Parameters used in this project}
+
+Every parameter touched during the simulation and tuning phase, with what it does (from the
+pinned PX4 v1.17.0 source: \file{PARAM\_DEFINE} doc blocks and \file{module.yaml}), the range or
+enumeration PX4 accepts, and the value flown on the 50/55/60/65 geometry at 25\textdegree{} hover
+pitch. Indexed families (\param{CA\_ROTORn\_*}, \param{HIL\_ACT\_FUNCn}, \param{SIM\_GZ\_EC\_*n})
+are shown once with rotor 0's value. Values marked ``hand tuned'' live in the scenario's
+\param{control.px4\_params\_override}; the rest are computed or fixed by the exporter.
+
+{\small
+\begin{longtable}{@{}p{3.3cm}p{5.6cm}p{3.6cm}p{1.9cm}@{}}
+\toprule
+\textbf{Parameter} & \textbf{What it does} & \textbf{Allowed} & \textbf{Used} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Parameter} & \textbf{What it does} & \textbf{Allowed} & \textbf{Used} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{l}{\textbf{Geometry and allocation (from the scenario; identical in SITL and HITL)}} \\
+\midrule
+\param{CA\_AIRFRAME} & Airframe selection & 0 = Multirotor; 1 = Fixed-wing; 2 = Standard VTOL; 3 = Tiltrotor VTOL; 4 = Tailsitter VTOL; 5 = Rover (Ackermann); 6 = Rover (Differential); 7 = Motors (6DOF); 8 = Multirotor with Tilt; 9 = Custom; 10 = Helicopter (tail ESC); 11 = Helicopter (tail Servo); 12 = Helicopter (Coaxial); 13 = Rover (Mecanum); 14 = Spacecraft 2D; 15 = Spacecraft 3D & 0 \\
+\param{CA\_METHOD} & Control allocation method & 0 = Pseudo-inverse with output clipping; 1 = Pseudo-inverse with sequential desaturation technique; 2 = Automatic & 2 \\
+\param{CA\_ROTOR\_COUNT} & Total number of rotors & 0 = 0; 1 = 1; 2 = 2; 3 = 3; 4 = 4; 5 = 5; 6 = 6; 7 = 7; 8 = 8; 9 = 9; 10 = 10; 11 = 11; 12 = 12 & 10 \\
+\param{CA\_ROTORn\_PX} & Position of rotor n along X body axis relative to center of gravity & -100 to 100 m & -0.0996811 \\
+\param{CA\_ROTORn\_AX} & Axis of rotor n thrust vector, X body axis component & -100 to 100 & 0.258819 \\
+\param{CA\_ROTORn\_CT} & Thrust coefficient of rotor n & 0 to 100 & 31.45 \\
+\param{CA\_ROTORn\_KM} & Moment coefficient of rotor n & -1 to 1 & 0 \\
+\param{THR\_MDL\_FAC} & Thrust to motor control signal model parameter & 0 to 1 & 1 \\
+\midrule
+\multicolumn{4}{l}{\textbf{Rate loop (sized by px4\_tuning; yaw and integrator limits hand tuned)}} \\
+\midrule
+\param{MC\_ROLLRATE\_P} & Roll rate P gain & 0.01 to 0.5 & 0.3898 \\
+\param{MC\_ROLLRATE\_I} & Roll rate I gain & 0 to ... & 0.2339 \\
+\param{MC\_ROLLRATE\_D} & Roll rate D gain & 0 to 0.01 & 0.01949 \\
+\param{MC\_ROLLRATE\_K} & Roll rate controller gain & 0.01 to 5 & 1 \\
+\param{MC\_RR\_INT\_LIM} & Roll rate integrator limit & 0 to ... & 0.3 \\
+\param{MC\_PITCHRATE\_P} & Pitch rate P gain & 0.01 to 0.6 & 0.6 \\
+\param{MC\_PITCHRATE\_I} & Pitch rate I gain & 0 to ... & 0.5 \\
+\param{MC\_PITCHRATE\_D} & Pitch rate D gain & 0 to ... & 0.03 \\
+\param{MC\_PR\_INT\_LIM} & Pitch rate integrator limit & 0 to ... & 0.6 \\
+\param{MC\_YAWRATE\_P} & Yaw rate P gain & 0 to 0.6 & 0.08 \\
+\param{MC\_YAWRATE\_I} & Yaw rate I gain & 0 to ... & 0.02 \\
+\param{MC\_YAWRATE\_D} & Yaw rate D gain & 0 to ... & 0 \\
+\param{MC\_YR\_INT\_LIM} & Yaw rate integrator limit & 0 to ... & 0.15 \\
+\midrule
+\multicolumn{4}{l}{\textbf{Attitude loop and autotune}} \\
+\midrule
+\param{MC\_ROLL\_P} & Roll P gain & 0 to 12 & 0.762 \\
+\param{MC\_PITCH\_P} & Pitch P gain & 0 to 12 & 0.762 \\
+\param{MC\_YAW\_P} & Yaw P gain & 0 to 5 & 0.25 \\
+\param{MC\_AT\_EN} & Multicopter autotune module enable & 0 off, 1 on & 0 \\
+\param{MC\_AT\_APPLY} & Controls when to apply the new gains & 0 = Do not apply the new gains (logging only); 1 = Apply the new gains after disarm; 2 = WARNING Apply the new gains in air & 0 \\
+\midrule
+\multicolumn{4}{l}{\textbf{Position and velocity loops, hover throttle, limits (hand tuned in SITL)}} \\
+\midrule
+\param{MPC\_THR\_HOVER} & Vertical thrust required to hover & 0.1 to 0.8 norm & 0.384 \\
+\param{MPC\_XY\_P} & Proportional gain for horizontal position error & 0 to 2 & 0.25 \\
+\param{MPC\_XY\_VEL\_P\_ACC} & Proportional gain for horizontal velocity error & 1.2 to 5 & 0.4 \\
+\param{MPC\_XY\_VEL\_I\_ACC} & Integral gain for horizontal velocity error & 0 to 60 & 0.06 \\
+\param{MPC\_XY\_VEL\_D\_ACC} & Differential gain for horizontal velocity error & 0.1 to 2 & 0.15 \\
+\param{MPC\_XY\_VEL\_MAX} & Maximum horizontal velocity & 0 to 20 m/s & 1 \\
+\param{MPC\_Z\_P} & Proportional gain for vertical position error & 0.1 to 1.5 & 0.4 \\
+\param{MPC\_Z\_VEL\_P\_ACC} & Proportional gain for vertical velocity error & 2 to 15 & 1.2 \\
+\param{MPC\_Z\_VEL\_I\_ACC} & Integral gain for vertical velocity error & 0.2 to 3 & 0.6 \\
+\param{MPC\_Z\_VEL\_MAX\_UP} & Maximum ascent velocity & 0.5 to 8 m/s & 1 \\
+\param{MPC\_Z\_VEL\_MAX\_DN} & Maximum descent velocity & 0.5 to 4 m/s & 0.7 \\
+\param{MPC\_TILTMAX\_AIR} & Maximum tilt angle in air & 20 to 89 deg & 8 \\
+\param{MPC\_TKO\_SPEED} & Takeoff climb rate & 1 to 5 m/s & 1 \\
+\param{MPC\_ACC\_HOR} & Acceleration for autonomous and for manual modes & 2 to 15 m/s\^{}2 & 1 \\
+\param{MPC\_ACC\_UP\_MAX} & Maximum upwards acceleration in climb rate controlled modes & 2 to 15 m/s\^{}2 & 2 \\
+\param{MPC\_ACC\_DOWN\_MAX} & Maximum downwards acceleration in climb rate controlled modes & 2 to 15 m/s\^{}2 & 2 \\
+\param{MPC\_JERK\_AUTO} & Jerk limit in autonomous modes & 1 to 80 m/s\^{}3 & 1 \\
+\param{MIS\_TAKEOFF\_ALT} & Default take-off altitude & 0 to ... m & 2.5 (default) \\
+\midrule
+\multicolumn{4}{l}{\textbf{SITL only (gz sim bridge; written to the airframe file)}} \\
+\midrule
+\param{SIM\_GZ\_EC\_FUNCn} & Output function driven by gz ESC channel n (mixer\_module output functions) & 0 disabled; 101..112 Motor1..Motor12 & 101..110 \\
+\param{SIM\_GZ\_EC\_MINn} & Command sent to gz at zero thrust (rotor rad/s) & 0 to 1000 & 0 \\
+\param{SIM\_GZ\_EC\_MAXn} & Command sent to gz at full thrust (rotor rad/s) & 0 to 1000 & 1000 \\
+\param{SIM\_GZ\_EN} & Simulator Gazebo bridge enable & 0 off, 1 on & 1 \\
+\param{MAV\_0\_BROADCAST} & Broadcast heartbeats on local network for MAVLink instance n & 0 = Never broadcast; 1 = Always broadcast; 2 = Only multicast & 1 \\
+\midrule
+\multicolumn{4}{l}{\textbf{HITL only (written to the .params file loaded on the board)}} \\
+\midrule
+\param{SYS\_HITL} & Enable HITL/SIH mode on next boot & -1 = external HITL; 0 = HITL and SIH disabled; 1 = HITL enabled; 2 = SIH enabled & 1 \\
+\param{SYS\_AUTOSTART} & Auto-start script index & airframe id; 1001 = HIL Quadcopter X & 1001 \\
+\param{HIL\_ACT\_FUNCn} & Output function on pwm\_out\_sim channel n, sent in HIL\_ACTUATOR\_CONTROLS & 0 disabled; 101..112 Motor1..Motor12 & 101..110 \\
+\param{CBRK\_SUPPLY\_CHK} & Circuit breaker for power supply check & 0 to 894281 & 894281 \\
+\param{UAVCAN\_ENABLE} & UAVCAN mode & 0 = Disabled; 1 = Sensors Manual Config; 2 = Sensors Automatic Config; 3 = Sensors and Actuators (ESCs) Automatic Config & 0 \\
+\param{EKF2\_EN} & EKF2 enable & 0 off, 1 on & 0 \\
+\param{SYS\_HAS\_MAG} & Control if and how many magnetometers are expected & 0 off, 1 on & 0 \\
+\param{SYS\_HAS\_BARO} & Control if the vehicle has a barometer & 0 off, 1 on & 0 \\
+\param{CAL\_ACC0\_ID} & Accelerometer n calibration device ID & device id; 1310988 = the HIL receiver's SIM IMU & 1310988 \\
+\param{CAL\_GYRO0\_ID} & Gyroscope n calibration device ID & device id; 1310988 = the HIL receiver's SIM IMU & 1310988 \\
+\param{CAL\_ACC0\_*OFF} & Accelerometer offsets of slot 0 (X, Y, Z) & any (m/s\^{}2) & 0 \\
+\param{CAL\_GYRO0\_*OFF} & Gyroscope offsets of slot 0 (X, Y, Z) & any (rad/s) & 0 \\
+\param{CAL\_ACC0\_*SCALE} & Accelerometer scale of slot 0 (X, Y, Z) & 0.1 to 3 & 1 \\
+\param{SDLOG\_MODE} & Logging Mode & 0 = when armed until disarm (default); 1 = from boot until disarm; 2 = from boot until shutdown; 3 = while manual input AUX1 \textgreater{}30\%; 4 = from 1st armed until shutdown & 2 \\
+\param{SDLOG\_BACKEND} & Logging Backend (integer bitmask) & 0 to 3 & 1 \\
+\param{GPS\_1\_CONFIG} & Serial port for GPS 1; rcS sets 0 in HITL (no GPS) & 0 disabled; a serial port id & 0 (set by rcS) \\
+\midrule
+\multicolumn{4}{l}{\textbf{Bench and real-aircraft settings mentioned in the text}} \\
+\midrule
+\param{CBRK\_FLIGHTTERM} & Circuit breaker for flight termination & 0 to 121212 & 0 (kept) \\
+\param{SENS\_BOARD\_Y\_OFF} & Board rotation Y (pitch) offset & -45 to 45 deg & 0 in HITL; 25 on the real aircraft (sign to verify) \\
+\param{SENS\_BOARD\_ROT} & Coarse board rotation relative to the body (multiples of 45/90 deg) & 0 = none; 1..40 = the rotation enum in PX4 docs (Sensor Orientation) & 0 \\
+\bottomrule
+\end{longtable}
+}
 
 %=====================================================================
 \section{Where things live}
