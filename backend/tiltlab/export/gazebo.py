@@ -46,11 +46,16 @@ def frd_to_flu(v: tuple[float, float, float] | np.ndarray) -> tuple[float, float
 
 
 def axis_to_rpy(axis_flu: tuple[float, float, float]) -> tuple[float, float, float]:
-    """Roll, pitch, yaw (rad) that rotate the link +z onto axis_flu (zero roll)."""
+    """Roll, pitch, yaw (rad) that rotate the link +z onto axis_flu (zero yaw).
+
+    SDF applies a pose's rpy as R = Rz(yaw) Ry(pitch) Rx(roll) (roll first, fixed axes), so
+    the rotated +z is (sin p cos r, -sin r, cos p cos r): pitch = atan2(x, z) and
+    roll = atan2(-y, hypot(x, z)). Exact for any axis, including a fan tilted sideways on a
+    pitched hover frame where x and y are both non-zero.
+    """
     x, y, z = axis_flu
-    # pitch about y then roll about x: z' = (sin p cos r, -sin r, cos p cos r)
-    pitch = math.atan2(x, math.hypot(y, z) if (y or z) else 1e-12)
-    roll = math.atan2(-y, z)
+    pitch = math.atan2(x, z) if (x or z) else 0.0
+    roll = math.atan2(-y, math.hypot(x, z))
     return (roll, pitch, 0.0)
 
 
