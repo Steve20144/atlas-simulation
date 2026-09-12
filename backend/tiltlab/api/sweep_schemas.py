@@ -29,6 +29,10 @@ class SweepRequest(BaseModel):
     per_pair: bool = False
     centreline_tilts_deg: list[float] = Field(default_factory=lambda: [0.0])
     centreline_azimuth_deg: float = Field(default=0.0, ge=0.0, le=360.0)
+    # Nose (centreline) fans: sideways tilt grid, signed degrees about body X, negative left
+    # (-Y), positive right (+Y). Empty leaves the nose fans as the scenario has them.
+    nose_tilts_deg: list[float] = Field(default_factory=list)
+    nose_pairing: Literal["opposed", "same", "independent"] = "opposed"
     min_headroom: float = Field(default=0.2, ge=0.0, le=1.0)
     min_yaw_Nm: float = Field(default=0.0, ge=0.0)
     # control checks (rad/s^2 from attainable torque over inertia; 0 or 1 = not filtered)

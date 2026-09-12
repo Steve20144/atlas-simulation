@@ -286,6 +286,11 @@ export interface SweepCandidate {
   /** Angle per wing pair, outer to inner (tilt or deflection depending on variable). */
   pair_tilts_deg: number[];
   centreline_tilt_deg: number;
+  /** Nose fans swept sideways: signed tilt (front, rear), degrees, negative left, positive right;
+   * null when the sweep left the nose fans alone. */
+  nose_tilts_deg?: number[] | null;
+  /** Tilt and azimuth applied to each nose fan, by fan id, degrees. */
+  nose_angles_deg?: Record<string, [number, number]> | null;
   power_W: number;
   headroom: number;
   roll_Nm: number | null;
@@ -329,6 +334,9 @@ export interface SweepRequestBody {
     | "outer_aft_inner_fwd";
   per_pair: boolean;
   centreline_tilts_deg?: number[];
+  /** Nose fans sideways tilt grid, signed degrees (negative left, positive right); empty = off. */
+  nose_tilts_deg?: number[];
+  nose_pairing?: "opposed" | "same" | "independent";
   min_headroom: number;
   min_yaw_Nm: number;
   /** rad/s^2 at hover; 0 = not filtered. */

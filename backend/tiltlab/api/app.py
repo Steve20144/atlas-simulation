@@ -202,6 +202,8 @@ def sweep_endpoint(req: SweepRequest) -> SweepResponse:
             per_pair=req.per_pair,
             centreline_tilts_deg=req.centreline_tilts_deg,
             centreline_azimuth_deg=req.centreline_azimuth_deg,
+            nose_tilts_deg=req.nose_tilts_deg,
+            nose_pairing=req.nose_pairing,
             concept=req.concept,
             collective=req.collective,
             min_headroom=req.min_headroom,

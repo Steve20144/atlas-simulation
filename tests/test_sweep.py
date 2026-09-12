@@ -8,7 +8,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tiltlab.api.app import app
-from tiltlab.core.sweep import SweepSpec, apply_angles, candidate_angles, run_sweep, sweep_table
+from tiltlab.core.sweep import (
+    SweepSpec,
+    apply_angles,
+    candidate_angles,
+    nose_candidates,
+    nose_fan_ids,
+    run_sweep,
+    signed_lateral_to_angles,
+    sweep_table,
+)
 from tiltlab.scenario import Scenario
 
 from .conftest import FIXTURES
@@ -161,3 +170,124 @@ def test_sweep_endpoint(scenario):
     data = r.json()
     assert data["n_evaluated"] == 2 and len(data["candidates"]) == 1
     assert data["spec"]["azimuth_mode"] == "forward"
+
+
+# ---------------------------------------------------------------- nose fans sideways
+
+
+@pytest.fixture(scope="module")
+def foil_scenario() -> Scenario:
+    """The CAD scenario as flown: segmented foils on the wing fans, nose fans vertical."""
+    return Scenario.model_validate(json.loads((SCENARIOS / "atlas_phase01_cad.json").read_text()))
+
+
+def test_signed_lateral_tilt_maps_to_left_right_azimuth():
+    """Negative is left (-Y, azimuth 270), positive right (+Y, azimuth 90), zero straight down."""
+    from tiltlab.scenario import tilt_azimuth_to_axis
+
+    assert signed_lateral_to_angles(0.0) == (0.0, 0.0)
+    assert signed_lateral_to_angles(-20.0) == (20.0, 270.0)
+    assert signed_lateral_to_angles(20.0) == (20.0, 90.0)
+    ax = tilt_azimuth_to_axis(*signed_lateral_to_angles(-30.0))
+    assert ax[0] == 0.0 and ax[1] < 0.0 and ax[2] < 0.0  # no fore-aft share, jet to the left
+    ax = tilt_azimuth_to_axis(*signed_lateral_to_angles(30.0))
+    assert ax[0] == 0.0 and ax[1] > 0.0 and ax[2] < 0.0
+
+
+def test_nose_pairings(foil_scenario):
+    front, rear = nose_fan_ids(foil_scenario)
+    fans = {f.id: f for f in foil_scenario.fans}
+    assert fans[front].pos_frd_m[0] > fans[rear].pos_frd_m[0]
+    opposed = list(
+        nose_candidates(foil_scenario, SweepSpec(tilts_deg=[90], nose_tilts_deg=[-20, 0, 20]))
+    )
+    assert opposed == [
+        {front: -20.0, rear: 20.0},
+        {front: 0.0, rear: 0.0},
+        {front: 20.0, rear: -20.0},
+    ]
+    same = list(
+        nose_candidates(
+            foil_scenario, SweepSpec(tilts_deg=[90], nose_tilts_deg=[-20, 20], nose_pairing="same")
+        )
+    )
+    assert same == [{front: -20.0, rear: -20.0}, {front: 20.0, rear: 20.0}]
+    indep = list(
+        nose_candidates(
+            foil_scenario,
+            SweepSpec(tilts_deg=[90], nose_tilts_deg=[-20, 20], nose_pairing="independent"),
+        )
+    )
+    assert len(indep) == 4 and indep[1] == {front: -20.0, rear: 20.0}
+    with pytest.raises(ValueError):
+        SweepSpec(tilts_deg=[90], nose_tilts_deg=[95])
+    with pytest.raises(ValueError):
+        SweepSpec(tilts_deg=[90], nose_tilts_deg=[10], nose_pairing="crossed")
+
+
+def test_foil_sweep_with_nose_grid_applies_sideways_tilt(foil_scenario):
+    """Every foil candidate is evaluated at every nose setting; the record carries the signed
+    front/rear tilt and the tilt/azimuth actually applied so the UI can load it."""
+    spec = SweepSpec(
+        tilts_deg=[45, 135],
+        foil_grouping="left_right",
+        nose_tilts_deg=[-15, 15],
+        min_headroom=0.0,
+    )
+    result = run_sweep(foil_scenario, spec)
+    assert result["variable"] == "foil"
+    assert result["n_evaluated"] == 2 * 2 * 2
+    assert result["spec"]["nose_tilts_deg"] == [-15.0, 15.0]
+    front, rear = nose_fan_ids(foil_scenario)
+    rec = next(r for r in result["candidates"] if r["nose_tilts_deg"] == [-15.0, 15.0])
+    assert rec["nose_angles_deg"] == {str(front): [15.0, 270.0], str(rear): [15.0, 90.0]}
+    assert rec["centreline_tilt_deg"] == 15.0
+    # the wing fans keep their foil deflections
+    assert set(rec["deflections_deg"]) == {str(i) for i in range(8)}
+    # the nose tilt changes the geometry: a tilted nose fan carries less lift, so power differs
+    same_foils = [
+        r for r in result["candidates"] if r["deflections_deg"] == rec["deflections_deg"]
+    ]
+    assert len(same_foils) == 2 and same_foils[0]["power_W"] != same_foils[1]["power_W"]
+    assert "nose F/R" in sweep_table(result, 3)
+
+
+def test_tilt_sweep_nose_grid_overrides_centreline(scenario):
+    spec = SweepSpec(
+        tilts_deg=[0, 10],
+        centreline_tilts_deg=[0, 5],
+        nose_tilts_deg=[-30, 30],
+        nose_pairing="same",
+        min_headroom=0.0,
+    )
+    result = run_sweep(scenario, spec)
+    # the centreline grid collapses to one entry when the nose grid is active
+    assert result["n_evaluated"] == 2 * 2
+    rec = next(r for r in result["candidates"] if r["nose_tilts_deg"] == [30.0, 30.0])
+    assert rec["tilts_deg"][8] == 30.0 and rec["azimuths_deg"][8] == 90.0
+    assert rec["tilts_deg"][9] == 30.0 and rec["azimuths_deg"][9] == 90.0
+    assert rec["nose_angles_deg"] is not None
+    plain = run_sweep(scenario, SweepSpec(tilts_deg=[0], min_headroom=0.0))["candidates"][0]
+    assert plain["nose_tilts_deg"] is None and plain["nose_angles_deg"] is None
+
+
+def test_sweep_endpoint_nose(foil_scenario):
+    client = TestClient(app)
+    body = {
+        "scenario": foil_scenario.model_dump(mode="json"),
+        "tilts_deg": [90],
+        "nose_tilts_deg": [-10, 10],
+        "nose_pairing": "opposed",
+        "min_headroom": 0.0,
+        "top": 5,
+    }
+    r = client.post("/api/sweep", json=body)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["n_evaluated"] == 2 and data["spec"]["nose_pairing"] == "opposed"
+    assert sorted(c["nose_tilts_deg"] for c in data["candidates"]) == [
+        [-10.0, 10.0],
+        [10.0, -10.0],
+    ]
+    r = client.post("/api/sweep", json={**body, "nose_pairing": "crossed"})
+    assert r.status_code == 422

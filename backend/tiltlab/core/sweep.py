@@ -15,6 +15,13 @@ Tilt variable (``variable="tilt"``): the grid values are raw fan tilts for the f
 (rotors 0/1 outermost to 6/7 innermost, left is negative Y in FRD) with ``azimuth_mode``
 ``inward``, ``outward``, ``forward``, ``aft`` or the alternating fore-aft modes; ``per_pair``
 gives each pair its own tilt. Centreline fans (8, 9) take ``centreline_tilts_deg``.
+
+Nose fans (both variables): ``nose_tilts_deg`` adds a sideways tilt grid for the two centreline
+fans. Values are signed degrees about the body X axis: negative tilts the jet to the left (-Y,
+azimuth 270), positive to the right (+Y, azimuth 90); 0 is straight down. ``nose_pairing`` is
+``opposed`` (front fan takes the grid value, rear fan the negative), ``same`` (both take the
+value) or ``independent`` (grid squared, front then rear). Every base candidate is evaluated at
+every nose setting. An empty grid leaves the nose fans as the scenario has them.
 """
 
 from __future__ import annotations
@@ -48,6 +55,7 @@ ALTERNATING_MODES: dict[str, tuple[str, ...]] = {
 AZIMUTH_MODES: tuple[str, ...] = tuple(PAIR_AZIMUTHS) + tuple(ALTERNATING_MODES)
 VARIABLES: tuple[str, ...] = ("auto", "foil", "tilt")
 FOIL_GROUPINGS: tuple[str, ...] = ("same", "left_right", "per_pair")
+NOSE_PAIRINGS: tuple[str, ...] = ("opposed", "same", "independent")
 # reasons that only reflect a user threshold (the geometry itself can hover and steer)
 THRESHOLD_REASON_PREFIXES: tuple[str, ...] = (
     "headroom", "yaw authority", "roll acceleration", "pitch acceleration",
@@ -98,6 +106,10 @@ class SweepSpec:
     per_pair: bool = False
     centreline_tilts_deg: list[float] = field(default_factory=lambda: [0.0])
     centreline_azimuth_deg: float = 0.0
+    # sideways tilt grid for the nose (centreline) fans, signed degrees: negative left (-Y),
+    # positive right (+Y); empty = nose fans untouched
+    nose_tilts_deg: list[float] = field(default_factory=list)
+    nose_pairing: str = "opposed"
     concept: str = "stock"
     collective: float | None = None
     min_headroom: float = 0.2
@@ -129,6 +141,11 @@ class SweepSpec:
             raise ValueError(f"foil_grouping must be one of {list(FOIL_GROUPINGS)}")
         if self.azimuth_mode not in AZIMUTH_MODES:
             raise ValueError(f"azimuth_mode must be one of {list(AZIMUTH_MODES)}")
+        if self.nose_pairing not in NOSE_PAIRINGS:
+            raise ValueError(f"nose_pairing must be one of {list(NOSE_PAIRINGS)}")
+        for t in self.nose_tilts_deg:
+            if not -90.0 <= float(t) <= 90.0:
+                raise ValueError("nose_tilts_deg must lie in [-90, 90] degrees (signed, + right)")
         if self.rank_by not in RANK_OBJECTIVES:
             raise ValueError(f"rank_by must be one of {list(RANK_OBJECTIVES)}")
         if not self.tilts_deg:
@@ -142,6 +159,10 @@ class SweepSpec:
             return "foil" if scenario.foils else "tilt"
         return self.variable
 
+    @property
+    def nose_active(self) -> bool:
+        return bool(self.nose_tilts_deg)
+
 
 def _left_right(scenario: Scenario, pair: tuple[int, int]) -> tuple[int, int]:
     """Rotor ids of a wing pair ordered (left, right) by their FRD Y position."""
@@ -149,6 +170,65 @@ def _left_right(scenario: Scenario, pair: tuple[int, int]) -> tuple[int, int]:
     fa = next(f for f in scenario.fans if f.id == a)
     fb = next(f for f in scenario.fans if f.id == b)
     return (a, b) if fa.pos_frd_m[1] <= fb.pos_frd_m[1] else (b, a)
+
+
+# ---------------------------------------------------------------- nose fans (sideways tilt)
+
+
+def nose_fan_ids(scenario: Scenario) -> tuple[int, int]:
+    """Centreline fan ids ordered (front, rear) by their FRD X position."""
+    fans = {f.id: f for f in scenario.fans}
+    a, b = CENTRELINE
+    return (a, b) if fans[a].pos_frd_m[0] >= fans[b].pos_frd_m[0] else (b, a)
+
+
+def signed_lateral_to_angles(signed_deg: float) -> tuple[float, float]:
+    """(tilt_deg, azimuth_deg) of a fan tilted sideways by signed_deg about the body X axis.
+
+    Positive tilts the thrust toward +Y (right, azimuth 90), negative toward -Y (left, azimuth
+    270); 0 is straight down (azimuth 0). FRD body frame, degrees.
+    """
+    s = float(signed_deg)
+    if abs(s) < 1e-12:
+        return (0.0, 0.0)
+    return (abs(s), 90.0 if s > 0.0 else 270.0)
+
+
+def nose_candidates(scenario: Scenario, spec: SweepSpec) -> Iterator[dict[int, float]]:
+    """Yield {fan id: signed sideways tilt deg} for the (front, rear) nose fans."""
+    front, rear = nose_fan_ids(scenario)
+    if spec.nose_pairing == "independent":
+        for f, r in itertools.product(spec.nose_tilts_deg, repeat=2):
+            yield {front: float(f), rear: float(r)}
+    elif spec.nose_pairing == "same":
+        for v in spec.nose_tilts_deg:
+            yield {front: float(v), rear: float(v)}
+    else:  # opposed
+        for v in spec.nose_tilts_deg:
+            yield {front: float(v), rear: (-float(v) if float(v) != 0.0 else 0.0)}
+
+
+def nose_angles(nose: dict[int, float]) -> dict[int, tuple[float, float]]:
+    return {fid: signed_lateral_to_angles(v) for fid, v in nose.items()}
+
+
+def _nose_record(
+    scenario: Scenario, sc: Scenario, nose: dict[int, float] | None
+) -> dict[str, Any]:
+    """Nose fields of a record: signed (front, rear) sideways tilt and the applied angles."""
+    front, rear = nose_fan_ids(scenario)
+    fans = {f.id: f for f in sc.fans}
+    rec: dict[str, Any] = {
+        "centreline_tilt_deg": float(fans[CENTRELINE[0]].tilt_deg),
+        "nose_tilts_deg": None,
+        "nose_angles_deg": None,
+    }
+    if nose is not None:
+        rec["nose_tilts_deg"] = [nose[front], nose[rear]]
+        rec["nose_angles_deg"] = {
+            str(fid): [fans[fid].tilt_deg, fans[fid].azimuth_deg] for fid in (front, rear)
+        }
+    return rec
 
 
 # ---------------------------------------------------------------- tilt variable
@@ -168,8 +248,9 @@ def candidate_angles(
         )
     else:
         pair_grids = ((t,) * len(WING_PAIRS) for t in spec.tilts_deg)
+    centre_grid = [0.0] if spec.nose_active else list(spec.centreline_tilts_deg)
     for pair_tilts in pair_grids:
-        for ct in spec.centreline_tilts_deg:
+        for ct in centre_grid:
             angles: dict[int, tuple[float, float]] = {}
             for pi, ((left, right), tilt) in enumerate(zip(pair_lr, pair_tilts, strict=True)):
                 az_left, az_right = pair_azimuths(spec.azimuth_mode, pi)
@@ -357,9 +438,15 @@ def evaluate_scenario(sc: Scenario, spec: SweepSpec) -> dict[str, Any]:
 
 
 def evaluate_candidate(
-    scenario: Scenario, angles: dict[int, tuple[float, float]], spec: SweepSpec
+    scenario: Scenario,
+    angles: dict[int, tuple[float, float]],
+    spec: SweepSpec,
+    nose: dict[int, float] | None = None,
 ) -> dict[str, Any]:
-    """Tilt-variable candidate: fan tilt/azimuth per rotor."""
+    """Tilt-variable candidate: fan tilt/azimuth per rotor; ``nose`` (signed sideways tilt per
+    nose fan) overrides the centreline entries."""
+    if nose is not None:
+        angles = {**angles, **nose_angles(nose)}
     sc = apply_angles(scenario, angles)
     ordered = sorted(angles)
     rec = {
@@ -367,18 +454,24 @@ def evaluate_candidate(
         "tilts_deg": [angles[i][0] for i in ordered],
         "azimuths_deg": [angles[i][1] for i in ordered],
         "pair_tilts_deg": [angles[_left_right(scenario, p)[0]][0] for p in WING_PAIRS],
-        "centreline_tilt_deg": angles[CENTRELINE[0]][0],
     }
+    rec.update(_nose_record(scenario, sc, nose))
     rec.update(evaluate_scenario(sc, spec))
     return rec
 
 
 def evaluate_foil_candidate(
-    scenario: Scenario, deflections: dict[int, float], spec: SweepSpec
+    scenario: Scenario,
+    deflections: dict[int, float],
+    spec: SweepSpec,
+    nose: dict[int, float] | None = None,
 ) -> dict[str, Any]:
     """Foil-variable candidate: deflection per foil fan; pair_tilts_deg carries the per-pair
-    deflection so tables and the UI can show it in the same column."""
+    deflection so tables and the UI can show it in the same column. ``nose`` (signed sideways
+    tilt per nose fan) sets the centreline fans' tilt and azimuth."""
     sc = apply_deflections(scenario, deflections)
+    if nose is not None:
+        sc = apply_angles(sc, nose_angles(nose))
     fans = {f.id: f for f in scenario.fans}
     pairs = []
     for a, b in WING_PAIRS:
@@ -393,8 +486,8 @@ def evaluate_foil_candidate(
         "pair_tilts_deg": pairs,
         "left_deg": (sum(left_vals) / len(left_vals)) if left_vals else None,
         "right_deg": (sum(right_vals) / len(right_vals)) if right_vals else None,
-        "centreline_tilt_deg": float(next((f.tilt_deg for f in scenario.fans if f.id == 8), 0.0)),
     }
+    rec.update(_nose_record(scenario, sc, nose))
     rec.update(evaluate_scenario(sc, spec))
     return rec
 
@@ -414,22 +507,27 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
     records: list[dict[str, Any]] = []
     variants = [(float(p), _with_hover_pitch(scenario, float(p))) for p in spec.hover_pitch_deg]
     truncated = False
+    noses: list[dict[int, float] | None] = (
+        list(nose_candidates(scenario, spec)) if spec.nose_active else [None]
+    )
     if variable == "foil":
-        for n, defl in enumerate(candidate_deflections(scenario, spec)):
+        grid = itertools.product(candidate_deflections(scenario, spec), noses)
+        for n, (defl, nose) in enumerate(grid):
             if n >= spec.max_candidates:
                 truncated = True
                 break
             for pitch, sc0 in variants:
-                rec = evaluate_foil_candidate(sc0, defl, spec)
+                rec = evaluate_foil_candidate(sc0, defl, spec, nose)
                 rec["hover_pitch_deg"] = pitch
                 records.append(rec)
     else:
-        for n, angles in enumerate(candidate_angles(scenario, spec)):
+        grid = itertools.product(candidate_angles(scenario, spec), noses)
+        for n, (angles, nose) in enumerate(grid):
             if n >= spec.max_candidates:
                 truncated = True
                 break
             for pitch, sc0 in variants:
-                rec = evaluate_candidate(sc0, angles, spec)
+                rec = evaluate_candidate(sc0, angles, spec, nose)
                 rec["hover_pitch_deg"] = pitch
                 records.append(rec)
     records.sort(key=lambda r: (not r["feasible"], *rank_key(r, spec.rank_by)))
@@ -449,6 +547,8 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
             "azimuth_mode": spec.azimuth_mode,
             "per_pair": spec.per_pair,
             "centreline_tilts_deg": list(spec.centreline_tilts_deg),
+            "nose_tilts_deg": list(spec.nose_tilts_deg),
+            "nose_pairing": spec.nose_pairing,
             "concept": spec.concept,
             "collective": spec.collective,
             "min_headroom": spec.min_headroom,
@@ -503,12 +603,14 @@ def sweep_diagnostics(records: list[dict[str, Any]]) -> dict[str, Any]:
 def sweep_table(result: dict[str, Any], top: int = 15) -> str:
     """Compact text table of the ranked candidates."""
     label = "foil defl deg" if result.get("variable") == "foil" else "pair tilts deg"
+    nose_on = any(r.get("nose_tilts_deg") for r in result["candidates"])
+    ctr_label = "nose F/R" if nose_on else "ctr"
     head = (
-        label, "ctr", "power W", "headrm", "roll", "pitch", "yaw", "r a/s2", "p a/s2", "y a/s2",
+        label, ctr_label, "power W", "headrm", "roll", "pitch", "yaw", "r a/s2", "p a/s2", "y a/s2",
         "coupl", "surge", "ctrl", "score",
     )  # fmt: skip
     rows = [
-        f"{head[0]:>22s} {head[1]:>4s} {head[2]:>8s} {head[3]:>6s} {head[4]:>6s} {head[5]:>6s} "
+        f"{head[0]:>22s} {head[1]:>9s} {head[2]:>8s} {head[3]:>6s} {head[4]:>6s} {head[5]:>6s} "
         f"{head[6]:>6s} {head[7]:>6s} {head[8]:>6s} {head[9]:>6s} {head[10]:>6s} {head[11]:>6s} "
         f"{head[12]:>6s} {head[13]:>6s}  feasible"
     ]
@@ -521,8 +623,10 @@ def sweep_table(result: dict[str, Any], top: int = 15) -> str:
         if r.get("hover_pitch_deg"):
             tilts += f" @{r['hover_pitch_deg']:+.0f}"
         verdict = "yes" if r["feasible"] else "; ".join(r["reasons"])
+        nose = r.get("nose_tilts_deg")
+        ctr = f"{nose[0]:+.0f}/{nose[1]:+.0f}" if nose else f"{r['centreline_tilt_deg']:.0f}"
         rows.append(
-            f"{tilts:>22s} {r['centreline_tilt_deg']:4.0f} {r['power_W']:8.0f} "
+            f"{tilts:>22s} {ctr:>9s} {r['power_W']:8.0f} "
             f"{r['headroom']:6.2f} {f(r['roll_Nm'], '6.2f')} {f(r['pitch_Nm'], '6.2f')} "
             f"{f(r['yaw_Nm'], '6.2f')} {f(r.get('roll_acc'), '6.1f')} "
             f"{f(r.get('pitch_acc'), '6.1f')} {f(r.get('yaw_acc'), '6.1f')} "

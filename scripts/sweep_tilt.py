@@ -2,9 +2,12 @@
 
     uv run --project backend python scripts/sweep_tilt.py scenarios/atlas_phase01_cad.json \
         [--tilts 0:45:5 | --tilts 0,10,20,30] [--mode inward|outward|forward|aft] [--per-pair] \
-        [--centre 0,10] [--concept stock] [--collective 0.35] [--min-headroom 0.2] [--min-yaw 0.5] \
+        [--centre 0,10] [--nose-tilts=-30:30:10 --nose-pairing opposed|same|independent] \
+        [--concept stock] [--collective 0.35] [--min-headroom 0.2] [--min-yaw 0.5] \
         [--top 15] [--csv exports]
 
+--nose-tilts adds a sideways tilt grid for the two nose fans (signed degrees about the body X
+axis, negative left, positive right; use the = form when the list starts with a minus).
 Writes a timestamped CSV of every candidate when --csv is given and prints the ranked table.
 """
 
@@ -14,7 +17,7 @@ import argparse
 import json
 from pathlib import Path
 
-from tiltlab.core.sweep import AZIMUTH_MODES, SweepSpec, run_sweep, sweep_table
+from tiltlab.core.sweep import AZIMUTH_MODES, NOSE_PAIRINGS, SweepSpec, run_sweep, sweep_table
 from tiltlab.export.csv_export import export_metrics_csv
 from tiltlab.scenario import Scenario
 
@@ -46,6 +49,17 @@ def main() -> None:
     )
     ap.add_argument("--per-pair", action="store_true")
     ap.add_argument("--centre", default="0")
+    ap.add_argument(
+        "--nose-tilts",
+        default="",
+        help="nose fans sideways tilt grid, signed deg (+ right): --nose-tilts=-30:30:10",
+    )
+    ap.add_argument(
+        "--nose-pairing",
+        default="opposed",
+        choices=list(NOSE_PAIRINGS),
+        help="opposed: front +v rear -v; same: both v; independent: grid squared",
+    )
     ap.add_argument("--concept", default="stock", choices=["stock", "fully_actuated"])
     ap.add_argument("--collective", type=float, default=None)
     ap.add_argument("--min-headroom", type=float, default=0.2)
@@ -77,6 +91,8 @@ def main() -> None:
         azimuth_mode=args.mode,
         per_pair=args.per_pair,
         centreline_tilts_deg=parse_angles(args.centre),
+        nose_tilts_deg=parse_angles(args.nose_tilts) if args.nose_tilts.strip() else [],
+        nose_pairing=args.nose_pairing,
         concept=args.concept,
         collective=args.collective,
         min_headroom=args.min_headroom,
@@ -102,8 +118,9 @@ def main() -> None:
     best = result["best"]
     if best:
         print(
-            f"\nbest: pair tilts {best['pair_tilts_deg']} deg, {best['power_W']:.0f} W, "
-            f"yaw {best['yaw_Nm']:.2f} N m"
+            f"\nbest: pair tilts {best['pair_tilts_deg']} deg"
+            + (f", nose front/rear {best['nose_tilts_deg']} deg" if best.get("nose_tilts_deg") else "")
+            + f", {best['power_W']:.0f} W, yaw {best['yaw_Nm']:.2f} N m"
         )
     if args.csv:
         rows = [{"rank": i + 1, **c} for i, c in enumerate(result["candidates"])]

@@ -97,6 +97,39 @@ describe("tiltlab store", () => {
     expect(fans.slice(0, 8).every((f) => f.tilt_deg === 30)).toBe(true);
   });
 
+  it("applying a foil sweep row sets the foil deflections and the nose fans' sideways tilt", () => {
+    const base = useTiltlabStore.getState().scenario;
+    const scenario: Scenario = {
+      ...base,
+      foils: [
+        { id: "left", fan_ids: [0, 2, 4, 6], deflection_deg: 45, per_fan_deflection_deg: {} },
+        { id: "right", fan_ids: [1, 3, 5, 7], deflection_deg: 45, per_fan_deflection_deg: {} },
+      ] as Scenario["foils"],
+    };
+    useTiltlabStore.getState().setScenario(scenario);
+    useTiltlabStore.getState().applySweepCandidate({
+      variable: "foil",
+      deflections_deg: { "0": 135, "1": 135, "2": 45, "3": 45, "4": 45, "5": 45, "6": 45, "7": 45 },
+      pair_tilts_deg: [135, 45, 45, 45],
+      centreline_tilt_deg: 20,
+      nose_tilts_deg: [20, -20],
+      nose_angles_deg: { "9": [20, 90], "8": [20, 270] },
+      hover_pitch_deg: 10,
+      power_W: 1, headroom: 0.5, roll_Nm: 1, pitch_Nm: 1, yaw_Nm: 1, fz_up_N: 1, yaw_Nm_per_kW: 1,
+      coupling_max: 0, condition_number: 1, roll_acc: 1, pitch_acc: 1, yaw_acc: 1, linear_frac: 1,
+      surge_leak: 0, control_score: 1, weakest_axis: null, score: 1, estimated: false, feasible: true, reasons: [],
+    });
+    const sc = useTiltlabStore.getState().scenario;
+    const fan = (id: number) => sc.fans.find((f) => f.id === id)!;
+    expect(fan(9).tilt_deg).toBe(20);
+    expect(fan(9).azimuth_deg).toBe(90);
+    expect(fan(8).tilt_deg).toBe(20);
+    expect(fan(8).azimuth_deg).toBe(270);
+    expect(fan(0).tilt_deg).toBe(base.fans.find((f) => f.id === 0)!.tilt_deg);
+    expect(sc.foils?.[0].per_fan_deflection_deg).toEqual({ "0": 135, "2": 45, "4": 45, "6": 45 });
+    expect(sc.frame.hover_pitch_deg).toBe(10);
+  });
+
   it("records backend errors without crashing", async () => {
     vi.stubGlobal(
       "fetch",

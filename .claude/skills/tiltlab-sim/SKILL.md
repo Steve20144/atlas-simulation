@@ -37,6 +37,10 @@ uv run --project backend python scripts/sweep_tilt.py scenarios/atlas_phase01_ca
 
 - Angles are foil deflections per motor pair, outer to inner; `--hover-pitch` is the hover attitude
   list (nose-up degrees; use `--hover-pitch=-20:20:10` when the list starts with a minus).
+- `--nose-tilts=-30:30:10` adds the two nose fans to the grid, tilted sideways about the aircraft's
+  longitudinal axis (signed degrees, negative = jet left, positive = right, 0 straight down);
+  `--nose-pairing opposed|same|independent` (front +v rear -v, both v, or grid squared). In the UI
+  tick "nose fans sideways". Rows show the front/rear pair in the `nose F/R` column; apply loads it.
 - `rank_by control` = weakest axis' angular acceleration over its requirement, penalised by coupling.
   Grey rows carry the reason. Keep the grid under 5000 candidates (the cap).
 - Same thing in the UI: Foil sweep panel, "apply" a row, then Save under a new scenario name so the

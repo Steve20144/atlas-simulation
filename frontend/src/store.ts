@@ -242,7 +242,13 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
           for (const i of own) per[String(i)] = d[String(i)];
           return { ...f, per_fan_deflection_deg: per };
         });
-        setScenarioAndRefresh({ ...scenario, foils });
+        // nose fans swept sideways: take the tilt/azimuth the sweep applied
+        const nose = c.nose_angles_deg ?? {};
+        const fans = scenario.fans.map((f) => {
+          const a = nose[String(f.id)];
+          return a ? { ...f, tilt_deg: a[0], azimuth_deg: a[1] } : f;
+        });
+        setScenarioAndRefresh({ ...scenario, foils, fans });
       } else if (c.tilts_deg && c.azimuths_deg) {
         get().applyFanAngles(c.tilts_deg, c.azimuths_deg);
       }

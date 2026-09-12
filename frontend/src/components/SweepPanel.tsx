@@ -2,7 +2,8 @@ import { useState } from "react";
 import { api } from "../api";
 import { useTiltlabStore } from "../store";
 import type { SweepRequestBody, SweepResponse } from "../types";
-import { fmt } from "./format";
+import SweepNoseControls, { DEFAULT_NOSE_GRID, noseCount, noseValues, type NoseGrid } from "./SweepNoseControls";
+import SweepSummary from "./SweepSummary";
 import SweepTable from "./SweepTable";
 
 const btn = "rounded border border-slate-600 px-2 py-0.5 text-xs hover:bg-slate-700 disabled:opacity-40";
@@ -28,12 +29,6 @@ function range(start: number, stop: number, step: number): number[] {
   return out;
 }
 
-function topReason(r: SweepResponse): string {
-  const counts = new Map<string, number>();
-  for (const c of r.candidates) for (const reason of c.reasons) counts.set(reason, (counts.get(reason) ?? 0) + 1);
-  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
-}
-
 /** Sweep the foil deflection (or raw fan tilt when the scenario has no foils); every candidate is
  * checked for level hover and for control authority on roll, pitch and yaw, then ranked. */
 export default function SweepPanel() {
@@ -54,6 +49,7 @@ export default function SweepPanel() {
   const [minYawAcc, setMinYawAcc] = useState(2.5);
   const [maxCoupling, setMaxCoupling] = useState(0.3);
   const [pitches, setPitches] = useState("0");
+  const [nose, setNose] = useState<NoseGrid>(DEFAULT_NOSE_GRID);
   const [rankBy, setRankBy] = useState<NonNullable<SweepRequestBody["rank_by"]>>("control");
   const [result, setResult] = useState<SweepResponse | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,7 +58,7 @@ export default function SweepPanel() {
   const values = range(Math.min(start, stop), Math.max(start, stop), step > 0 ? step : 15);
   const pow = hasFoils ? (GROUPINGS.find((g) => g.id === grouping)?.pow ?? 1) : perPair ? 4 : 1;
   const nPitch = Math.max(1, pitches.split(",").filter((p) => p.trim() !== "").length);
-  const count = Math.pow(values.length, pow) * nPitch;
+  const count = Math.pow(values.length, pow) * noseCount(nose) * nPitch;
 
   const run = async () => {
     setBusy(true);
@@ -74,6 +70,7 @@ export default function SweepPanel() {
           variable: hasFoils ? "foil" : "tilt", foil_grouping: grouping, azimuth_mode: mode, per_pair: perPair,
           min_headroom: minHeadroom, min_yaw_Nm: 0, min_roll_accel: minRollAcc, min_pitch_accel: minPitchAcc,
           min_yaw_accel: minYawAcc, max_coupling: maxCoupling, rank_by: rankBy, top: 12,
+          nose_tilts_deg: noseValues(nose), nose_pairing: nose.pairing,
           hover_pitch_deg: pitches.split(",").map((p) => Number(p.trim())).filter((p) => Number.isFinite(p)),
         }),
       );
@@ -84,12 +81,11 @@ export default function SweepPanel() {
     }
   };
 
-  const d = result?.diagnostics;
   return (
     <div className="flex flex-col gap-1 rounded border border-slate-800 p-2" data-testid="sweep-panel">
       <h3 className="text-xs font-semibold">{hasFoils ? "Foil sweep" : "Tilt sweep"}</h3>
       <p className="text-[10px] text-slate-400">
-        Tries every {hasFoils ? "foil deflection" : "wing-fan tilt"} in the grid. A candidate passes when it hovers level and gives the pilot at least the angular acceleration you ask for on roll, pitch and yaw (attainable torque over inertia, at hover) without leaking into the other axes. Rank by control authority to find the deflector set that is easiest to fly.
+        Tries every {hasFoils ? "foil deflection" : "wing-fan tilt"} in the grid. A candidate passes when it hovers level and gives the pilot at least the angular acceleration you ask for on roll, pitch and yaw (attainable torque over inertia, at hover) without leaking into the other axes. Rank by control authority to find the deflector set that is easiest to fly. Tick "nose fans sideways" to also tilt the two nose fans left or right about the aircraft's axis.
       </p>
       <div className="flex flex-wrap items-center gap-1 text-[11px]">
         <span>{hasFoils ? "deflection from" : "tilt from"}</span>
@@ -111,6 +107,7 @@ export default function SweepPanel() {
           </>
         )}
       </div>
+      <SweepNoseControls grid={nose} onChange={setNose} />
       <div className="flex flex-wrap items-center gap-1 text-[11px]">
         <span>min headroom</span>
         <input className={input} type="number" value={minHeadroom} min={0} max={1} step={0.05} onChange={(e) => setMinHeadroom(Number(e.target.value))} aria-label="min headroom" />
@@ -133,18 +130,9 @@ export default function SweepPanel() {
         </button>
       </div>
       {error && <p className="text-[10px] text-rose-300">{error}</p>}
-      {result && d && (
+      {result && (
         <>
-          <p className="text-[10px] text-slate-400">
-            {result.n_feasible} of {result.n_evaluated} geometries hover level and meet every control check, {fmt(result.elapsed_ms, 0)} ms. Feasible rows first, ranked by {RANKS.find((r) => r.id === rankBy)?.label}.
-          </p>
-          {result.n_feasible === 0 && (
-            <p className="text-[10px] text-rose-300">
-              {d.n_controllable > 0
-                ? `${d.n_controllable} geometries hover level and steer every axis but miss your thresholds (most often: ${d.most_common_reason_near_miss ?? topReason(result)}). Lower the minimum accelerations or headroom to see them.`
-                : `No geometry in this grid can hover level and steer every axis. Most common reason: ${d.most_common_reason_near_miss ?? topReason(result)}.${hasFoils && grouping === "same" ? " With one angle for both foils only 90 deg (straight down) hovers level; use the segmented grouping." : hasFoils && grouping === "left_right" ? " Different left and right angles leave a net yaw moment; use the segmented grouping." : !hasFoils ? " Try the alternating fore-aft mode or per-pair angles." : ""}`}
-            </p>
-          )}
+          <SweepSummary result={result} rankLabel={RANKS.find((r) => r.id === rankBy)?.label ?? rankBy} hasFoils={hasFoils} grouping={grouping} />
           <SweepTable
             result={result}
             angleLabel={hasFoils ? (grouping === "left_right" ? "left / right deg" : "deflection outer to inner") : "pair tilts"}
