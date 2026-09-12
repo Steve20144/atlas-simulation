@@ -67,6 +67,12 @@ shell you can drive it without the console: `wsl -d Ubuntu-24.04 -- bash ~/utopi
 Headless variant for scripted tests: prefix `HEADLESS=1` inside the quotes; watch via QGC or
 `gz topic -e -t /<model>_0/command/motor_speed`.
 
+Reset: the reset button in Gazebo's World control, `bash ~/utopia/vibe-coded/scripts/wsl/px4ctl.sh reset`,
+or the menu item. The launcher restarts PX4 (fresh EKF, integrators, new log), removes the vehicle,
+rewinds the clock to 0 and PX4 respawns it at its start pose: about 15 s to `Ready for takeoff!`, then
+the usual 10 s for the height estimate. Live `param` changes survive. Works only when the sim was
+started by `tiltlab_gazebo.sh --mode sitl` (it runs the relaunch loop and the GUI reset watcher).
+
 ## Workflow C: HITL (real Pixhawk 6X, your RC transmitter)
 
 Prerequisites once: firmware with `pwm_out_sim` (`--build-firmware`), usbipd-win on Windows
@@ -102,6 +108,7 @@ MPC_Z_VEL_P_ACC 1.9 x, tilt limit 20 deg, `MC_AT_EN 0`.
 
 | symptom | cause | fix |
 |---|---|---|
+| Gazebo reset button: vehicle vanishes, clock at 0, PX4 still "running" but nothing responds | gz sim reset restores the world's start state; the model PX4 spawned at run time is not part of it | launcher watches `/world/<w>/stats` and restarts PX4 by itself; if PX4 was started by hand, relaunch through the launcher |
 | Gazebo: `index N of the Actuator velocity array which is of size 4` | airframe not applied: CRLF file, or autostart id collides with a stock PX4 airframe (rcS sources `<id>_*`, last wins) | exporter writes LF and derives the id from the scenario name; script strips CR and removes stale tiltlab airframes |
 | PX4 dies right after `gz_bridge world: ...` (signal 6) | gz bridge `esc_status` holds 8 entries, 10 motors overrun it | script patches `GZMixingInterfaceESC.cpp` and `max_num_servos` 8 -> 12 |
 | motors stay at zero after takeoff, allocator reports thrust unallocated | geometry has no level hover trim (e.g. all foils 45 deg) | pick a sweep row that is feasible |

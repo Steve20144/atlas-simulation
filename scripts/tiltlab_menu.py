@@ -204,8 +204,12 @@ def hover_report() -> None:
 
 
 def reset_sim() -> None:
-    """Disarm and put the model back where it spawned; after a flip in HITL use the hard path."""
+    """SITL: restart PX4 and respawn the vehicle (what Gazebo's reset button should do).
+    HITL: disarm and put the model back where it spawned; after a flip use the hard path."""
     mode = ask("which sim is running, sitl / hitl", "hitl").lower()
+    if mode == "sitl":
+        run_wsl(SITL_DISTRO, f"bash {bash_path(WSL_HELPERS + '/tiltlab_gazebo.sh')} --reset --mode sitl")
+        return
     root = REPO / "exports" / ("gazebo_hitl" if mode == "hitl" else "gazebo")
     harness = pick_dir(root, f"{mode.upper()} harness in use")
     if harness is None:
@@ -233,7 +237,7 @@ MENU: tuple[tuple[str, Callable[[], None]], ...] = (
     ("build the HITL firmware (px4_fmu-v6x_hitl)", build_firmware),
     ("hover report from a ulog", hover_report),
     ("stop a running Gazebo (clear a stale gzserver)", stop_sim),
-    ("reset the running sim (disarm, poses back; hard = reboot board and relaunch)", reset_sim),
+    ("reset the running sim (SITL: PX4 restarts, vehicle respawns; HITL: disarm, poses back, hard = reboot)", reset_sim),
 )
 
 

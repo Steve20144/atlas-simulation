@@ -11,8 +11,9 @@
 #   bash tiltlab_gazebo.sh --build-firmware   # HITL: also build px4_fmu-v6x with pwm_out_sim (and offer upload)
 #   bash tiltlab_gazebo.sh --yes              # answer yes to every question
 #   bash tiltlab_gazebo.sh --stop             # stop PX4 SITL, gz sim, Gazebo Classic and the QGC relay
-#   bash tiltlab_gazebo.sh --reset --mode M --harness D   # disarm, reset model poses; exit 3 if termination latched
-#   bash tiltlab_gazebo.sh --reset --hard ... # also stop, reboot the board, relaunch (HITL after a flip)
+#   bash tiltlab_gazebo.sh --reset --mode sitl             # SITL: restart PX4, respawn the vehicle, clock back to 0
+#   bash tiltlab_gazebo.sh --reset --mode hitl --harness D # HITL: disarm, reset model poses; exit 3 if termination latched
+#   bash tiltlab_gazebo.sh --reset --hard ... # HITL: also stop, reboot the board, relaunch (after a flip)
 #
 # Steps: 1 check packages (with versions), 2 install what is missing (asks first), 3 ask whether to
 # continue when everything is present, 4 copy the harness into PX4's Gazebo tree and launch.
@@ -46,11 +47,14 @@ while [ $# -gt 0 ]; do
     --px4) PX4_DIR="$2"; shift 2 ;;
     --serial) SERIAL_DEV="$2"; shift 2 ;;
     --tiltlab) TILTLAB_WIN="$2"; shift 2 ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) echo "unknown option $1"; exit 2 ;;
   esac
 done
 case "$MODE" in hitl|sitl) ;; *) echo "--mode must be hitl or sitl"; exit 2 ;; esac
+SITL_BUILD="$PX4_DIR/build/px4_sitl_default"
+RESET_FLAG="$SITL_BUILD/tiltlab.reset"          # exists while a SITL reset is pending
+LAUNCHER_PID="$SITL_BUILD/tiltlab.launcher.pid" # pid of the launcher loop that relaunches PX4
 if [ "$STOP" = 1 ]; then
   # one command for the app and the menu: whichever simulator is up, take it down
   pkill -f "bin/px4" 2>/dev/null || true
@@ -63,35 +67,67 @@ if [ "$STOP" = 1 ]; then
   echo "stopped"; exit 0
 fi
 
+# ---------------------------------------------------------------- sim reset (SITL)
+# Gazebo's reset button (World control) restores the world to its start state: the clock rewinds to
+# zero and the vehicle, which PX4 spawned at run time, disappears, while PX4 keeps running against a
+# model that no longer exists. A usable reset is therefore a PX4 restart: the launcher loop below
+# relaunches PX4 whenever it exits with RESET_FLAG set, after removing the vehicle, rewinding the
+# clock and unpausing; PX4's px4-rc.gzsim then spawns the vehicle again at its start pose.
+watch_gui_reset() {  # watch_gui_reset <world>: background; on a reset from the Gazebo GUI stop PX4 with the flag set
+  local prev=-1 it now last=0
+  while :; do  # gz may not be up yet, or may be restarted: resubscribe whenever the echo ends
+  stdbuf -oL gz topic -e -t "/world/$1/stats" 2>/dev/null | grep --line-buffered '^iterations:' | while read -r _ it; do
+    now=$(date +%s)
+    if [ "$prev" -ge 0 ] && [ "$it" -lt "$prev" ] && [ $((now - last)) -gt 5 ] && [ ! -f "$RESET_FLAG" ]        && pgrep -f "bin/px4" >/dev/null 2>&1; then
+      last=$now; touch "$RESET_FLAG"; pkill -f "bin/px4" 2>/dev/null || true
+      echo "  [reset] Gazebo world reset seen (iterations $prev -> $it): restarting PX4 and respawning the vehicle"
+    fi
+    prev=$it
+  done || true
+  prev=-1; sleep 2
+  done
+}
+reset_gz_world() {  # reset_gz_world <world> <model instance>: remove the vehicle, rewind the clock to 0, run
+  local w="$1" m="$2" i
+  gz service -s "/world/$w/remove" --reqtype gz.msgs.Entity --reptype gz.msgs.Boolean --timeout 3000     --req "name: \"$m\" type: MODEL" >/dev/null 2>&1 || true
+  for i in $(seq 20); do gz model --list 2>/dev/null | grep -q -- "- $m\$" || break; sleep 0.5; done
+  gz service -s "/world/$w/control" --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean --timeout 3000     --req 'reset: {all: true}' >/dev/null 2>&1 || true
+  sleep 1
+  gz service -s "/world/$w/control" --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean --timeout 3000     --req 'pause: false' >/dev/null 2>&1 || true
+}
+
 if [ "$RESET" = 1 ]; then
-  # Gazebo's "Reset Time" only rewinds the clock. A usable reset is: disarm the flight controller,
-  # put the model back where it spawned (poses only: a time reset sends timestamps backwards into
-  # PX4), and, in HITL, notice a latched flight termination (past 60 deg of roll or pitch), which
-  # only a board reboot clears. --hard does that reboot and relaunches the same harness.
-  [ -n "$HARNESS" ] || { echo "--reset needs --harness <dir> (and --mode)"; exit 2; }
+  if [ "$MODE" = sitl ]; then
+    # The launcher loop does the work; this only asks for it. Live parameter changes survive
+    # (PX4 saved them to rootfs/parameters.bson); integrators, EKF and the log file start fresh.
+    if [ -f "$LAUNCHER_PID" ] && kill -0 "$(cat "$LAUNCHER_PID")" 2>/dev/null; then
+      touch "$RESET_FLAG"; pkill -f "bin/px4" 2>/dev/null || true
+      echo "sim reset requested: PX4 restarts and the vehicle respawns at its start pose (about 15 s, then 'Ready for takeoff!')"
+    else
+      echo "no 'tiltlab_gazebo.sh --mode sitl' launcher is running; reset is available when the sim was started with it"; exit 2
+    fi
+    exit 0
+  fi
+  # HITL: disarm the board, put the model back where it spawned (poses only: a time reset sends
+  # timestamps backwards into the board), and notice a latched flight termination (past 60 deg of
+  # roll or pitch), which only a board reboot clears. --hard does that reboot and relaunches.
+  [ -n "$HARNESS" ] || { echo "--reset --mode hitl needs --harness <dir>"; exit 2; }
   W="$(grep -ho '<world name="[^"]*"' "$HARNESS"/worlds/* 2>/dev/null | head -1 | sed 's/.*="//; s/"//')"
   [ -n "$W" ] || { echo "no <world name=...> in $HARNESS/worlds"; exit 2; }
   BOARD="python3 $TILTLAB_WIN/scripts/px4_board.py"
-  if [ "$MODE" = hitl ]; then
-    (cd "$TILTLAB_WIN" && timeout 40 $BOARD shell 'commander disarm -f' >/dev/null 2>&1) || true
-    gz world -w "$W" --reset-models >/dev/null 2>&1 && echo "Gazebo Classic: model poses reset in $W"
-    FD="$(cd "$TILTLAB_WIN" && timeout 40 $BOARD shell 'listener vehicle_status 1' 2>/dev/null | awk '/failure_detector_status:/{print $2}' | tr -d '\r')"
-    if [ "${FD:-0}" != 0 ] || [ "$HARD" = 1 ]; then
-      echo "board: failure_detector_status ${FD:-0}; flight termination latches until reboot"
-      if [ "$HARD" = 1 ]; then
-        "$0" --stop >/dev/null 2>&1 || true
-        DEV="$(ls /dev/ttyACM* 2>/dev/null | head -1)"
-        (cd "$TILTLAB_WIN" && timeout 30 $BOARD --dev "$DEV" shell reboot >/dev/null 2>&1) || true
-        sleep 25
-        exec "$0" --mode "$MODE" --yes --harness "$HARNESS"
-      fi
-      exit 3
+  (cd "$TILTLAB_WIN" && timeout 40 $BOARD shell 'commander disarm -f' >/dev/null 2>&1) || true
+  gz world -w "$W" --reset-models >/dev/null 2>&1 && echo "Gazebo Classic: model poses reset in $W"
+  FD="$(cd "$TILTLAB_WIN" && timeout 40 $BOARD shell 'listener vehicle_status 1' 2>/dev/null | awk '/failure_detector_status:/{print $2}' | tr -d '\r')"
+  if [ "${FD:-0}" != 0 ] || [ "$HARD" = 1 ]; then
+    echo "board: failure_detector_status ${FD:-0}; flight termination latches until reboot"
+    if [ "$HARD" = 1 ]; then
+      "$0" --stop >/dev/null 2>&1 || true
+      DEV="$(ls /dev/ttyACM* 2>/dev/null | head -1)"
+      (cd "$TILTLAB_WIN" && timeout 30 $BOARD --dev "$DEV" shell reboot >/dev/null 2>&1) || true
+      sleep 25
+      exec "$0" --mode "$MODE" --yes --harness "$HARNESS"
     fi
-  else
-    R="$PX4_DIR/build/px4_sitl_default/rootfs"
-    (cd "$R" && timeout 10 ../bin/px4-commander disarm -f >/dev/null 2>&1) || true
-    gz service -s "/world/$W/control" --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
-      --timeout 3000 --req 'reset: {model_only: true}' >/dev/null 2>&1 && echo "gz sim: model poses reset in $W"
+    exit 3
   fi
   echo "reset done"; exit 0
 fi
@@ -481,7 +517,27 @@ else
     info "QGroundControl on Windows should auto-connect: PX4 sends MAVLink straight to the Windows host ${HOST_IP:-<gateway>}:14550 (WSL2 drops broadcasts)."
     info "If it stays Disconnected: QGC > Application Settings > Comm Links > Add: UDP, listening port 14551 (14550 is taken by auto-connect), server ${WSL_IP:-<wsl ip>}:18570, then Connect."
     info "Fly from the PX4 console: commander takeoff / commander land (needs QGC connected and Ready to fly)."
-    cd "$PX4_DIR" && exec make px4_sitl "gz_$MODEL"
+    info "Reset the sim any time: the reset button in Gazebo's World control, 'bash px4ctl.sh reset' or the menu."
+    W="$(grep -ho '<world name="[^"]*"' "$GZ_DIR/worlds/"*.sdf 2>/dev/null | grep "$MODEL" | head -1 | sed 's/.*="//; s/"//')"
+    W="${W:-$MODEL}"
+    echo $$ > "$LAUNCHER_PID"; rm -f "$RESET_FLAG"
+    WATCH_PID=""
+    trap 'rm -f "$LAUNCHER_PID" "$RESET_FLAG"; [ -n "$WATCH_PID" ] && pkill -P "$WATCH_PID" 2>/dev/null; kill "$WATCH_PID" 2>/dev/null || true' EXIT INT TERM
+    cd "$PX4_DIR"
+    # Build here, run PX4 directly below: 'make px4_sitl gz_<model>' does not return after PX4 exits
+    # (ninja keeps waiting on the gz sim process PX4 left behind), so a relaunch loop needs the binary.
+    # Same command, environment and working directory as the make target (gz_bridge/CMakeLists.txt).
+    make px4_sitl
+    watch_gui_reset "$W" & WATCH_PID=$!        # reacts to the reset button in the Gazebo GUI
+    cd "$SITL_BUILD/rootfs"; set +u; . ./gz_env.sh; set -u   # appends to GZ_SIM_* variables that may be unset
+    while :; do
+      PX4_SIM_MODEL="gz_$MODEL" GZ_IP=127.0.0.1 ../bin/px4 || true   # returns when PX4 exits (shutdown, Ctrl-C, reset)
+      [ -f "$RESET_FLAG" ] || break
+      rm -f "$RESET_FLAG"
+      reset_gz_world "$W" "${MODEL}_0"
+      info "sim reset: PX4 restarting, vehicle respawning at its start pose"
+    done
+    exit 0
   fi
 fi
 echo "Done."
