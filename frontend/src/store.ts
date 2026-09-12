@@ -78,6 +78,9 @@ export interface TiltlabState {
 
   setScenario: (scenario: Scenario) => void;
   setFoilLinked: (on: boolean) => void;
+  /** Hover attitude of the airframe, nose-up degrees. PX4's body frame is this hover frame, so the
+   * exported geometry, the hover trim and every authority number depend on it. Refreshes metrics. */
+  setHoverPitch: (deg: number) => void;
   /** Set a foil's deflection (all its fans); with foilLinked every foil follows. */
   setFoilDeflection: (foilId: string, deg: number) => void;
   /** Set one fan's deflection inside a segmented foil (null clears the override). */
@@ -170,6 +173,11 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     },
 
     setFoilLinked: (on) => set({ foilLinked: on }),
+    setHoverPitch: (deg) => {
+      const clamped = Math.max(-90, Math.min(90, deg));
+      const { scenario } = get();
+      setScenarioAndRefresh({ ...scenario, frame: { ...scenario.frame, hover_pitch_deg: clamped } });
+    },
 
     setFoilDeflection: (foilId, deg) => {
       const { scenario, foilLinked } = get();

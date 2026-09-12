@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { PRESETS } from "../presets";
+import HoverPitchControl from "./HoverPitchControl";
 import { useTiltlabStore } from "../store";
 import type { ControlConcept } from "../types";
 
@@ -97,6 +98,8 @@ export default function TopBar() {
           hover
         </button>
       </label>
+
+      <HoverPitchControl />
 
       <div className="flex items-center gap-1 text-xs" role="group" aria-label="Presets">
         <span className="text-slate-400">Presets</span>
