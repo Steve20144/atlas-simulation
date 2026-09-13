@@ -76,15 +76,26 @@ def test_px4_params_preview(client: TestClient) -> None:
     body = r.json()
     assert body["params"]["CA_ROTOR_COUNT"] == 10
     assert body["params"]["CA_METHOD"] == 2
-    assert body["extras"] == {}
+    # SENS_BOARD_Y_OFF follows the hover pitch (0 here) so the board holds that attitude level
+    assert body["extras"] == {"SENS_BOARD_Y_OFF": 0.0}
     assert any(line.startswith("CA_ROTOR0_PX\t") for line in body["lines"])
+    assert "SENS_BOARD_Y_OFF\t0" in body["lines"]
     assert body["params"]["CA_ROTOR0_CT"] == pytest.approx(33.3, abs=1e-4)
 
     r = client.post("/api/px4_params_preview", json={"scenario": sc, "concept": "fully_actuated"})
     body = r.json()
     assert body["params"]["CA_METHOD"] == 0
-    assert body["extras"] == {"FD_FAIL_P": 0, "FD_FAIL_R": 0}
+    assert body["extras"] == {"FD_FAIL_P": 0, "FD_FAIL_R": 0, "SENS_BOARD_Y_OFF": 0.0}
     assert "FD_FAIL_P\t0" in body["lines"] and "CA_METHOD\t0" in body["lines"]
+
+    sc25 = {**sc, "frame": {**sc["frame"], "hover_pitch_deg": 25.0}}
+    r = client.post("/api/px4_params_preview", json={"scenario": sc25, "concept": "stock"})
+    body = r.json()
+    assert body["extras"]["SENS_BOARD_Y_OFF"] == 25.0
+    assert "SENS_BOARD_Y_OFF\t25" in body["lines"]
+    sc50 = {**sc, "frame": {**sc["frame"], "hover_pitch_deg": 50.0}}
+    r = client.post("/api/px4_params_preview", json={"scenario": sc50, "concept": "stock"})
+    assert r.status_code == 400 and "SENS_BOARD_Y_OFF" in r.json()["detail"]
 
 
 def test_metrics_round_trip_and_latency(client: TestClient) -> None:

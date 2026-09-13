@@ -23,11 +23,13 @@ git sparse-checkout set \
   src/lib/mathlib \
   src/lib/rate_control \
   src/lib/mixer_module \
+  src/lib/sensor_calibration \
   src/modules/control_allocator \
   src/modules/mc_rate_control \
   src/modules/mc_att_control \
   src/modules/mc_pos_control \
   src/modules/land_detector \
+  src/modules/sensors \
   src/modules/simulation/pwm_out_sim \
   src/modules/simulation/simulator_mavlink \
   msg \

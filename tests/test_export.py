@@ -61,6 +61,9 @@ def test_latest_backup_is_the_stamped_v4_file() -> None:
 def test_params_export_changes_only_geometry_and_concept_lines(
     scenario: Scenario, tmp_path: Path, concept: str, extra: set[str]
 ) -> None:
+    scenario = scenario.model_copy(deep=True)
+    scenario.frame.hover_pitch_deg = 25.0
+    extra = extra | {"SENS_BOARD_Y_OFF"}
     out = export_params(scenario, concept, BASE, tmp_path, now=NOW)
     assert out.name == f"20260909_1605_baseline_dihedral30_{concept}_px4.params"
     base_lines, out_lines = _lines(BASE), _lines(out)
@@ -86,6 +89,9 @@ def test_params_export_changes_only_geometry_and_concept_lines(
     assert len(unchanged) >= len(base_data) - len(ROTOR_NAMES) - len(extra)
     exported = read_params_file(out).to_dict()
     assert exported["CA_ROTOR_COUNT"] == 10 and exported["CA_ROTOR0_CT"] == pytest.approx(33.3)
+    # the IMU is levelled to the hover attitude the geometry was written in
+    assert exported["SENS_BOARD_Y_OFF"] == pytest.approx(25.0)
+    assert "hover pitch: 25 deg" in joined
     if concept == "fully_actuated":
         assert exported["CA_METHOD"] == 0
         assert exported["FD_FAIL_P"] == 0 and exported["FD_FAIL_R"] == 0

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTiltlabStore } from "../store";
 
-/** PX4 .params preview (CA_ROTORn_* lines from the backend) with a copy button. */
+/** PX4 .params preview (CA_ROTORn_* and SENS_BOARD_Y_OFF lines from the backend) with a copy button. */
 export default function ParamsPreview() {
   const lines = useTiltlabStore((s) => s.paramsLines);
   const [copied, setCopied] = useState(false);

@@ -34,6 +34,7 @@ from tiltlab.core.params_px4 import (
     PARAM_TYPE_FLOAT,
     PARAM_TYPE_INT32,
     format_param_value,
+    hover_frame_params,
     scenario_to_ca_params,
 )
 from tiltlab.export import export_metrics_csv, export_params
@@ -99,13 +100,15 @@ def _param_type(name: str) -> int:
 
 
 def px4_params_preview(scenario: Scenario, concept: str) -> Px4ParamsPreviewResponse:
-    """CA_* parameters of the scenario plus the concept extras, and one text line per entry."""
+    """CA_* parameters of the scenario plus the concept extras and SENS_BOARD_Y_OFF (the hover
+    pitch, so the IMU reads the hover attitude as level), and one text line per entry."""
     params = scenario_to_ca_params(scenario)
     extras: dict[str, int | float] = (
         dict(FULLY_ACTUATED_EXTRAS) if concept == "fully_actuated" else {}
     )
     if "CA_METHOD" in extras:
         params["CA_METHOD"] = extras.pop("CA_METHOD")
+    extras.update(hover_frame_params(scenario))
     merged = {**params, **extras}
     lines = [f"{name}\t{format_param_value(v, _param_type(name))}" for name, v in merged.items()]
     return Px4ParamsPreviewResponse(concept=concept, params=params, extras=extras, lines=lines)
@@ -113,7 +116,10 @@ def px4_params_preview(scenario: Scenario, concept: str) -> Px4ParamsPreviewResp
 
 @app.post("/api/px4_params_preview", response_model=Px4ParamsPreviewResponse)
 def px4_params_preview_endpoint(req: Px4ParamsPreviewRequest) -> Px4ParamsPreviewResponse:
-    return px4_params_preview(req.scenario, req.concept or req.scenario.control.concept)
+    try:
+        return px4_params_preview(req.scenario, req.concept or req.scenario.control.concept)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _scenario_path(name: str) -> Path:
@@ -383,7 +389,10 @@ def board_push_endpoint(req: BoardPushRequest) -> dict[str, Any]:
     """Write the same lines as /api/px4_params_preview to the board through its NSH shell, save
     them to flash and read every value back. The previous values are backed up in exports/board/."""
     concept = req.concept or req.scenario.control.concept
-    preview = px4_params_preview(req.scenario, concept)
+    try:
+        preview = px4_params_preview(req.scenario, concept)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     params: dict[str, int | float] = {**preview.params, **preview.extras}
     types = {name: _param_type(name) for name in params}
     dev = board.pick_port(req.port)

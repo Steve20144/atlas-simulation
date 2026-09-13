@@ -6,6 +6,10 @@ user's full parameter backup, so every other line of that backup is preserved by
 (CRLF, original value text). Units in the written values: PX/PY/PZ metres FRD relative to the
 CG, AX/AY/AZ FRD thrust direction (unit vector), CT newtons at full command, KM dimensionless.
 
+Hover frame: SENS_BOARD_Y_OFF is set to frame.hover_pitch_deg (core.params_px4
+.hover_frame_params) so the flight controller treats the nose-up hover attitude as level, the
+frame the CA_ROTOR* geometry is written in.
+
 Concept sets:
 - stock: CA_METHOD left exactly as in the base file.
 - fully_actuated: CA_METHOD = 0 (pseudo-inverse), FD_FAIL_P = 0, FD_FAIL_R = 0, following the
@@ -27,6 +31,7 @@ from tiltlab.core.params_px4 import (
     ROTOR_FIELDS,
     ParamFile,
     apply_ca_params,
+    hover_frame_params,
     read_params_file,
     scenario_from_ca_params,
     write_params_file,
@@ -104,7 +109,10 @@ def export_header_lines(
     lines = [
         "#",
         f"# tiltlab export {stamp}: scenario '{scenario.meta.name}', concept {concept}",
-        f"# base backup: {base_params_path.name} (only CA_ROTOR*/concept lines changed)",
+        f"# base backup: {base_params_path.name} "
+        "(only CA_ROTOR*/concept/SENS_BOARD_Y_OFF lines changed)",
+        f"# hover pitch: {scenario.frame.hover_pitch_deg:g} deg nose-up -> SENS_BOARD_Y_OFF, "
+        "so PX4 holds this attitude as level (board mounted aligned with the airframe)",
         f"# reaction torque (KM): {'on' if scenario.control.reaction_torque else 'off, KM = 0'}",
         "# fan  tilt_deg  azimuth_deg  pos_frd_m (x, y, z)  curve",
     ]
@@ -129,7 +137,11 @@ def merged_param_file(
 ) -> ParamFile:
     """Base file with the geometry and concept sets applied and the tiltlab header inserted
     before the column-header comment (or appended when the base has none)."""
-    params: dict[str, int | float] = {**ca_geometry_params(scenario), **concept_params(concept)}
+    params: dict[str, int | float] = {
+        **ca_geometry_params(scenario),
+        **concept_params(concept),
+        **hover_frame_params(scenario),
+    }
     out = apply_ca_params(base, params)
     header = list(base.header)
     idx = next((i for i, h in enumerate(header) if h.strip() == COLUMN_HEADER), len(header))

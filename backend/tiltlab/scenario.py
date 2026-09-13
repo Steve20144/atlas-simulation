@@ -88,10 +88,6 @@ class Frame(BaseModel):
     # CA_ROTOR* geometry lives) is this hover frame: airframe vectors are rotated about +Y by
     # hover_pitch_deg before allocation, so a nose-up hover lets forward-vectored jets carry lift.
     hover_pitch_deg: float = Field(default=0.0, ge=-90.0, le=90.0)
-    # Attitude the airframe holds in hover, nose-up positive, degrees. PX4's body frame (where the
-    # CA_ROTOR* geometry lives) is this hover frame: airframe vectors are rotated about +Y by
-    # hover_pitch_deg before allocation, so a nose-up hover lets forward-vectored jets carry lift.
-    hover_pitch_deg: float = Field(default=0.0, ge=-90.0, le=90.0)
 
 
 class CadReported(BaseModel):

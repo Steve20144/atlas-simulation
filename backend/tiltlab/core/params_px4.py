@@ -224,6 +224,33 @@ def scenario_to_ca_params(scenario: Scenario) -> dict[str, int | float]:
     return params
 
 
+# PX4 metadata range of SENS_BOARD_{X,Y,Z}_OFF (src/modules/sensors/sensor_params.c:176-177,
+# "@min -45.0 @max 45.0"). NSH `param set` accepts any float, so the app enforces it.
+SENS_BOARD_OFF_MAX_DEG = 45.0
+
+
+def hover_frame_params(scenario: Scenario) -> dict[str, float]:
+    """SENS_BOARD_Y_OFF (deg) = frame.hover_pitch_deg, so PX4's body frame is the hover frame.
+
+    SENS_BOARD_Y_OFF is the "Board rotation Y (pitch) offset ... from flight controller board
+    to vehicle body frame" (src/modules/sensors/sensor_params.c:170-183). Every IMU sample is
+    rotated by Dcm(Euler(X_OFF, Y_OFF, Z_OFF)) * board_rotation
+    (src/lib/sensor_calibration/Accelerometer.cpp:142, Gyroscope.cpp likewise;
+    src/lib/sensor_calibration/Utilities.cpp:207-217). With roll and yaw offsets 0 that Dcm is
+    [[c, 0, s], [0, 1, 0], [-s, 0, c]] (src/lib/matrix/matrix/Dcm.hpp:121-142, dcm(0,2) =
+    sinThe, dcm(2,0) = -sinThe), the same matrix as Scenario.hover_rotation(), so a board mounted
+    aligned with the airframe FRD axes reads the nose-up hover attitude as level. Assumes
+    SENS_BOARD_ROT describes the mounting and SENS_BOARD_X/Z_OFF stay as calibrated.
+    Raises ValueError when the pitch is outside PX4's +-45 degree range for the parameter."""
+    pitch = float(scenario.frame.hover_pitch_deg)
+    if not abs(pitch) <= SENS_BOARD_OFF_MAX_DEG:
+        raise ValueError(
+            f"hover pitch {pitch:g} deg exceeds the SENS_BOARD_Y_OFF range of "
+            f"+-{SENS_BOARD_OFF_MAX_DEG:g} deg; PX4 cannot level the IMU that far"
+        )
+    return {"SENS_BOARD_Y_OFF": float(np.float32(pitch))}
+
+
 def scenario_from_ca_params(
     params: dict[str, int | float],
     *,

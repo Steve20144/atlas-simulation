@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setRebootRecheckMs, useTiltlabStore } from "../store";
 import { PARAM_LINES, tenFanScenario } from "../test/fixtures";
@@ -123,7 +123,7 @@ describe("BoardPanel and BoardPill", () => {
       fireEvent.click(screen.getByRole("button", { name: "confirm reboot" }));
     });
     expect(calls.some((c) => c.url === "/api/board/reboot")).toBe(true);
-    // the re-check after the reboot ran and the board reports again
-    expect(calls.filter((c) => c.url.startsWith("/api/board/status")).length).toBe(2);
+    // the re-check after the reboot ran and the board reports again (it follows a timer, so wait)
+    await waitFor(() => expect(calls.filter((c) => c.url.startsWith("/api/board/status")).length).toBe(2));
   });
 });

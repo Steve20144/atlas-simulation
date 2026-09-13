@@ -25,6 +25,7 @@ import numpy as np
 from tiltlab.core.params_px4 import (
     PARAM_TYPE_INT32,
     default_header,
+    hover_frame_params,
     params_file_from_dict,
     write_params_file,
 )
@@ -364,6 +365,8 @@ def hitl_params(scenario: Scenario) -> dict[str, int | float]:
     }
     params.update({k: v for k, v in ca.items() if k != "CA_ROTOR_COUNT"})
     params["CA_ROTOR_COUNT"] = int(ca["CA_ROTOR_COUNT"])
+    # the geometry above is in the hover frame; level the IMU to it as well
+    params.update(hover_frame_params(scenario))
     for i in range(int(ca["CA_ROTOR_COUNT"])):
         params[f"HIL_ACT_FUNC{i + 1}"] = 101 + i
     # same controller sizing that flew the gz SITL harness: the Classic motor model is also

@@ -9,6 +9,7 @@ import pytest
 from tiltlab.core.geometry import rotors_from_px4_params, rotors_from_scenario
 from tiltlab.core.params_px4 import (
     format_px4_float,
+    hover_frame_params,
     params_file_from_dict,
     params_file_to_bytes,
     params_from_ulog,
@@ -80,6 +81,26 @@ def test_ulog_parameters_match_readme_facts() -> None:
     assert p36["CA_ROTOR_COUNT"] == 10 and p36["CA_METHOD"] == 2 and p36["MC_AIRMODE"] == 0
     assert p36["CA_ROTOR0_KM"] == 0.0  # README: log 36 ran with KM 0, the .params file has -0.05
     assert isinstance(p36["CA_ROTOR_COUNT"], int) and isinstance(p36["CA_ROTOR0_CT"], float)
+
+
+def test_hover_frame_params_is_the_hover_pitch_within_px4_range() -> None:
+    """SENS_BOARD_Y_OFF = hover_pitch_deg (board -> body rotation about +Y, same matrix as
+    Scenario.hover_rotation); PX4 limits the parameter to +-45 deg."""
+    scenario = Scenario.model_validate(
+        json.loads(SCENARIO_FILES[0].read_text(encoding="utf-8"))
+    )
+    assert hover_frame_params(scenario) == {"SENS_BOARD_Y_OFF": 0.0}
+    scenario.frame.hover_pitch_deg = 25.0
+    assert hover_frame_params(scenario) == {"SENS_BOARD_Y_OFF": 25.0}
+    # the app's hover rotation and PX4's Dcm(Euler(0, Y_OFF, 0)) agree on the sign convention
+    r = scenario.hover_rotation()
+    th = np.radians(25.0)
+    assert r[0, 2] == pytest.approx(np.sin(th)) and r[2, 0] == pytest.approx(-np.sin(th))
+    scenario.frame.hover_pitch_deg = -45.0
+    assert hover_frame_params(scenario) == {"SENS_BOARD_Y_OFF": -45.0}
+    scenario.frame.hover_pitch_deg = 45.5
+    with pytest.raises(ValueError, match="SENS_BOARD_Y_OFF"):
+        hover_frame_params(scenario)
 
 
 @pytest.mark.parametrize("path", SCENARIO_FILES, ids=[p.stem for p in SCENARIO_FILES])

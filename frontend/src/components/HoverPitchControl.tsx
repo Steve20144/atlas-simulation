@@ -16,7 +16,7 @@ export default function HoverPitchControl() {
   return (
     <label
       className="flex items-center gap-2 text-xs"
-      title="Nose-up hover attitude of the airframe. PX4 holds 'level' in this frame, so 25 means the aircraft hovers 25 degrees nose-up. Changes the trim, the authority numbers and both exports."
+      title="Nose-up hover attitude of the airframe. PX4 holds 'level' in this frame, so 25 means the aircraft hovers 25 degrees nose-up. Changes the trim, the authority numbers and both exports, and is written to the board as SENS_BOARD_Y_OFF (PX4 range -45 to 45) so the IMU reads this attitude as level."
     >
       <span className="ui-label">Hover pitch</span>
       <input
