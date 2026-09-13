@@ -126,7 +126,8 @@ class Fan(BaseModel):
 
     pos_frd_m: fan thrust application point, metres, FRD body frame, relative to the body
     origin (the CA_ROTORn_P* values are pos_frd_m minus mass.cg_frd_m).
-    tilt_deg (0 up, 90 horizontal, 180 down) / azimuth_deg: see tilt_azimuth_to_axis. km: magnitude of the PX4 moment
+    tilt_deg (0 up, 90 horizontal, 180 down) / azimuth_deg: see tilt_azimuth_to_axis.
+    km: magnitude of the PX4 moment
     coefficient (Torque = KM * Thrust, dimensionless); its sign is derived from spin
     (positive for CCW, module.yaml:211-225) when control.reaction_torque is on.
     """
