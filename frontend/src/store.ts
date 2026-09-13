@@ -20,6 +20,12 @@ import type {
 
 const zero3 = (): Vec3 => [0, 0, 0];
 
+/** How long the Pixhawk's USB link takes to come back after a reboot before re-checking. */
+export let REBOOT_RECHECK_MS = 8000;
+export function setRebootRecheckMs(ms: number): void {
+  REBOOT_RECHECK_MS = ms;
+}
+
 /** Debounce for POST /api/metrics and /api/px4_params_preview after a scenario edit. */
 export const REFRESH_DEBOUNCE_MS = 50;
 
@@ -103,6 +109,10 @@ export interface TiltlabState {
   checkBoard: () => Promise<void>;
   /** POST /api/board/push for the current scenario and concept (the previewed lines). */
   pushBoard: () => Promise<void>;
+  /** Write SYS_HITL (0 off, 1 HITL) and refresh the status; PX4 reads it at boot only. */
+  setBoardHitl: (on: boolean) => Promise<void>;
+  /** Reboot the autopilot and re-check after the USB link is back. */
+  rebootBoard: () => Promise<void>;
   setScenario: (scenario: Scenario) => void;
   setFoilLinked: (on: boolean) => void;
   /** Hover attitude of the airframe, nose-up degrees. PX4's body frame is this hover frame, so the
@@ -198,6 +208,37 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
       }
     },
 
+    setBoardHitl: async (on) => {
+      set({ board: { ...get().board, pushing: true } });
+      try {
+        const r = await api.boardParam("SYS_HITL", on ? 1 : 0, get().board.port);
+        const status = get().board.status;
+        const message = r.verified
+          ? `SYS_HITL ${r.before} -> ${r.after} saved; reboot the board for it to take effect`
+          : `SYS_HITL did not read back (board has ${r.after})`;
+        set({
+          board: {
+            ...get().board,
+            pushing: false,
+            message,
+            status: status ? { ...status, sys_hitl: r.after === null ? null : Math.round(r.after) } : status,
+          },
+        });
+      } catch (e) {
+        set({ board: { ...get().board, pushing: false, message: (e as Error).message } });
+      }
+    },
+    rebootBoard: async () => {
+      set({ board: { ...get().board, pushing: true, message: "rebooting" } });
+      try {
+        await api.boardReboot(get().board.port);
+        set({ board: { ...get().board, pushing: false, status: null, message: "reboot sent; checking again in 8 s" } });
+        await new Promise((r) => setTimeout(r, REBOOT_RECHECK_MS));
+        await get().checkBoard();
+      } catch (e) {
+        set({ board: { ...get().board, pushing: false, message: (e as Error).message } });
+      }
+    },
     launchGazebo: async (mode) => {
       try {
         const st = await api.launchGazebo(get().scenario, mode);

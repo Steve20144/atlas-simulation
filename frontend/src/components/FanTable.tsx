@@ -1,3 +1,4 @@
+import { azimuthNote } from "../geometry";
 import { useTiltlabStore } from "../store";
 import FanRow from "./FanRow";
 
@@ -15,6 +16,11 @@ export default function FanTable() {
         <h2>Fans</h2>
         <span className="text-xs text-slate-400">mass {massKg.toFixed(2)} kg</span>
       </div>
+      {fans.map(azimuthNote).filter(Boolean).map((n) => (
+        <p key={n} className="mb-1 text-[10px]" style={{ color: "var(--ui-warn)" }} role="note">
+          {n}
+        </p>
+      ))}
       {fans.length === 0 ? (
         <p className="text-xs text-slate-500">No scenario loaded. Pick one in the top bar.</p>
       ) : (

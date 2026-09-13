@@ -66,7 +66,11 @@ class FakeLink:
                     )
                 )
 
-    def _command(self, *args) -> None:
+    def _command(self, sysid, compid, cmd, conf, *params) -> None:
+        self.commands = getattr(self, "commands", []) + [(cmd, params[0])]
+        if cmd == board.CMD_PREFLIGHT_REBOOT_SHUTDOWN:
+            self.queue.append(SimpleNamespace(get_type=lambda: "COMMAND_ACK", result=0))
+            return
         self.queue.append(
             SimpleNamespace(
                 get_type=lambda: "AUTOPILOT_VERSION",
@@ -152,10 +156,26 @@ def test_push_backs_up_then_writes_and_verifies(tmp_path: Path) -> None:
     assert by_name["CA_ROTOR0_AX"].value == 0.0
 
 
-def test_read_status_reports_flags_and_firmware() -> None:
-    st = board.read_status(FakeLink({}), "COM7")
+def test_read_status_reports_flags_firmware_and_sys_hitl() -> None:
+    st = board.read_status(FakeLink({"SYS_HITL": (1, PARAM_TYPE_INT32)}), "COM7")
     assert st.connected and st.hil and not st.armed
-    assert st.firmware == "1.17.0" and st.board_id == 63
+    assert st.firmware == "1.17.0" and st.board_id == 63 and st.sys_hitl == 1
+    assert board.read_status(FakeLink({}), "COM7").sys_hitl is None
+
+
+def test_set_param_uses_the_board_type_and_flags_reboot() -> None:
+    link = FakeLink({"SYS_HITL": (0, PARAM_TYPE_INT32)})
+    res = board.set_param(link, "SYS_HITL", 1)
+    assert res.before == 0 and res.after == 1 and res.verified and res.reboot_required
+    assert link.store["SYS_HITL"] == (1.0, PARAM_TYPE_INT32)
+    with pytest.raises(board.BoardError):
+        board.set_param(link, "NOT_A_PARAM", 1)
+
+
+def test_reboot_sends_preflight_reboot_with_param1_one() -> None:
+    link = FakeLink({})
+    board.reboot(link)
+    assert link.commands[-1] == (board.CMD_PREFLIGHT_REBOOT_SHUTDOWN, 1)
 
 
 @pytest.fixture()
@@ -199,3 +219,16 @@ def test_push_without_board_is_404(client: TestClient, monkeypatch) -> None:
     monkeypatch.setattr(board, "list_ports", lambda: [])
     r = client.post("/api/board/push", json={"scenario": scenario_json("baseline_dihedral30")})
     assert r.status_code == 404
+
+
+def test_hil_toggle_and_reboot_endpoints(client: TestClient, monkeypatch) -> None:
+    link = FakeLink({"SYS_HITL": (0, PARAM_TYPE_INT32)})
+    monkeypatch.setattr(board, "list_ports", lambda: [PIXHAWK])
+    monkeypatch.setattr(board, "connect", lambda port, timeout_s=5.0: link)
+    r = client.post("/api/board/param", json={"name": "SYS_HITL", "value": 1}).json()
+    assert r["verified"] and r["reboot_required"] and r["before"] == 0 and r["after"] == 1
+    assert client.get("/api/board/status").json()["sys_hitl"] == 1
+    assert client.post("/api/board/param", json={"name": "bad name", "value": 1}).status_code == 422
+    assert client.post("/api/board/param", json={"name": "NOPE_X", "value": 1}).status_code == 503
+    r = client.post("/api/board/reboot", json={}).json()
+    assert r == {"port": "COM7", "rebooted": True}

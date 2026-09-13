@@ -162,6 +162,10 @@ PX4 HITL runs over MAVLink HIL messages on the Pixhawk's USB port, which only th
 
 The **board** pill in the top bar (and the chip icon at the bottom of the left rail) asks the backend whether a Pixhawk 6X Pro is heartbeating on USB: the backend scans the serial ports for the fmu-v6x USB id (Holybro 0x3185:0x0035 in the pinned tree's `boards/px4/fmu-v6x/nuttx-config/nsh/defconfig`) or a PX4-looking name, opens the port, waits for the autopilot heartbeat and reads `AUTOPILOT_VERSION`. The **Pixhawk 6X Pro** card in the right column has the same check with a port selector, and **Upload params**, which needs a second confirming click, writes exactly the lines shown in the params preview to the board. Writes go through the NSH shell (`param set NAME VALUE` over `SERIAL_CONTROL`, then `param save`) because PX4 carries INT32 parameters byte-wise in `PARAM_VALUE` and a plain float `PARAM_SET` corrupts every integer parameter; before writing, the backend reads the board's current values of those parameters into `exports/board/<timestamp>_<scenario>_before.params`, and after writing it reads every value back and lists mismatches. The backend must run natively on the machine that has the USB cable (not in Docker), the fans and ESCs must be unpowered, and a running HITL session owns the port, so stop it first (the endpoints answer 409). The CLI equivalent is `scripts/px4_board.py`.
 
+Once a check has succeeded the card also shows **SYS_HITL** as stored on the board with **HIL on** / **HIL off** buttons (`POST /api/board/param`, written with the type the board reports, saved and read back) and **Reboot board** (`POST /api/board/reboot`, `MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN`, second click confirms; the app re-checks the board 8 s later). PX4 reads `SYS_HITL` at boot only (`rcS` line 324 of the pinned tree starts the sensors in HIL mode when it is > 0, line 332 picks SIH when it is 2), so the toggle is not live until the reboot; HITL on the 6X also needs the custom firmware build with `pwm_out_sim`, see the HITL section above.
+
+A note on fan angles in the geometry tables: azimuth is the direction a tilted fan leans towards (0 forward, 90 right), so at tilt 0 it has no effect on the 3D view, the airflow or the exported axes. The tables dim the azimuth cell and show a note for that case; set a tilt and the fan points the way the note says.
+
 ## API
 
 | Method and path | Purpose |
@@ -173,6 +177,7 @@ The **board** pill in the top bar (and the chip icon at the bottom of the left r
 | `POST /api/export/params` `{scenario, concept?, base?}` | write timestamped `.params` into `exports/` |
 | `POST /api/export/csv` `{rows, stem}` | write metrics CSV |
 | `GET /api/board/status?port=auto`, `GET /api/board/ports` | is a Pixhawk heartbeating on USB (firmware, armed and HIL flags, mode); serial ports on the host |
+| `POST /api/board/param` `{name, value, port?}`, `POST /api/board/reboot` `{port?}` | write one parameter (the HIL toggle uses `SYS_HITL`) with read-back; reboot the autopilot |
 | `POST /api/board/push` `{scenario, concept?, port?, backup?}` | write the previewed `CA_*` set to the Pixhawk through its NSH shell, `param save`, read back; previous values backed up to `exports/board/` |
 
 `docs/v1_metrics_snapshot.md` holds the metrics of the three shipped scenarios as returned by the API.

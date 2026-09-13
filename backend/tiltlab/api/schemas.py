@@ -116,3 +116,17 @@ class BoardPushRequest(BaseModel):
     concept: Concept | None = None
     port: str = Field(default="auto", description="COMn, /dev/ttyACMn, or auto to pick a Pixhawk")
     backup: bool = Field(default=True, description="write the board current values first")
+
+
+class BoardParamRequest(BaseModel):
+    """Write one parameter (for example SYS_HITL 0/1) with the type the board reports for it."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,15}$")
+    value: float
+    port: str = "auto"
+
+
+class BoardPortRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    port: str = "auto"

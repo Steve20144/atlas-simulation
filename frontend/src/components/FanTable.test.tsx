@@ -53,4 +53,13 @@ describe("FanTable", () => {
     expect(useTiltlabStore.getState().mirrorLock[2]).toBe(false);
     expect(screen.getByLabelText("Mirror lock fan 8")).toBeDisabled();
   });
+
+  it("explains that azimuth has no effect on a fan at tilt 0", () => {
+    render(<FanTable />);
+    expect(screen.queryByRole("note")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Azimuth fan 8"), { target: { value: "90" } });
+    expect(screen.getByRole("note")).toHaveTextContent(/fan 8: azimuth 90 has no effect at tilt 0.*points right/);
+    fireEvent.change(screen.getByLabelText("Tilt fan 8"), { target: { value: "30" } });
+    expect(screen.queryByRole("note")).toBeNull();
+  });
 });

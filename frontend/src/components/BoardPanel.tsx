@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTiltlabStore } from "../store";
+import BoardHil from "./BoardHil";
 
 /**
  * Pixhawk 6X Pro over USB. Check reports the heartbeat, firmware and flags; Upload writes the
@@ -92,6 +93,8 @@ export default function BoardPanel() {
           </dd>
         </dl>
       )}
+
+      <BoardHil />
 
       {board.message && (
         <p

@@ -52,7 +52,8 @@ export default function FanRow({ fan, hoverU }: Props) {
       <td className="px-1 py-0.5">
         <input
           aria-label={`Azimuth fan ${fan.id}`}
-          className={cell}
+          className={fan.tilt_deg === 0 ? `${cell} opacity-50` : cell}
+          title={fan.tilt_deg === 0 ? "no effect while tilt is 0: the fan points straight up; tilt it and azimuth picks the direction (0 forward, 90 right)" : "0 forward, 90 right, 180 aft, 270 left"}
           type="number"
           min={0}
           max={360}

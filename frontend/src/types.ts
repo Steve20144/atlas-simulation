@@ -426,8 +426,21 @@ export interface BoardStatus {
   armed: boolean | null;
   hil: boolean | null;
   mode: string | null;
+  /** SYS_HITL on the board: 0 off, 1 HITL, 2 SIH; null when unread. */
+  sys_hitl: number | null;
   ports: SerialPortInfo[];
   message: string;
+}
+
+/** POST /api/board/param: one parameter written and read back. */
+export interface BoardParamResult {
+  name: string;
+  wanted: number;
+  before: number | null;
+  after: number | null;
+  type_code: number;
+  verified: boolean;
+  reboot_required: boolean;
 }
 
 /** POST /api/board/push: what was written through the NSH shell and what read back. */

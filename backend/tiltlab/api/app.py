@@ -327,7 +327,11 @@ def gazebo_reset_endpoint() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------- pixhawk over usb
-from tiltlab.api.schemas import BoardPushRequest  # noqa: E402
+from tiltlab.api.schemas import (  # noqa: E402
+    BoardParamRequest,
+    BoardPortRequest,
+    BoardPushRequest,
+)
 from tiltlab.px4 import board  # noqa: E402
 
 BOARD_BACKUP_DIR = EXPORTS_DIR / "board"
@@ -397,3 +401,39 @@ def board_push_endpoint(req: BoardPushRequest) -> dict[str, Any]:
     finally:
         board.LOCK.release()
     return result.as_dict()
+
+
+def _with_board(port: str, job: Any) -> Any:
+    """Open the board (409 when busy, 404 when absent, 503 when silent), run job(link, dev)."""
+    dev = board.pick_port(port)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="no Pixhawk on any serial port")
+    _board_free()
+    try:
+        m = board.connect(dev)
+        try:
+            return job(m, dev)
+        finally:
+            m.close()
+    except board.BoardError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    finally:
+        board.LOCK.release()
+
+
+@app.post("/api/board/param")
+def board_param_endpoint(req: BoardParamRequest) -> dict[str, Any]:
+    """Write one parameter (SYS_HITL for the HIL toggle), save, read back. reboot_required says
+    whether PX4 only reads it at boot."""
+    return _with_board(req.port, lambda m, dev: board.set_param(m, req.name, req.value).as_dict())
+
+
+@app.post("/api/board/reboot")
+def board_reboot_endpoint(req: BoardPortRequest) -> dict[str, Any]:
+    """Reboot the autopilot (MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN); the USB link returns in a few s."""
+
+    def job(m: Any, dev: str) -> dict[str, Any]:
+        board.reboot(m)
+        return {"port": dev, "rebooted": True}
+
+    return _with_board(req.port, job)

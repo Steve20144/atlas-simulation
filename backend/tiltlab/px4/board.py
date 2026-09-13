@@ -44,6 +44,11 @@ SHELL_DEV = 10  # SERIAL_CONTROL_DEV_SHELL
 SHELL_FLAGS = 2 | 4  # RESPOND | EXCLUSIVE, as Tools/mavlink_shell.py sends them
 MSG_AUTOPILOT_VERSION = 148
 CMD_REQUEST_MESSAGE = 512
+CMD_PREFLIGHT_REBOOT_SHUTDOWN = 246  # param1 = 1 reboots the autopilot
+# SYS_HITL is read at boot only: rcS line 324 starts the sensors in HIL mode when it is > 0 and
+# line 332 picks SIH when it is 2, so a change needs a reboot to take effect.
+SYS_HITL = "SYS_HITL"
+REBOOT_PARAMS = {SYS_HITL, "SYS_AUTOSTART", "CA_AIRFRAME"}
 # how long the shell console is drained after each command, and how long a PARAM_VALUE may take
 SHELL_SETTLE_S = 0.4
 PARAM_TIMEOUT_S = 2.0
@@ -163,6 +168,8 @@ class BoardStatus:
     armed: bool | None = None
     hil: bool | None = None
     mode: str | None = None
+    # SYS_HITL as stored on the board (0 off, 1 HITL, 2 SIH); None when unread
+    sys_hitl: int | None = None
     ports: list[dict[str, Any]] = field(default_factory=list)
     message: str = ""
 
@@ -195,6 +202,7 @@ def read_status(m: Link, port: str) -> BoardStatus:
         MSG_AUTOPILOT_VERSION, 0, 0, 0, 0, 0, 0,
     )
     ver = m.recv_match(type="AUTOPILOT_VERSION", blocking=True, timeout=2.0)
+    hitl = read_param(m, SYS_HITL)
     return BoardStatus(
         connected=True,
         port=port,
@@ -204,6 +212,7 @@ def read_status(m: Link, port: str) -> BoardStatus:
         armed=bool(hb.base_mode & ARMED_FLAG),
         hil=bool(hb.base_mode & HIL_FLAG),
         mode=mode_string(hb),
+        sys_hitl=int(decode_param_value(hitl[0], hitl[1])) if hitl else None,
         message="autopilot heartbeat received",
     )
 
@@ -314,3 +323,48 @@ def push_params(
         backup=str(backup_path) if backup_path else None,
         console=console[-2000:],
     )
+
+
+# ---------------------------------------------------------------- single parameter, reboot
+@dataclass
+class ParamSetResult:
+    name: str
+    wanted: float
+    before: float | None
+    after: float | None
+    type_code: int
+    verified: bool
+    reboot_required: bool
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def set_param(m: Link, name: str, value: float) -> ParamSetResult:
+    """Write one parameter through the shell with the type the board reports for it, save, and
+    read it back. Unknown names raise BoardError (the board never answers the read)."""
+    got = read_param(m, name)
+    if got is None:
+        raise BoardError(f"the board has no parameter {name}")
+    ptype = got[1]
+    before = decode_param_value(got[0], ptype)
+    shell(m, shell_commands({name: value}, {name: ptype}))
+    after = read_params(m, [name], {name: ptype})[name]
+    return ParamSetResult(
+        name=name,
+        wanted=float(value),
+        before=before,
+        after=after,
+        type_code=ptype,
+        verified=value_matches(after, float(value)),
+        reboot_required=name in REBOOT_PARAMS,
+    )
+
+
+def reboot(m: Link) -> None:
+    """MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN with param1 = 1: reboot the autopilot. The USB link drops
+    for a few seconds, so the caller closes the port and the UI re-checks later."""
+    m.mav.command_long_send(
+        m.target_system, m.target_component, CMD_PREFLIGHT_REBOOT_SHUTDOWN, 0, 1, 0, 0, 0, 0, 0, 0
+    )
+    m.recv_match(type="COMMAND_ACK", blocking=True, timeout=2.0)

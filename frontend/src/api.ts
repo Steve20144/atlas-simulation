@@ -1,5 +1,5 @@
 import type {
-  BoardPushResult, BoardStatus, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
+  BoardParamResult, BoardPushResult, BoardStatus, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
   SweepRequestBody, SweepResponse,
 } from "./types";
 
@@ -71,4 +71,9 @@ export const api = {
   /** Write the previewed CA_* set to the board through its shell, save, read back; backup first. */
   boardPush: (scenario: Scenario, concept: ControlConcept, port = "auto") =>
     post<BoardPushResult>("/api/board/push", { scenario, concept, port }),
+  /** Write one parameter (SYS_HITL for the HIL toggle) with the type the board reports. */
+  boardParam: (name: string, value: number, port = "auto") =>
+    post<BoardParamResult>("/api/board/param", { name, value, port }),
+  /** Reboot the autopilot; the USB link is gone for a few seconds afterwards. */
+  boardReboot: (port = "auto") => post<{ port: string; rebooted: boolean }>("/api/board/reboot", { port }),
 };

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useTiltlabStore } from "../store";
+import { setRebootRecheckMs, useTiltlabStore } from "../store";
 import { PARAM_LINES, tenFanScenario } from "../test/fixtures";
 import type { BoardPushResult, BoardStatus } from "../types";
 import BoardPanel from "./BoardPanel";
@@ -8,10 +8,10 @@ import BoardPill from "./BoardPill";
 
 const offline: BoardStatus = {
   connected: false, port: null, system_id: null, firmware: null, board_id: null, armed: null, hil: null,
-  mode: null, ports: [], message: "no Pixhawk on any serial port",
+  mode: null, sys_hitl: null, ports: [], message: "no Pixhawk on any serial port",
 };
 const online: BoardStatus = {
-  ...offline, connected: true, port: "COM7", firmware: "1.17.0", armed: false, hil: true, mode: "MANUAL",
+  ...offline, connected: true, port: "COM7", firmware: "1.17.0", armed: false, hil: true, mode: "MANUAL", sys_hitl: 0,
   ports: [{ device: "COM7", description: "PX4 FMU v6X.x", vid: 0x3185, pid: 0x0035, pixhawk: true }],
   message: "autopilot heartbeat received",
 };
@@ -30,6 +30,11 @@ function mockFetch(status: BoardStatus, push: BoardPushResult | { status: number
       const ok = (data: unknown) =>
         Promise.resolve({ ok: true, status: 200, json: async () => data, text: async () => "" } as Response);
       if (url.startsWith("/api/board/status")) return ok(status);
+      if (url === "/api/board/param") {
+        const b = JSON.parse(String(init?.body)) as { name: string; value: number };
+        return ok({ name: b.name, wanted: b.value, before: 0, after: b.value, type_code: 6, verified: true, reboot_required: true });
+      }
+      if (url === "/api/board/reboot") return ok({ port: "COM7", rebooted: true });
       if (url === "/api/board/push") {
         if ("detail" in push) {
           return Promise.resolve({ ok: false, status: push.status, text: async () => push.detail } as Response);
@@ -95,5 +100,30 @@ describe("BoardPanel and BoardPill", () => {
       fireEvent.click(screen.getByRole("button", { name: /confirm: write/ }));
     });
     expect(screen.getByText(/failed \(404\) no Pixhawk/)).toBeInTheDocument();
+  });
+
+  it("toggles SYS_HITL and reboots after a confirming click", async () => {
+    setRebootRecheckMs(0);
+    const calls = mockFetch(online, pushed);
+    render(<BoardPanel />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Check" }));
+    });
+    expect(screen.getByText("off")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "HIL on" }));
+    });
+    expect(calls.find((c) => c.url === "/api/board/param")?.body).toMatchObject({ name: "SYS_HITL", value: 1 });
+    expect(screen.getByText("on (HITL)")).toBeInTheDocument();
+    expect(screen.getByText(/reboot the board for it to take effect/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reboot board" }));
+    expect(calls.some((c) => c.url === "/api/board/reboot")).toBe(false);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "confirm reboot" }));
+    });
+    expect(calls.some((c) => c.url === "/api/board/reboot")).toBe(true);
+    // the re-check after the reboot ran and the board reports again
+    expect(calls.filter((c) => c.url.startsWith("/api/board/status")).length).toBe(2);
   });
 });

@@ -110,3 +110,14 @@ export function wrapAzimuth(azimuthDeg: number): number {
 export function frdToScene(v: Vec3): Vec3 {
   return [v[0], -v[2], v[1]];
 }
+
+/**
+ * Azimuth only has meaning once the fan is tilted: at tilt 0 the thrust axis is straight up for
+ * every azimuth, so a non-zero azimuth there changes nothing in the 3D view or the exported axes.
+ * Returns the note to show, or null when the pair is unambiguous.
+ */
+export function azimuthNote(fan: { id: number; tilt_deg: number; azimuth_deg: number }): string | null {
+  if (fan.tilt_deg !== 0 || fan.azimuth_deg === 0) return null;
+  const dir = describeAxis(tiltAzimuthToAxis(10, fan.azimuth_deg)).split(" (")[0].replace("up and ", "");
+  return `fan ${fan.id}: azimuth ${fan.azimuth_deg} has no effect at tilt 0; set a tilt and it points ${dir}`;
+}

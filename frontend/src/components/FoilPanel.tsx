@@ -1,4 +1,4 @@
-import { clampTilt, coandaSeparationDeg, describeAxis, effectiveFan, wrapAzimuth } from "../geometry";
+import { azimuthNote, clampTilt, coandaSeparationDeg, describeAxis, effectiveFan, wrapAzimuth } from "../geometry";
 import { useTiltlabStore } from "../store";
 import FoilCard from "./FoilCard";
 import FoilSheet from "./FoilSheet";
@@ -100,7 +100,7 @@ export default function FoilPanel() {
                     <input aria-label={`fan ${fan.id} tilt`} type="number" className={num} value={fan.tilt_deg} onChange={(e) => updateFan(fan.id, { tilt_deg: clampTilt(Number(e.target.value)) })} />
                   </td>
                   <td className="py-0.5 text-center">
-                    <input aria-label={`fan ${fan.id} azimuth`} type="number" className={num} value={fan.azimuth_deg} onChange={(e) => updateFan(fan.id, { azimuth_deg: wrapAzimuth(Number(e.target.value)) })} />
+                    <input aria-label={`fan ${fan.id} azimuth`} type="number" className={fan.tilt_deg === 0 ? `${num} opacity-50` : num} title={fan.tilt_deg === 0 ? "no effect while tilt is 0: tilt the fan and azimuth picks the direction (0 forward, 90 right)" : "0 forward, 90 right, 180 aft, 270 left"} value={fan.azimuth_deg} onChange={(e) => updateFan(fan.id, { azimuth_deg: wrapAzimuth(Number(e.target.value)) })} />
                   </td>
                   <td className="py-0.5 text-slate-300">{describeAxis(effectiveFan(fan, foils).axis)}</td>
                   <td className="py-0.5 text-right tabular-nums text-slate-400">{hoverU?.[scenario.fans.indexOf(fan)]?.toFixed(2) ?? "-"}</td>
@@ -108,6 +108,9 @@ export default function FoilPanel() {
               ))}
             </tbody>
           </table>
+          {plainFans.map(azimuthNote).filter(Boolean).map((n) => (
+            <p key={n} className="mt-1 text-[10px]" style={{ color: "var(--ui-warn)" }} role="note">{n}</p>
+          ))}
         </div>
       )}
       <FoilSheet />
