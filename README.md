@@ -1,23 +1,57 @@
+<div align="center">
+
+<img src="docs/banner.svg" alt="tiltlab" width="100%"/>
+
+<br/>
+
+[![PX4 v1.17.0](https://img.shields.io/badge/PX4-v1.17.0-f97316?logo=dronecode&logoColor=white)](https://github.com/PX4/PX4-Autopilot/tree/v1.17.0)
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-3776ab?logo=python&logoColor=white)](backend/pyproject.toml)
+[![React 18](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=0b1020)](frontend/package.json)
+[![Tests](https://img.shields.io/badge/tests-156%20pytest%20%2B%2031%20vitest-a3e635)](tests)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Stefanos%20Fragkoulis-0a66c2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/stefanos-fragkoulis/)
+
+**Built by [Stefanos Fragkoulis](https://www.linkedin.com/in/stefanos-fragkoulis/)**
+
+</div>
+
 # tiltlab
 
-Browser app for the 10-fan EDF aircraft. Tilt every fan (0 to 90 degrees, any azimuth), see what the geometry costs and buys on all six axes through a line-by-line replica of the PX4 v1.17.0 control allocator, and export the result as PX4 parameters, CSV and scenario JSON.
+Browser app for a 10-fan electric ducted fan (EDF) aircraft. Tilt every fan (two independent leans, or PX4's tilt and azimuth), see what the geometry costs and buys on all six axes through a line-by-line replica of the PX4 v1.17.0 control allocator, sweep tilts and foil deflections automatically, and export the result as PX4 parameters, Gazebo worlds, CSV and scenario JSON. A Pixhawk 6X Pro on USB can be checked, flashed with the previewed parameters and put into HITL from the app.
 
 Frames are FRD body (X forward, Y right, Z down) and NED world. SI units internally, degrees only in the UI.
 
-## What is in this version (lean v1)
+## Highlights
 
-| Piece | Where | State |
+| | What it does | Where |
 |---|---|---|
-| Scenario model (the single source of truth) | `backend/tiltlab/scenario.py`, `scenarios/*.json` | done |
-| PX4 effectiveness matrix and allocator port | `backend/tiltlab/core/geometry.py`, `allocation.py` | done, golden-tested against flight logs 36 and 40 |
-| PX4 `.params` read/write and Scenario mapping | `backend/tiltlab/core/params_px4.py` | done |
-| Fan model (curves, inverse, lag, battery) | `backend/tiltlab/core/fan.py` | done, default curve is an estimate |
-| Static metrics (hover, authority, power, coupling, conditioning, score) | `backend/tiltlab/core/metrics.py` | done |
-| REST API | `backend/tiltlab/api/app.py` | done |
-| Explorer UI (fan table, 3D view, metrics, params preview, exports) | `frontend/src` | done |
-| Exports (`.params`, CSV, scenario JSON) | `backend/tiltlab/export` | done |
+| **PX4 allocator replica** | Effectiveness matrix, pseudo-inverse and sequential desaturation ported from the pinned tree with file and line citations. Golden-tested against real flight logs. | `backend/tiltlab/core/geometry.py`, `allocation.py` |
+| **Six-axis metrics** | Hover trim, control authority as the angular acceleration the pilot gets, power, cross-axis coupling, conditioning and a composite score. | `backend/tiltlab/core/metrics.py` |
+| **Foil thrust vectoring** | Coanda-style deflector model with a design sheet for the CAD. | `backend/tiltlab/core/geometry.py`, `docs/coanda_evaluation.md` |
+| **Sweeps** | Grid search over wing-fan tilts or foil deflections, plus nose fans leaning forward / aft or left / right. Rank by authority, power or headroom. | `backend/tiltlab/core/sweep.py`, `scripts/sweep_tilt.py` |
+| **3D explorer** | Fan table with mirror lock, CAD airframe, animated jets coloured by hover thrust, live PX4 params preview. | `frontend/src` |
+| **CAD import** | Fan positions and mass properties from the Fusion mass and CoG dashboard. | `backend/tiltlab/cad` |
+| **Exports** | `.params`, CSV, scenario JSON, mechanical angle sheet, gz sim harness, Gazebo Classic HITL package with runbook. | `backend/tiltlab/export` |
+| **Board tools** | Detect a Pixhawk 6X Pro, push `CA_*` through NSH with backup and read-back, toggle `SYS_HITL`, reboot. | `backend/tiltlab/px4/board.py`, `scripts/px4_board.py` |
 
-Deferred to a later version: CAD/STEP import and mass properties (M6), 6-DOF dynamics and the PX4 controller replica (M7), PX4 SITL/HITL in the loop (M8), PDF report, Gazebo SDF, plots, mechanical angle sheet, A/B snapshot compare, gamepad input. The full plan is `PLAN.md`; read it by section (`grep -n "^### M" PLAN.md`).
+## Quick start
+
+```bash
+source scripts/env.sh          # Windows Git Bash only: puts uv, make and node on PATH
+uv sync --project backend
+npm --prefix frontend install
+make dev                       # backend :8000 + Vite :5173
+```
+
+Open http://localhost:5173, load `baseline_dihedral30` from the top bar and start tilting fans. Full install notes follow.
+
+## Contents
+
+- [Install](#install) and [Run](#run)
+- [Using the explorer](#using-the-explorer): foil model, Coanda limits, design sheet, airflow animation, sweeps, control checks, placeholders to replace, CAD import, scenario JSON, Gazebo, HITL, board upload
+- [API](#api)
+- [Working on the code](#working-on-the-code)
+- [PX4 caveats](#px4-caveats-read-before-flying-anything-exported-from-here) and [Safety](#safety-for-any-future-hitl-or-bench-session)
+- [Docker](#docker-untested-on-the-development-machine) and [Fixtures](#fixtures)
 
 ## Install
 
@@ -45,7 +79,7 @@ make dev
 Backend on http://127.0.0.1:8000 (uvicorn with reload) and the Vite dev server on http://localhost:5173 (proxies `/api` to the backend). Open the Vite URL while developing. For a single-process run, build the frontend once (`npm --prefix frontend run build`) and open http://127.0.0.1:8000, which serves `frontend/dist`.
 
 ```bash
-make test    # pytest (73 tests, including the golden allocator tests) and vitest
+make test    # pytest (156 tests, including the golden allocator tests) and vitest (31)
 make lint    # ruff and tsc --noEmit
 make docker  # docker compose build (not run on the development machine)
 ```
@@ -209,3 +243,11 @@ Fans unpowered. Remove the ESC power leads or the main battery before connecting
 ## Fixtures
 
 Golden logs and parameter files under `tests/fixtures` were copied 2026-09-09 from the QGroundControl Daily Logs and Parameters folders: Pixhawk 6X, PX4 v1.17.0 (git d6f12ad1c4), SYS_AUTOSTART 4001, CA_ROTOR_COUNT 10, CA_AIRFRAME 0, CA_METHOD 2, vehicle on the rig (roll and position locked, pitch and yaw free).
+
+---
+
+<div align="center">
+
+Made by **Stefanos Fragkoulis** | [LinkedIn](https://www.linkedin.com/in/stefanos-fragkoulis/) | [GitHub](https://github.com/Steve20144)
+
+</div>
