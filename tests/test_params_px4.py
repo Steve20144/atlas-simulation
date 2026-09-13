@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tiltlab.core.geometry import rotors_from_px4_params, rotors_from_scenario
-from tiltlab.core.params_px4 import (
+from vectra.core.geometry import rotors_from_px4_params, rotors_from_scenario
+from vectra.core.params_px4 import (
     format_px4_float,
     hover_frame_params,
     params_file_from_dict,
@@ -19,7 +19,7 @@ from tiltlab.core.params_px4 import (
     write_params_file,
     xfly80_3280_curve,
 )
-from tiltlab.scenario import Mass, Scenario
+from vectra.scenario import Mass, Scenario
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

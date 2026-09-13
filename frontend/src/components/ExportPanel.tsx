@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { api } from "../api";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 
 const btn = "ui-btn";
 
 /** Two export buttons: PX4 .params and a one-row metrics CSV, both written to exports/ by the backend. */
 export default function ExportPanel() {
-  const scenario = useTiltlabStore((s) => s.scenario);
-  const concept = useTiltlabStore((s) => s.concept);
-  const m = useTiltlabStore((s) => s.metrics);
+  const scenario = useVectraStore((s) => s.scenario);
+  const concept = useVectraStore((s) => s.concept);
+  const m = useVectraStore((s) => s.metrics);
   const [status, setStatus] = useState("");
   const run = (job: Promise<{ path: string }>) =>
     job.then((r) => setStatus(`wrote ${r.path}`)).catch((e: Error) => setStatus(e.message));

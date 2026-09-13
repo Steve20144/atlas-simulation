@@ -16,7 +16,7 @@ stay unpowered.
 Regenerate both from the same scenario; the 118 shared parameters are identical by construction:
 
 ```bash
-uv run --project backend python -c "import json,pathlib;from tiltlab.scenario import Scenario;from tiltlab.export.gazebo_classic_hitl import export_gazebo_classic_hitl as f;sc=Scenario.model_validate(json.loads(pathlib.Path('scenarios/atlas_phase01_cad_control.json').read_text()));print(f(sc, pathlib.Path('exports/gazebo_hitl'))['root'])"
+uv run --project backend python -c "import json,pathlib;from vectra.scenario import Scenario;from vectra.export.gazebo_classic_hitl import export_gazebo_classic_hitl as f;sc=Scenario.model_validate(json.loads(pathlib.Path('scenarios/atlas_phase01_cad_control.json').read_text()));print(f(sc, pathlib.Path('exports/gazebo_hitl'))['root'])"
 ```
 
 Gains carried over unchanged (validated in gz sim, hover within 0.5 deg and 25 cm):
@@ -56,7 +56,7 @@ fixed-wing and VTOL modules a multirotor HITL never runs, exactly the set PX4's 
 `default.px4board` untouched for flight builds.
 
 ```bash
-wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --build-firmware --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
+wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/vectra_gazebo.sh --build-firmware --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
 ```
 
 The launcher copies the label to `boards/px4/fmu-v6x/hitl.px4board`, runs `make px4_fmu-v6x_hitl`
@@ -126,7 +126,7 @@ Fans and ESCs unpowered. Easiest: in the app, Metrics panel > Launch Gazebo > **
 exports the current scenario first and shows the launcher console). Equivalent from PowerShell:
 
 ```powershell
-wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
+wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/scripts/wsl/vectra_gazebo.sh --harness ~/utopia/vibe-coded/exports/gazebo_hitl/atlas_phase01_cad_control_hitl"
 ```
 
 HITL is the launcher's default mode. It copies the model and world into

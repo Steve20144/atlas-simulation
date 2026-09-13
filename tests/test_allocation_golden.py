@@ -5,7 +5,7 @@ control_allocator_status sample the replica is fed the most recent preceding
 vehicle_torque_setpoint and vehicle_thrust_setpoint samples (zero-order hold; the logger ran
 at 50 Hz for setpoints, 10 Hz for motors, 5 Hz for status, the allocator much faster), so the
 residual contains the setpoint change between the logged setpoint and the one that actually
-triggered the logged output. Per-sample diagnostics go to TILTLAB_DIAG_DIR (default: the
+triggered the logged output. Per-sample diagnostics go to VECTRA_DIAG_DIR (default: the
 system temp directory), never into the repository.
 """
 
@@ -21,8 +21,8 @@ import numpy as np
 import pytest
 from pyulog import ULog
 
-from tiltlab.core.allocation import ACTUATOR_SATURATION_LOWER, ControlAllocatorReplica
-from tiltlab.core.geometry import compute_effectiveness_matrix, rotors_from_px4_params
+from vectra.core.allocation import ACTUATOR_SATURATION_LOWER, ControlAllocatorReplica
+from vectra.core.geometry import compute_effectiveness_matrix, rotors_from_px4_params
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LOGS = {
@@ -39,7 +39,7 @@ N_MOTORS = 10
 
 
 def _diag_dir() -> Path:
-    d = Path(os.environ.get("TILTLAB_DIAG_DIR", Path(tempfile.gettempdir()) / "tiltlab_golden"))
+    d = Path(os.environ.get("VECTRA_DIAG_DIR", Path(tempfile.gettempdir()) / "vectra_golden"))
     d.mkdir(parents=True, exist_ok=True)
     return d
 

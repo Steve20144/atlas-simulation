@@ -2,13 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "tiltlab-backend",
+      "name": "vectra-backend",
       "runtimeExecutable": "C:\\Users\\stefa\\.local\\bin\\uv.exe",
-      "runtimeArgs": ["run", "--project", "backend", "uvicorn", "tiltlab.api.app:app", "--port", "8000"],
+      "runtimeArgs": ["run", "--project", "backend", "uvicorn", "vectra.api.app:app", "--port", "8000"],
       "port": 8000
     },
     {
-      "name": "tiltlab-frontend",
+      "name": "vectra-frontend",
       "runtimeExecutable": "C:\\Users\\stefa\\AppData\\Local\\Programs\\nodejs\\npm.cmd",
       "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
       "port": 5173

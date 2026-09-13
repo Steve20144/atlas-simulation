@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import { installFetchMock, tenFanScenario } from "../test/fixtures";
 import type { GazeboStatus } from "../types";
 import GazeboPanel from "./GazeboPanel";
@@ -13,12 +13,12 @@ const status = (over: Partial<GazeboStatus>): GazeboStatus => ({
 describe("GazeboPanel", () => {
   beforeEach(() => {
     installFetchMock();
-    useTiltlabStore.getState().reset();
-    useTiltlabStore.getState().setScenario(tenFanScenario());
+    useVectraStore.getState().reset();
+    useVectraStore.getState().setScenario(tenFanScenario());
   });
 
   afterEach(() => {
-    useTiltlabStore.getState().reset();
+    useVectraStore.getState().reset();
     vi.unstubAllGlobals();
   });
 
@@ -59,7 +59,7 @@ describe("GazeboPanel", () => {
       fireEvent.click(screen.getByText("Reset"));
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/gazebo/reset", expect.anything());
-    expect(useTiltlabStore.getState().gazebo.message).toContain("reset done");
+    expect(useVectraStore.getState().gazebo.message).toContain("reset done");
     expect(screen.getByText("SITL running")).toBeInTheDocument();
 
     await act(async () => {
@@ -67,7 +67,7 @@ describe("GazeboPanel", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/gazebo/stop", expect.anything());
     expect(screen.getByText("idle")).toBeInTheDocument();
-    expect(useTiltlabStore.getState().gazebo.message).toBe("stopped");
+    expect(useVectraStore.getState().gazebo.message).toBe("stopped");
   });
 
   it("shows the backend's error when the launch is refused", async () => {

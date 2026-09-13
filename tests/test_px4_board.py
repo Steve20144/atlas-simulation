@@ -9,7 +9,7 @@ spec = importlib.util.spec_from_file_location("px4_board", REPO / "scripts" / "p
 board = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(board)
 
-SAMPLE = """# tiltlab HITL set
+SAMPLE = """# vectra HITL set
 # vehicle-id component-id name value type
 1\t1\tCA_ROTOR0_AX\t0.25881904\t9
 1\t1\tHIL_ACT_FUNC1\t101\t6

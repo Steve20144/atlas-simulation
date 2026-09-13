@@ -88,7 +88,7 @@ const idleBoard = (): BoardState => ({
   status: null, checking: false, pushing: false, result: null, message: "", port: "auto",
 });
 
-export interface TiltlabState {
+export interface VectraState {
   scenario: Scenario;
   scenarioNames: string[];
   concept: ControlConcept;
@@ -160,7 +160,7 @@ const idleGazebo = (): GazeboStatus & { message: string } => ({
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshSeq = 0;
 
-export const useTiltlabStore = create<TiltlabState>((set, get) => {
+export const useVectraStore = create<VectraState>((set, get) => {
   const schedule = () => {
     if (refreshTimer) clearTimeout(refreshTimer);
     refreshTimer = setTimeout(() => {

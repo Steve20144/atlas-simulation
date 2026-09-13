@@ -8,4 +8,4 @@ extend-exclude = ["third_party", "frontend", "backend/.venv"]
 select = ["E", "F", "I", "W", "B", "UP"]
 
 [lint.isort]
-known-first-party = ["tiltlab"]
+known-first-party = ["vectra"]

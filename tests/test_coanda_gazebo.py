@@ -10,12 +10,12 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from tiltlab.api.app import app
-from tiltlab.core.sweep import SweepSpec, apply_deflections, run_sweep
-from tiltlab.export.angle_sheet import foil_angle_sheet
-from tiltlab.export.gazebo import axis_to_rpy, export_gazebo, frd_to_flu
-from tiltlab.export.params import ca_geometry_params
-from tiltlab.scenario import Coanda, Scenario
+from vectra.api.app import app
+from vectra.core.sweep import SweepSpec, apply_deflections, run_sweep
+from vectra.export.angle_sheet import foil_angle_sheet
+from vectra.export.gazebo import axis_to_rpy, export_gazebo, frd_to_flu
+from vectra.export.params import ca_geometry_params
+from vectra.scenario import Coanda, Scenario
 
 from .conftest import FIXTURES
 

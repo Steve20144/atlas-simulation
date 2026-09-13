@@ -1,19 +1,19 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import { PARAM_LINES, sampleMetrics } from "../test/fixtures";
 import MetricsPanel from "./MetricsPanel";
 
 describe("MetricsPanel", () => {
   beforeEach(() => {
     act(() => {
-      useTiltlabStore.getState().reset();
-      useTiltlabStore.setState({ metrics: sampleMetrics(), paramsLines: PARAM_LINES });
+      useVectraStore.getState().reset();
+      useVectraStore.setState({ metrics: sampleMetrics(), paramsLines: PARAM_LINES });
     });
   });
 
   afterEach(() => {
-    useTiltlabStore.getState().reset();
+    useVectraStore.getState().reset();
     vi.unstubAllGlobals();
   });
 

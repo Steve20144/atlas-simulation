@@ -1,4 +1,4 @@
-# PLAN.md: EDF Tilt Geometry Simulator ("tiltlab")
+# PLAN.md: EDF Tilt Geometry Simulator ("vectra")
 
 Generated 2026-09-09 16:13 (America/Los_Angeles). Drop this file in the repo root as `PLAN.md`.
 Claude Code reads it section by section; it never needs to be loaded whole.
@@ -103,7 +103,7 @@ Single source of truth: a `Scenario` JSON (section 5). Everything (UI sliders, e
 
 Derived (never stored): AX/AY/AZ from tilt and azimuth; CT from `fan_curves[...].points` (thrust at cmd = 1.0); KM from the reaction-torque toggle.
 
-Implemented additions (M2, 2026-09-09): `fans[].km` holds the KM magnitude per fan (sign from spin) so the flown KM yaw model can be represented; `control.reaction_torque` is the toggle (default false, meaning KM = 0 everywhere); `control.px4_params_override` may carry `CA_ROTORn_CT` overrides so the flown scenarios reproduce the logged CT (6.5 / 5.6 N) instead of the fan-curve value. The model lives in `backend/tiltlab/scenario.py`.
+Implemented additions (M2, 2026-09-09): `fans[].km` holds the KM magnitude per fan (sign from spin) so the flown KM yaw model can be represented; `control.reaction_torque` is the toggle (default false, meaning KM = 0 everywhere); `control.px4_params_override` may carry `CA_ROTORn_CT` overrides so the flown scenarios reproduce the logged CT (6.5 / 5.6 N) instead of the fan-curve value. The model lives in `backend/vectra/scenario.py`.
 
 ---
 
@@ -192,7 +192,7 @@ Each module is one Claude Code session. Do not start the next before the test pa
 ## 8. CLAUDE.md (paste into the repo root; this is the token budget)
 
 ```markdown
-# tiltlab conventions
+# vectra conventions
 - Read PLAN.md only by section (`grep -n "^### M" PLAN.md` to find offsets). Never cat the whole file.
 - One module per session. Finish with `make test` green and one commit: "M<n>: <one line>".
 - Python: numpy-vectorised, type hints, docstrings only where units or frames are involved. Every function that takes a vector states its frame (FRD/NED) and unit in the docstring.

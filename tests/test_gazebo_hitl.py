@@ -9,12 +9,12 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from tiltlab.api.app import app
-from tiltlab.core.params_px4 import read_params_file
-from tiltlab.export.gazebo import frd_to_flu
-from tiltlab.export.gazebo_classic_hitl import export_gazebo_classic_hitl, hitl_params
-from tiltlab.export.params import ca_geometry_params
-from tiltlab.scenario import Scenario
+from vectra.api.app import app
+from vectra.core.params_px4 import read_params_file
+from vectra.export.gazebo import frd_to_flu
+from vectra.export.gazebo_classic_hitl import export_gazebo_classic_hitl, hitl_params
+from vectra.export.params import ca_geometry_params
+from vectra.scenario import Scenario
 
 from .conftest import FIXTURES
 

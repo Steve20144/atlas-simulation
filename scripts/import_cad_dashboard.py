@@ -1,4 +1,4 @@
-"""Build a tiltlab scenario from the Atlas Mass & CoG dashboard HTML.
+"""Build a vectra scenario from the Atlas Mass & CoG dashboard HTML.
 
     uv run --project backend python scripts/import_cad_dashboard.py
     tests/fixtures/cog_dashboard_full_8.html \
@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
-from tiltlab.cad.fusion_dashboard import (
+from vectra.cad.fusion_dashboard import (
     FusionFrame,
     Weights,
     build_scenario,
@@ -34,8 +34,8 @@ from tiltlab.cad.fusion_dashboard import (
     order_edfs_px4,
     volume_centroid_mm,
 )
-from tiltlab.core.params_px4 import read_params_file
-from tiltlab.scenario import Scenario
+from vectra.core.params_px4 import read_params_file
+from vectra.scenario import Scenario
 
 ROOT = Path(__file__).resolve().parents[1]
 

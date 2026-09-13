@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import type { SweepRequestBody, SweepResponse } from "../types";
 import SweepNoseControls, { DEFAULT_NOSE_GRID, noseCount, noseValues, type NoseGrid } from "./SweepNoseControls";
 import SweepSummary from "./SweepSummary";
@@ -32,10 +32,10 @@ function range(start: number, stop: number, step: number): number[] {
 /** Sweep the foil deflection (or raw fan tilt when the scenario has no foils); every candidate is
  * checked for level hover and for control authority on roll, pitch and yaw, then ranked. */
 export default function SweepPanel() {
-  const scenario = useTiltlabStore((s) => s.scenario);
-  const concept = useTiltlabStore((s) => s.concept);
-  const collective = useTiltlabStore((s) => s.collective);
-  const applySweepCandidate = useTiltlabStore((s) => s.applySweepCandidate);
+  const scenario = useVectraStore((s) => s.scenario);
+  const concept = useVectraStore((s) => s.concept);
+  const collective = useVectraStore((s) => s.collective);
+  const applySweepCandidate = useVectraStore((s) => s.applySweepCandidate);
   const hasFoils = (scenario.foils?.length ?? 0) > 0;
   const [start, setStart] = useState(hasFoils ? 45 : 0);
   const [stop, setStop] = useState(hasFoils ? 150 : 45);

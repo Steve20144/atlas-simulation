@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from tiltlab.scenario import (
+from vectra.scenario import (
     NUM_FANS,
     Control,
     CurvePoint,
@@ -203,7 +203,7 @@ def scenario_to_ca_params(scenario: Scenario) -> dict[str, int | float]:
     from the Scenario: position = pos_frd_m - cg_frd_m (m, FRD), axis from tilt/azimuth,
     CT = fan curve thrust at cmd 1.0 (N), KM = signed km if control.reaction_torque else 0.
     Entries of control.px4_params_override that start with 'CA_' are applied last."""
-    from tiltlab.core.geometry import rotors_from_scenario
+    from vectra.core.geometry import rotors_from_scenario
 
     params: dict[str, int | float] = {
         "CA_ROTOR_COUNT": NUM_FANS,
@@ -273,7 +273,7 @@ def scenario_from_ca_params(
     resolution, CA_ROTORn_CT is recorded in control.px4_params_override so the round trip is
     exact and the flown CT is preserved.
     """
-    from tiltlab.core.geometry import rotors_from_px4_params
+    from vectra.core.geometry import rotors_from_px4_params
 
     rotors = rotors_from_px4_params(params)
     if len(rotors) != NUM_FANS:

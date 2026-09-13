@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import { installFetchMock, tenFanScenario } from "../test/fixtures";
 import HoverPitchControl from "./HoverPitchControl";
 
@@ -8,12 +8,12 @@ describe("HoverPitchControl", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     installFetchMock();
-    useTiltlabStore.getState().reset();
-    useTiltlabStore.getState().setScenario(tenFanScenario());
+    useVectraStore.getState().reset();
+    useVectraStore.getState().setScenario(tenFanScenario());
   });
 
   afterEach(() => {
-    useTiltlabStore.getState().reset();
+    useVectraStore.getState().reset();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
@@ -23,14 +23,14 @@ describe("HoverPitchControl", () => {
     const input = screen.getByLabelText("Hover pitch") as HTMLInputElement;
     expect(input.value).toBe("0");
     fireEvent.change(input, { target: { value: "25" } });
-    expect(useTiltlabStore.getState().scenario.frame.hover_pitch_deg).toBe(25);
+    expect(useVectraStore.getState().scenario.frame.hover_pitch_deg).toBe(25);
     expect(input.value).toBe("25");
   });
 
   it("quick buttons set the value and the active one is highlighted", () => {
     render(<HoverPitchControl />);
     fireEvent.click(screen.getByRole("button", { name: "15" }));
-    expect(useTiltlabStore.getState().scenario.frame.hover_pitch_deg).toBe(15);
+    expect(useVectraStore.getState().scenario.frame.hover_pitch_deg).toBe(15);
     expect(screen.getByRole("button", { name: "15" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "0" })).toHaveAttribute("aria-pressed", "false");
   });
@@ -39,7 +39,7 @@ describe("HoverPitchControl", () => {
     const { calls } = installFetchMock();
     render(<HoverPitchControl />);
     fireEvent.change(screen.getByLabelText("Hover pitch"), { target: { value: "120" } });
-    expect(useTiltlabStore.getState().scenario.frame.hover_pitch_deg).toBe(90);
+    expect(useVectraStore.getState().scenario.frame.hover_pitch_deg).toBe(90);
     await act(async () => {
       await vi.runAllTimersAsync();
     });

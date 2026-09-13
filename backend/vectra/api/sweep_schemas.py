@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from tiltlab.scenario import Scenario
+from vectra.scenario import Scenario
 
 
 class SweepRequest(BaseModel):

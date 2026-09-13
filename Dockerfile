@@ -1,4 +1,4 @@
-# tiltlab analysis server. M10 finalises this image; M1 keeps it minimal.
+# vectra analysis server. M10 finalises this image; M1 keeps it minimal.
 # Build context is the repo root; frontend/dist must exist (npm --prefix frontend run build).
 FROM python:3.11-slim
 
@@ -24,4 +24,4 @@ COPY frontend/dist/ frontend/dist/
 RUN mkdir -p scenarios
 
 EXPOSE 8000
-CMD ["uvicorn", "tiltlab.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "vectra.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

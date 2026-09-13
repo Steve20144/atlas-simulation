@@ -6,7 +6,7 @@ const DEG = Math.PI / 180;
  * Thrust axis in FRD body frame (unit vector) from tilt and azimuth in degrees.
  * PLAN.md section 3: a = (sin t cos p, sin t sin p, -cos t); tilt 0 points up
  * (body -Z), azimuth 0 tilts forward, azimuth 90 tilts right. Mirrors
- * backend/tiltlab/scenario.py tilt_azimuth_to_axis.
+ * backend/vectra/scenario.py tilt_azimuth_to_axis.
  */
 export function tiltAzimuthToAxis(tiltDeg: number, azimuthDeg: number): Vec3 {
   const t = tiltDeg * DEG;
@@ -16,7 +16,7 @@ export function tiltAzimuthToAxis(tiltDeg: number, azimuthDeg: number): Vec3 {
 
 /**
  * Thrust direction after a foil turns the jet down by deflectionDeg about the body lateral axis.
- * Mirrors backend/tiltlab/scenario.py deflect_axis: motor axis (1, 0, 0) gives (cos d, 0, -sin d),
+ * Mirrors backend/vectra/scenario.py deflect_axis: motor axis (1, 0, 0) gives (cos d, 0, -sin d),
  * so 0 = pure forward thrust, 90 = pure lift, 180 = pure reverse thrust.
  */
 export function deflectAxis(motorAxis: Vec3, deflectionDeg: number): Vec3 {

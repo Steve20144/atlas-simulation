@@ -1,5 +1,5 @@
 import { coandaSeparationDeg } from "../geometry";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import CentrelineFans from "./CentrelineFans";
 import FoilCard from "./FoilCard";
 import FoilSheet from "./FoilSheet";
@@ -8,9 +8,9 @@ const num = "w-16 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-
 
 /** Left panel for foil scenarios: foil deflections, centreline fans, motor details. */
 export default function FoilPanel() {
-  const scenario = useTiltlabStore((s) => s.scenario);
-  const foilLinked = useTiltlabStore((s) => s.foilLinked);
-  const { setFoilLinked, setFoilLoss, setCoanda } = useTiltlabStore.getState();
+  const scenario = useVectraStore((s) => s.scenario);
+  const foilLinked = useVectraStore((s) => s.foilLinked);
+  const { setFoilLinked, setFoilLoss, setCoanda } = useVectraStore.getState();
   const foils = scenario.foils ?? [];
   const foilFanIds = new Set(foils.flatMap((f) => f.fan_ids));
   const plainFans = scenario.fans.filter((f) => !foilFanIds.has(f.id));

@@ -2,7 +2,7 @@ import { Grid, Line, OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { useState } from "react";
 import { frdToScene } from "../geometry";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import type { Vec3 } from "../types";
 import Airflow from "./Airflow";
 import CadModel, { CadErrorBoundary } from "./CadModel";
@@ -30,21 +30,21 @@ function AxesTriad() {
 
 /** Centre panel: stick model of the aircraft with thrust vectors scaled by hover u. */
 export default function Viewer3D() {
-  const fans = useTiltlabStore((s) => s.scenario.fans);
-  const foils = useTiltlabStore((s) => s.scenario.foils);
-  const scenarioName = useTiltlabStore((s) => s.scenario.meta.name);
-  const cadModel = useTiltlabStore((s) => s.scenario.meta.cad_model);
-  const showCad = useTiltlabStore((s) => s.view.cad);
-  const showFlow = useTiltlabStore((s) => s.view.flow);
+  const fans = useVectraStore((s) => s.scenario.fans);
+  const foils = useVectraStore((s) => s.scenario.foils);
+  const scenarioName = useVectraStore((s) => s.scenario.meta.name);
+  const cadModel = useVectraStore((s) => s.scenario.meta.cad_model);
+  const showCad = useVectraStore((s) => s.view.cad);
+  const showFlow = useVectraStore((s) => s.view.flow);
   const [cadError, setCadError] = useState<string | null>(null);
-  const thrustN = useTiltlabStore((s) => s.metrics?.hover?.thrust_N);
-  const fanCurves = useTiltlabStore((s) => s.scenario.fan_curves);
+  const thrustN = useVectraStore((s) => s.metrics?.hover?.thrust_N);
+  const fanCurves = useVectraStore((s) => s.scenario.fan_curves);
   const maxThrustN = Math.max(
     1,
     ...Object.values(fanCurves).map((c) => c.points[c.points.length - 1]?.thrust_N ?? 0),
   );
-  const cg = useTiltlabStore((s) => s.scenario.mass.cg_frd_m);
-  const u = useTiltlabStore((s) => s.metrics?.hover?.u);
+  const cg = useVectraStore((s) => s.scenario.mass.cg_frd_m);
+  const u = useVectraStore((s) => s.metrics?.hover?.u);
 
   return (
     <section className="relative h-full min-h-[320px] overflow-hidden rounded-xl" style={{ background: "var(--ui-panel)", border: "1px solid var(--ui-line-soft)" }}>

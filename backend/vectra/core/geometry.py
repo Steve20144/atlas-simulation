@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from tiltlab.scenario import Scenario
+    from vectra.scenario import Scenario
 
 NUM_ACTUATORS = 16  # ActuatorEffectiveness.hpp:89 (EffectivenessMatrix is 6 x 16)
 NUM_AXES = 6

@@ -4,7 +4,7 @@ import importlib.util
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-spec = importlib.util.spec_from_file_location("tiltlab_menu", REPO / "scripts" / "tiltlab_menu.py")
+spec = importlib.util.spec_from_file_location("vectra_menu", REPO / "scripts" / "vectra_menu.py")
 menu = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(menu)
 

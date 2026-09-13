@@ -5,15 +5,15 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tiltlab.core.geometry import (
+from vectra.core.geometry import (
     GeometryFlags,
     Rotor,
     compute_effectiveness_matrix,
     effectiveness_matrix,
     rotors_from_px4_params,
 )
-from tiltlab.core.params_px4 import params_from_ulog
-from tiltlab.scenario import axis_to_tilt_azimuth, tilt_azimuth_to_axis
+from vectra.core.params_px4 import params_from_ulog
+from vectra.scenario import axis_to_tilt_azimuth, tilt_azimuth_to_axis
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LOG36 = FIXTURES / "log_36_2026-9-9-14-11-36.ulg"

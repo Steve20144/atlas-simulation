@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/banner.svg" alt="tiltlab" width="100%"/>
+<img src="docs/banner.svg" alt="Vectra" width="100%"/>
 
 <br/>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-# tiltlab
+# Vectra
 
 Browser app for a 10-fan electric ducted fan (EDF) aircraft. Tilt every fan (two independent leans, or PX4's tilt and azimuth), see what the geometry costs and buys on all six axes through a line-by-line replica of the PX4 v1.17.0 control allocator, sweep tilts and foil deflections automatically, and export the result as PX4 parameters, Gazebo worlds, CSV and scenario JSON. A Pixhawk 6X Pro on USB can be checked, flashed with the previewed parameters and put into HITL from the app.
 
@@ -24,14 +24,14 @@ Frames are FRD body (X forward, Y right, Z down) and NED world. SI units interna
 
 | | What it does | Where |
 |---|---|---|
-| **PX4 allocator replica** | Effectiveness matrix, pseudo-inverse and sequential desaturation ported from the pinned tree with file and line citations. Golden-tested against real flight logs. | `backend/tiltlab/core/geometry.py`, `allocation.py` |
-| **Six-axis metrics** | Hover trim, control authority as the angular acceleration the pilot gets, power, cross-axis coupling, conditioning and a composite score. | `backend/tiltlab/core/metrics.py` |
-| **Foil thrust vectoring** | Coanda-style deflector model with a design sheet for the CAD. | `backend/tiltlab/core/geometry.py`, `docs/coanda_evaluation.md` |
-| **Sweeps** | Grid search over wing-fan tilts or foil deflections, plus nose fans leaning forward / aft or left / right. Rank by authority, power or headroom. | `backend/tiltlab/core/sweep.py`, `scripts/sweep_tilt.py` |
+| **PX4 allocator replica** | Effectiveness matrix, pseudo-inverse and sequential desaturation ported from the pinned tree with file and line citations. Golden-tested against real flight logs. | `backend/vectra/core/geometry.py`, `allocation.py` |
+| **Six-axis metrics** | Hover trim, control authority as the angular acceleration the pilot gets, power, cross-axis coupling, conditioning and a composite score. | `backend/vectra/core/metrics.py` |
+| **Foil thrust vectoring** | Coanda-style deflector model with a design sheet for the CAD. | `backend/vectra/core/geometry.py`, `docs/coanda_evaluation.md` |
+| **Sweeps** | Grid search over wing-fan tilts or foil deflections, plus nose fans leaning forward / aft or left / right. Rank by authority, power or headroom. | `backend/vectra/core/sweep.py`, `scripts/sweep_tilt.py` |
 | **3D explorer** | Fan table with mirror lock, CAD airframe, animated jets coloured by hover thrust, live PX4 params preview. | `frontend/src` |
-| **CAD import** | Fan positions and mass properties from the Fusion mass and CoG dashboard. | `backend/tiltlab/cad` |
-| **Exports** | `.params`, CSV, scenario JSON, mechanical angle sheet, gz sim harness, Gazebo Classic HITL package with runbook. | `backend/tiltlab/export` |
-| **Board tools** | Detect a Pixhawk 6X Pro, push `CA_*` through NSH with backup and read-back, toggle `SYS_HITL`, reboot. | `backend/tiltlab/px4/board.py`, `scripts/px4_board.py` |
+| **CAD import** | Fan positions and mass properties from the Fusion mass and CoG dashboard. | `backend/vectra/cad` |
+| **Exports** | `.params`, CSV, scenario JSON, mechanical angle sheet, gz sim harness, Gazebo Classic HITL package with runbook. | `backend/vectra/export` |
+| **Board tools** | Detect a Pixhawk 6X Pro, push `CA_*` through NSH with backup and read-back, toggle `SYS_HITL`, reboot. | `backend/vectra/px4/board.py`, `scripts/px4_board.py` |
 
 ## Quick start
 
@@ -182,11 +182,11 @@ This writes `scenarios/atlas_phase01_cad.json` (fan positions from the CAD, PX4 
 
 ### Scenario JSON
 
-Fields (see `PLAN.md` section 5 and `backend/tiltlab/scenario.py`): `meta`, `frame`, `mass`, `fans` (10 entries: `pos_frd_m`, `tilt_deg`, `azimuth_deg`, `spin`, `mirror_of`, `curve_ref`, `km`), `fan_curves`, `control` (`concept`, `ca_method`, `reaction_torque`, `px4_params_override`), `rig`, `environment`, `outputs`. Fan positions are metres in FRD relative to the CG; they came from the CA_ROTOR parameters measured off the CAD. Thrust direction is derived, never stored: `a = (sin t cos p, sin t sin p, -cos t)`.
+Fields (see `PLAN.md` section 5 and `backend/vectra/scenario.py`): `meta`, `frame`, `mass`, `fans` (10 entries: `pos_frd_m`, `tilt_deg`, `azimuth_deg`, `spin`, `mirror_of`, `curve_ref`, `km`), `fan_curves`, `control` (`concept`, `ca_method`, `reaction_torque`, `px4_params_override`), `rig`, `environment`, `outputs`. Fan positions are metres in FRD relative to the CG; they came from the CA_ROTOR parameters measured off the CAD. Thrust direction is derived, never stored: `a = (sin t cos p, sin t sin p, -cos t)`.
 
 ### Gazebo harness
 
-The **Gazebo** button in the Export panel (or `POST /api/export/gazebo`) writes `exports/gazebo/<scenario>/` with a gz sim model (SDF 1.9: airframe body with the scenario mass and inertia and the CAD glTF, one rotor link per fan at the foil pressure point pointing along the effective thrust, each driven by the `MulticopterMotorModel` plugin scaled to the fan's effective CT), a world with the sensor systems PX4's gz bridge needs, a PX4 posix airframe file (`4500_gz_<scenario>`, an id no stock PX4 airframe shares, because PX4 matches autostart files by numeric prefix and 4010 collided with `4010_gz_x500_mono_cam`) carrying the same `CA_ROTOR*` geometry, and a README with the install and launch steps for a PX4 v1.17 checkout on Linux (`make px4_sitl gz_<scenario>`). It is generated, not run here; the README lists what to check first. It models the rotors as point thrusters at the effective directions; the foil aerodynamics and the Coanda turning are baked into those directions, not simulated. One PX4 limit matters for ten motors: the gz bridge declares only 8 ESC channels (`SIM_GZ_EC_FUNC1..8`), so before building PX4 raise `__max_num_servos` in `src/modules/simulation/gz_bridge/module.yaml` from 8 to 12; otherwise Gazebo reports "You tried to access index N of the Actuator velocity array" for the extra motors. A second gz bridge limit aborts PX4 outright with ten motors: the ESC feedback callback copies every motor speed into an `esc_status` message that holds 8 entries, overrunning the stack (`__stack_chk_fail`), so the copy must be clamped to 8. The harness README and the WSL helper script (`../wsl/tiltlab_gazebo.sh`) apply both patches. PX4 spawns the vehicle into the world itself (as `<scenario>_0`), so the world file does not include it. The model carries the IMU, barometer, magnetometer and GPS (navsat) sensors of PX4's x500 model; without the GPS the estimator never initialises and PX4 refuses to arm. To fly: with QGroundControl connected (inside WSL2 broadcasts never reach Windows, so the airframe starts the GCS link aimed at the Windows host on UDP 14550 and QGC auto-connects; fallback is a manual UDP comm link with listening port 14551 and server `<WSL IP>:18570`), type `commander takeoff` and `commander land` in the PX4 console, or use QGC's Takeoff slider and virtual joystick. The CAD mesh is written as `airframe.stl` in the gz body frame (FLU); the GLB used by the web viewer keeps FRD vertices, which Gazebo would draw upside down. The airframe also carries PX4 controller gains sized from tiltlab's torque authority, the inertia and the fan spool lag (`px4_tuning`), because PX4's defaults, tuned for a small quad, flip this 12 kg EDF airframe within two seconds of lift-off; with them the per-pair foil set in `scenarios/atlas_phase01_cad_hover.json` took off, hovered within 4 degrees and landed in gz sim (see `docs/gazebo_flight_2026-09-10.md`).
+The **Gazebo** button in the Export panel (or `POST /api/export/gazebo`) writes `exports/gazebo/<scenario>/` with a gz sim model (SDF 1.9: airframe body with the scenario mass and inertia and the CAD glTF, one rotor link per fan at the foil pressure point pointing along the effective thrust, each driven by the `MulticopterMotorModel` plugin scaled to the fan's effective CT), a world with the sensor systems PX4's gz bridge needs, a PX4 posix airframe file (`4500_gz_<scenario>`, an id no stock PX4 airframe shares, because PX4 matches autostart files by numeric prefix and 4010 collided with `4010_gz_x500_mono_cam`) carrying the same `CA_ROTOR*` geometry, and a README with the install and launch steps for a PX4 v1.17 checkout on Linux (`make px4_sitl gz_<scenario>`). It is generated, not run here; the README lists what to check first. It models the rotors as point thrusters at the effective directions; the foil aerodynamics and the Coanda turning are baked into those directions, not simulated. One PX4 limit matters for ten motors: the gz bridge declares only 8 ESC channels (`SIM_GZ_EC_FUNC1..8`), so before building PX4 raise `__max_num_servos` in `src/modules/simulation/gz_bridge/module.yaml` from 8 to 12; otherwise Gazebo reports "You tried to access index N of the Actuator velocity array" for the extra motors. A second gz bridge limit aborts PX4 outright with ten motors: the ESC feedback callback copies every motor speed into an `esc_status` message that holds 8 entries, overrunning the stack (`__stack_chk_fail`), so the copy must be clamped to 8. The harness README and the WSL helper script (`../wsl/vectra_gazebo.sh`) apply both patches. PX4 spawns the vehicle into the world itself (as `<scenario>_0`), so the world file does not include it. The model carries the IMU, barometer, magnetometer and GPS (navsat) sensors of PX4's x500 model; without the GPS the estimator never initialises and PX4 refuses to arm. To fly: with QGroundControl connected (inside WSL2 broadcasts never reach Windows, so the airframe starts the GCS link aimed at the Windows host on UDP 14550 and QGC auto-connects; fallback is a manual UDP comm link with listening port 14551 and server `<WSL IP>:18570`), type `commander takeoff` and `commander land` in the PX4 console, or use QGC's Takeoff slider and virtual joystick. The CAD mesh is written as `airframe.stl` in the gz body frame (FLU); the GLB used by the web viewer keeps FRD vertices, which Gazebo would draw upside down. The airframe also carries PX4 controller gains sized from vectra's torque authority, the inertia and the fan spool lag (`px4_tuning`), because PX4's defaults, tuned for a small quad, flip this 12 kg EDF airframe within two seconds of lift-off; with them the per-pair foil set in `scenarios/atlas_phase01_cad_hover.json` took off, hovered within 4 degrees and landed in gz sim (see `docs/gazebo_flight_2026-09-10.md`).
 
 ### Hardware-in-the-loop with the Pixhawk (Gazebo Classic)
 
@@ -222,7 +222,7 @@ Fan angles in the geometry tables are entered as **fwd / side** by default: forw
 - The PX4 port is documented in `docs/px4_allocation_port_spec.md`. Where the code differs from a paraphrase of PX4, the code is right and cites the source.
 - Golden fixtures and the ground truth extracted from them are in `tests/fixtures/README.md`. Tests read parameters from the logs themselves, never from the `.params` files.
 - Backend dependencies are declared once in `backend/pyproject.toml`; frontend dependencies in `frontend/package.json` (React 18, react-three-fiber 8, drei 9, zustand, Tailwind 4, vitest). Do not add a dependency without a line in `PLAN.md` section 3.
-- Layout: `backend/tiltlab/{core,api,export,px4,cad}`, `frontend/src/{components,store.ts,api.ts,types.ts}`, `tests/` (pytest, fixtures), `scenarios/`, `docs/`, `scripts/`, `third_party/` (gitignored PX4 checkout).
+- Layout: `backend/vectra/{core,api,export,px4,cad}`, `frontend/src/{components,store.ts,api.ts,types.ts}`, `tests/` (pytest, fixtures), `scenarios/`, `docs/`, `scripts/`, `third_party/` (gitignored PX4 checkout).
 
 ## PX4 caveats, read before flying anything exported from here
 

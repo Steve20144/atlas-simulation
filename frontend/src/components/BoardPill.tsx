@@ -1,14 +1,14 @@
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 
 /**
  * The board status button in the top bar. One click asks the backend whether a Pixhawk is
  * heartbeating on USB (GET /api/board/status); the pill shows the result until the next check.
  */
 export default function BoardPill() {
-  const status = useTiltlabStore((s) => s.board.status);
-  const checking = useTiltlabStore((s) => s.board.checking);
-  const message = useTiltlabStore((s) => s.board.message);
-  const checkBoard = useTiltlabStore((s) => s.checkBoard);
+  const status = useVectraStore((s) => s.board.status);
+  const checking = useVectraStore((s) => s.board.checking);
+  const message = useVectraStore((s) => s.board.message);
+  const checkBoard = useVectraStore((s) => s.checkBoard);
 
   const state = checking ? "checking" : status === null ? "unknown" : status.connected ? "connected" : "offline";
   const dot = { checking: "ui-dot-busy", unknown: "", connected: "ui-dot-ok", offline: "ui-dot-bad" }[state];

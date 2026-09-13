@@ -1,4 +1,4 @@
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import type { Fan, SpinDirection } from "../types";
 import FanAngleInputs from "./FanAngleInputs";
 
@@ -9,8 +9,8 @@ interface Props {
 
 /** One row of the fan table: output, the two angles (FanAngleInputs), mirror lock, spin, hover u. */
 export default function FanRow({ fan, hoverU }: Props) {
-  const locked = useTiltlabStore((s) => s.mirrorLock[fan.id] ?? false);
-  const { updateFan, setMirrorLock } = useTiltlabStore.getState();
+  const locked = useVectraStore((s) => s.mirrorLock[fan.id] ?? false);
+  const { updateFan, setMirrorLock } = useVectraStore.getState();
 
   return (
     <tr className="border-t border-slate-800" data-testid={`fan-row-${fan.id}`}>

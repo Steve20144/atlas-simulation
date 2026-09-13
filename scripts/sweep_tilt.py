@@ -17,9 +17,9 @@ import argparse
 import json
 from pathlib import Path
 
-from tiltlab.core.sweep import AZIMUTH_MODES, NOSE_PAIRINGS, SweepSpec, run_sweep, sweep_table
-from tiltlab.export.csv_export import export_metrics_csv
-from tiltlab.scenario import Scenario
+from vectra.core.sweep import AZIMUTH_MODES, NOSE_PAIRINGS, SweepSpec, run_sweep, sweep_table
+from vectra.export.csv_export import export_metrics_csv
+from vectra.scenario import Scenario
 
 
 def parse_angles(text: str) -> list[float]:

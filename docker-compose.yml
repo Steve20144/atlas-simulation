@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: tiltlab:local
+    image: vectra:local
     ports:
       - "8000:8000"
     volumes:

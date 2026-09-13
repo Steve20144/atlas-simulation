@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import BoardHil from "./BoardHil";
 
 /**
@@ -9,10 +9,10 @@ import BoardHil from "./BoardHil";
  * exports/board/. Two clicks are needed: the second confirms the port and the parameter count.
  */
 export default function BoardPanel() {
-  const board = useTiltlabStore((s) => s.board);
-  const lines = useTiltlabStore((s) => s.paramsLines);
-  const gazeboHitl = useTiltlabStore((s) => s.gazebo.running && s.gazebo.mode === "hitl");
-  const { checkBoard, pushBoard, setBoardPort } = useTiltlabStore.getState();
+  const board = useVectraStore((s) => s.board);
+  const lines = useVectraStore((s) => s.paramsLines);
+  const gazeboHitl = useVectraStore((s) => s.gazebo.running && s.gazebo.mode === "hitl");
+  const { checkBoard, pushBoard, setBoardPort } = useVectraStore.getState();
   const [armed, setArmed] = useState(false);
   const st = board.status;
   const ports = st?.ports ?? [];

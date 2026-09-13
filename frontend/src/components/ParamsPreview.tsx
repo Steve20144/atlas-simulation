@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 
 /** PX4 .params preview (CA_ROTORn_* and SENS_BOARD_Y_OFF lines from the backend) with a copy button. */
 export default function ParamsPreview() {
-  const lines = useTiltlabStore((s) => s.paramsLines);
+  const lines = useVectraStore((s) => s.paramsLines);
   const [copied, setCopied] = useState(false);
   const text = lines.join("\n");
 

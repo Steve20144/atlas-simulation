@@ -1,4 +1,4 @@
-# tiltlab conventions
+# vectra conventions
 - Read PLAN.md only by section (`grep -n "^### M" PLAN.md` to find offsets). Never cat the whole file.
 - One module per session. Finish with `make test` green and one commit: "M<n>: <one line>".
 - Python: numpy-vectorised, type hints, docstrings only where units or frames are involved. Every function that takes a vector states its frame (FRD/NED) and unit in the docstring.

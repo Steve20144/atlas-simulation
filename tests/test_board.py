@@ -11,10 +11,10 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-import tiltlab.api.app as app_module
-from tiltlab.api.app import app
-from tiltlab.core.params_px4 import PARAM_TYPE_FLOAT, PARAM_TYPE_INT32, read_params_file
-from tiltlab.px4 import board
+import vectra.api.app as app_module
+from vectra.api.app import app
+from vectra.core.params_px4 import PARAM_TYPE_FLOAT, PARAM_TYPE_INT32, read_params_file
+from vectra.px4 import board
 
 SCENARIOS = Path(__file__).resolve().parents[1] / "scenarios"
 

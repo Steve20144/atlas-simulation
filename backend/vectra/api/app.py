@@ -1,7 +1,7 @@
 """FastAPI application entry point.
 
 Serves the built frontend from ``frontend/dist`` when it exists and exposes the
-JSON API under ``/api``. Run with ``uvicorn tiltlab.api.app:app``.
+JSON API under ``/api``. Run with ``uvicorn vectra.api.app:app``.
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from tiltlab import __version__
-from tiltlab.api.schemas import (
+from vectra import __version__
+from vectra.api.schemas import (
     ExportCsvRequest,
     ExportParamsRequest,
     ExportResponse,
@@ -29,23 +29,23 @@ from tiltlab.api.schemas import (
     ScenarioListResponse,
     ScenarioSaveResponse,
 )
-from tiltlab.core.metrics import compute_metrics
-from tiltlab.core.params_px4 import (
+from vectra.core.metrics import compute_metrics
+from vectra.core.params_px4 import (
     PARAM_TYPE_FLOAT,
     PARAM_TYPE_INT32,
     format_param_value,
     hover_frame_params,
     scenario_to_ca_params,
 )
-from tiltlab.export import export_metrics_csv, export_params
-from tiltlab.scenario import Scenario
+from vectra.export import export_metrics_csv, export_params
+from vectra.scenario import Scenario
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 FRONTEND_INDEX = FRONTEND_DIST / "index.html"
 FRONTEND_ASSETS = FRONTEND_DIST / "assets"
-SCENARIOS_DIR = Path(os.environ.get("TILTLAB_SCENARIOS_DIR", REPO_ROOT / "scenarios"))
-EXPORTS_DIR = Path(os.environ.get("TILTLAB_EXPORTS_DIR", REPO_ROOT / "exports"))
+SCENARIOS_DIR = Path(os.environ.get("VECTRA_SCENARIOS_DIR", REPO_ROOT / "scenarios"))
+EXPORTS_DIR = Path(os.environ.get("VECTRA_EXPORTS_DIR", REPO_ROOT / "exports"))
 SCENARIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
@@ -56,16 +56,16 @@ FULLY_ACTUATED_EXTRAS: dict[str, int | float] = {"CA_METHOD": 0, "FD_FAIL_P": 0,
 
 PLACEHOLDER_HTML = """<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>tiltlab</title></head>
+<head><meta charset="utf-8"><title>Vectra</title></head>
 <body>
-<h1>tiltlab</h1>
+<h1>Vectra</h1>
 <p>Frontend build not found. Run <code>npm --prefix frontend run build</code>
 or use <code>make dev</code> for the Vite dev server on port 5173.</p>
 </body>
 </html>
 """
 
-app = FastAPI(title="tiltlab", version=__version__)
+app = FastAPI(title="vectra", version=__version__)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -158,7 +158,7 @@ def save_scenario(name: str, scenario: Scenario) -> ScenarioSaveResponse:
 
 @app.post("/api/export/params", response_model=ExportResponse)
 def export_params_endpoint(req: ExportParamsRequest) -> ExportResponse:
-    """Write a timestamped PX4 .params file (tiltlab.export.export_params) into exports/."""
+    """Write a timestamped PX4 .params file (vectra.export.export_params) into exports/."""
     concept = req.concept or req.scenario.control.concept
     if req.base is not None and not Path(req.base).is_file():
         raise HTTPException(status_code=400, detail=f"base params file not found: {req.base}")
@@ -191,8 +191,8 @@ if FRONTEND_ASSETS.is_dir():
 
 
 # ---------------------------------------------------------------- tilt sweep
-from tiltlab.api.sweep_schemas import SweepRequest, SweepResponse  # noqa: E402
-from tiltlab.core.sweep import SweepSpec, run_sweep  # noqa: E402
+from vectra.api.sweep_schemas import SweepRequest, SweepResponse  # noqa: E402
+from vectra.core.sweep import SweepSpec, run_sweep  # noqa: E402
 
 
 @app.post("/api/sweep", response_model=SweepResponse)
@@ -240,12 +240,12 @@ def cad_model(name: str) -> Response:
 
 
 # ---------------------------------------------------------------- foil design sheet
-from tiltlab.api.foil_schemas import (  # noqa: E402
+from vectra.api.foil_schemas import (  # noqa: E402
     FoilSheetExportResponse,
     FoilSheetRequest,
     FoilSheetResponse,
 )
-from tiltlab.export.angle_sheet import (  # noqa: E402
+from vectra.export.angle_sheet import (  # noqa: E402
     angle_sheet_markdown,
     export_angle_sheet,
     foil_angle_sheet,
@@ -267,7 +267,7 @@ def export_foil_sheet_endpoint(req: FoilSheetRequest) -> FoilSheetExportResponse
 
 
 # ---------------------------------------------------------------- gazebo harness
-from tiltlab.export.gazebo import export_gazebo  # noqa: E402
+from vectra.export.gazebo import export_gazebo  # noqa: E402
 
 
 @app.post("/api/export/gazebo")
@@ -279,7 +279,7 @@ def export_gazebo_endpoint(req: FoilSheetRequest) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------- gazebo classic HITL harness
-from tiltlab.export.gazebo_classic_hitl import export_gazebo_classic_hitl  # noqa: E402
+from vectra.export.gazebo_classic_hitl import export_gazebo_classic_hitl  # noqa: E402
 
 
 @app.post("/api/export/gazebo_hitl")
@@ -291,8 +291,8 @@ def export_gazebo_hitl_endpoint(req: FoilSheetRequest) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------- launch gazebo from the app
-from tiltlab.api import gazebo_launch  # noqa: E402
-from tiltlab.api.schemas import GazeboLaunchRequest  # noqa: E402
+from vectra.api import gazebo_launch  # noqa: E402
+from vectra.api.schemas import GazeboLaunchRequest  # noqa: E402
 
 
 @app.post("/api/gazebo/launch")
@@ -303,7 +303,7 @@ def gazebo_launch_endpoint(req: GazeboLaunchRequest) -> dict[str, Any]:
     if not gazebo_launch.available() and not gazebo_launch.dry_run():
         raise HTTPException(
             status_code=501,
-            detail="Gazebo launch needs wsl.exe on this host; run scripts/tiltlab_menu.py there",
+            detail="Gazebo launch needs wsl.exe on this host; run scripts/vectra_menu.py there",
         )
     try:
         return gazebo_launch.launch(req.mode, req.scenario, EXPORTS_DIR, REPO_ROOT)
@@ -334,12 +334,12 @@ def gazebo_reset_endpoint() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------- pixhawk over usb
-from tiltlab.api.schemas import (  # noqa: E402
+from vectra.api.schemas import (  # noqa: E402
     BoardParamRequest,
     BoardPortRequest,
     BoardPushRequest,
 )
-from tiltlab.px4 import board  # noqa: E402
+from vectra.px4 import board  # noqa: E402
 
 BOARD_BACKUP_DIR = EXPORTS_DIR / "board"
 

@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from tiltlab.export.gazebo import (
+from vectra.export.gazebo import (
     ROTOR_MASS_KG,
     airframe_id,
     body_mass_kg,
@@ -15,7 +15,7 @@ from tiltlab.export.gazebo import (
     fan_lag_s,
     px4_tuning,
 )
-from tiltlab.scenario import Scenario
+from vectra.scenario import Scenario
 
 from .conftest import FIXTURES
 
@@ -37,7 +37,7 @@ def cad() -> Scenario:
 def test_tuning_sized_from_authority_and_lag(hover):
     t = px4_tuning(hover)
     assert t["THR_MDL_FAC"] == 1.0
-    assert 0.3 < t["MPC_THR_HOVER"] < 0.6  # tiltlab hover collective for the per-pair set
+    assert 0.3 < t["MPC_THR_HOVER"] < 0.6  # vectra hover collective for the per-pair set
     lag = fan_lag_s(hover)
     assert lag == pytest.approx(0.15)
     w_c = min(4.0, 1.0 / (3.5 * lag))

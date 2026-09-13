@@ -1,4 +1,4 @@
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 
 const btn = "ui-btn";
 const btnActive = "ui-btn-active";
@@ -11,8 +11,8 @@ const QUICK = [0, 15, 25];
  * collective, not buried in a sweep. Backend bounds: -90 to 90.
  */
 export default function HoverPitchControl() {
-  const pitch = useTiltlabStore((s) => s.scenario.frame.hover_pitch_deg ?? 0);
-  const setHoverPitch = useTiltlabStore((s) => s.setHoverPitch);
+  const pitch = useVectraStore((s) => s.scenario.frame.hover_pitch_deg ?? 0);
+  const setHoverPitch = useVectraStore((s) => s.setHoverPitch);
   return (
     <label
       className="flex items-center gap-2 text-xs"

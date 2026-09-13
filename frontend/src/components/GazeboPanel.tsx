@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 
 const btn = "ui-btn";
 const POLL_MS = 3000;
@@ -7,15 +7,15 @@ const POLL_MS = 3000;
 /**
  * Launch Gazebo for the current scenario from the app: SITL (gz sim, no hardware) or HITL
  * (Gazebo Classic + the Pixhawk over USB). The backend exports the harness and starts
- * scripts/wsl/tiltlab_gazebo.sh in the matching WSL distro; this panel only shows the outcome
+ * scripts/wsl/vectra_gazebo.sh in the matching WSL distro; this panel only shows the outcome
  * and the launcher's last console lines while a session runs.
  */
 export default function GazeboPanel() {
-  const gazebo = useTiltlabStore((s) => s.gazebo);
-  const launch = useTiltlabStore((s) => s.launchGazebo);
-  const poll = useTiltlabStore((s) => s.pollGazebo);
-  const stop = useTiltlabStore((s) => s.stopGazebo);
-  const reset = useTiltlabStore((s) => s.resetGazebo);
+  const gazebo = useVectraStore((s) => s.gazebo);
+  const launch = useVectraStore((s) => s.launchGazebo);
+  const poll = useVectraStore((s) => s.pollGazebo);
+  const stop = useVectraStore((s) => s.stopGazebo);
+  const reset = useVectraStore((s) => s.resetGazebo);
 
   useEffect(() => {
     if (!gazebo.running) return;

@@ -1,4 +1,4 @@
-"""Ingest the Fusion 360 "Atlas Mass & CoG" dashboard HTML into tiltlab mass properties and fan
+"""Ingest the Fusion 360 "Atlas Mass & CoG" dashboard HTML into vectra mass properties and fan
 geometry.
 
 The dashboard embeds ``const DATA = {doc, types:[{name, id, instances:[{name, id, com, vol,
@@ -32,7 +32,7 @@ from typing import Any
 
 import numpy as np
 
-from tiltlab.scenario import (
+from vectra.scenario import (
     NUM_FANS,
     Body,
     CadReported,

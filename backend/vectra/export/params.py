@@ -25,9 +25,9 @@ from typing import Literal
 
 import numpy as np
 
-from tiltlab.core.fan import FanCurve as FanCurveModel
-from tiltlab.core.geometry import rotors_from_scenario
-from tiltlab.core.params_px4 import (
+from vectra.core.fan import FanCurve as FanCurveModel
+from vectra.core.geometry import rotors_from_scenario
+from vectra.core.params_px4 import (
     ROTOR_FIELDS,
     ParamFile,
     apply_ca_params,
@@ -36,8 +36,8 @@ from tiltlab.core.params_px4 import (
     scenario_from_ca_params,
     write_params_file,
 )
-from tiltlab.export.naming import has_timestamp_prefix, timestamped_name
-from tiltlab.scenario import NUM_FANS, Scenario
+from vectra.export.naming import has_timestamp_prefix, timestamped_name
+from vectra.scenario import NUM_FANS, Scenario
 
 Concept = Literal["stock", "fully_actuated"]
 
@@ -108,7 +108,7 @@ def export_header_lines(
     stamp = (now or datetime.now()).isoformat(timespec="minutes")
     lines = [
         "#",
-        f"# tiltlab export {stamp}: scenario '{scenario.meta.name}', concept {concept}",
+        f"# vectra export {stamp}: scenario '{scenario.meta.name}', concept {concept}",
         f"# base backup: {base_params_path.name} "
         "(only CA_ROTOR*/concept/SENS_BOARD_Y_OFF lines changed)",
         f"# hover pitch: {scenario.frame.hover_pitch_deg:g} deg nose-up -> SENS_BOARD_Y_OFF, "
@@ -135,7 +135,7 @@ def export_header_lines(
 def merged_param_file(
     scenario: Scenario, concept: Concept, base: ParamFile, header_block: list[str]
 ) -> ParamFile:
-    """Base file with the geometry and concept sets applied and the tiltlab header inserted
+    """Base file with the geometry and concept sets applied and the vectra header inserted
     before the column-header comment (or appended when the base has none)."""
     params: dict[str, int | float] = {
         **ca_geometry_params(scenario),

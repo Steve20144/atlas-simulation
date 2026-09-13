@@ -20,8 +20,8 @@
 \newcommand{\why}[1]{\par\smallskip\noindent\textit{Why this matters here:} #1\par}
 
 \title{Gazebo and PX4 for the Atlas 10\,-\,EDF airframe\\
-\large From nothing to a hover in SITL and HITL, with the tiltlab stack}
-\author{tiltlab project notes}
+\large From nothing to a hover in SITL and HITL, with the vectra stack}
+\author{vectra project notes}
 \date{2026-09-11}
 
 \begin{document}
@@ -47,7 +47,7 @@ Everything here is three programs and one cable.
   \item \textbf{A flight controller} (PX4) reads sensors, estimates attitude and position, runs the
         controllers and the \emph{control allocator} that turns ``roll torque, pitch torque, yaw
         torque, thrust'' into ten fan commands, and sends those commands back to the simulator.
-  \item \textbf{tiltlab} (this repository) describes the aircraft (a \emph{scenario}: fan positions,
+  \item \textbf{vectra} (this repository) describes the aircraft (a \emph{scenario}: fan positions,
         fan thrust axes, mass, inertia, foil deflections), computes whether it can hover and how
         much control authority it has, and \emph{exports} the simulator model and the PX4
         configuration so that the two agree exactly.
@@ -62,7 +62,7 @@ Everything here is three programs and one cable.
 \end{enumerate}
 
 \begin{lstlisting}
-scenario JSON -> tiltlab -> exported harness -> WSL launcher -> Gazebo <-> PX4 (PC or Pixhawk)
+scenario JSON -> vectra -> exported harness -> WSL launcher -> Gazebo <-> PX4 (PC or Pixhawk)
 \end{lstlisting}
 
 \why{Every failure in this project was a disagreement between two of those boxes: the model and
@@ -116,10 +116,10 @@ right, z down. Converting is a 180\textdegree{} rotation about x: $(x, y, z)_{\m
 \textbf{NED}. A vehicle facing Gazebo's $+x$ (east) has PX4 heading 090\textdegree. That is not
 a bug; you will see ``yaw 90'' on a level, still vehicle and it is correct.
 
-tiltlab works in FRD internally and applies the FLU conversion once, when writing the model. If
+vectra works in FRD internally and applies the FLU conversion once, when writing the model. If
 you ever hand-edit a pose, do it in FLU.
 
-\why{The airframe hovers at 25\textdegree{} nose-up. tiltlab's scenario field
+\why{The airframe hovers at 25\textdegree{} nose-up. vectra's scenario field
 \param{frame.hover\_pitch\_deg} rotates the airframe geometry into the flight-controller frame, so
 the exported model's \file{base\_link} is level when the real airframe is at 25\textdegree. In
 Gazebo you therefore \emph{see} the airframe mesh tilted 25\textdegree{} while PX4 reads ``level''.
@@ -184,7 +184,7 @@ position \param{CA\_ROTORi\_PX/PY/PZ} (m, FRD, from the centre of gravity), a th
 \param{CA\_ROTORi\_AX/AY/AZ} (unit vector, FRD), a thrust coefficient \param{CA\_ROTORi\_CT} and
 a torque coefficient \param{CA\_ROTORi\_KM}. PX4 builds the effectiveness matrix (source:
 \file{ActuatorEffectivenessRotors.cpp}), pseudo-inverts it and desaturates
-(\file{ControlAllocationSequentialDesaturation.cpp}). tiltlab replicates that code line for line
+(\file{ControlAllocationSequentialDesaturation.cpp}). vectra replicates that code line for line
 so its predictions match what PX4 will do; the exported parameters are the same numbers the
 replica used. Read ``Control Allocation'' in the docs once; then trust the exporter.
 
@@ -193,7 +193,7 @@ The rate loop (\param{MC\_ROLLRATE\_P/I/D} etc.), the attitude loop (\param{MC\_
 the position loops (\param{MPC\_XY\_*}, \param{MPC\_Z\_*}), the hover throttle
 \param{MPC\_THR\_HOVER}, the tilt limit \param{MPC\_TILTMAX\_AIR}, and \param{MC\_AT\_EN}
 (autotune; \textbf{keep it 0}, autotune produced gains three to four times too high and every axis
-rang). tiltlab sizes the first three from authority, inertia and fan lag; the rest were tuned in
+rang). vectra sizes the first three from authority, inertia and fan lag; the rest were tuned in
 SITL and saved in the scenario under \param{control.px4\_params\_override}, from where both
 exports pick them up.
 
@@ -245,7 +245,7 @@ cd ~/PX4-Autopilot && bash ./Tools/setup/ubuntu.sh     # toolchains; do NOT pass
         Check (22.04): \file{arm-none-eabi-gcc --version}. Check (24.04): \file{gz sim --version}
         prints Harmonic 8.x. In 22.04 also \file{sudo apt install gazebo libgazebo-dev}.
   \item \textbf{Let the launcher finish the rest}. Run
-        \file{bash \textasciitilde/utopia/vibe-coded/scripts/wsl/tiltlab\_gazebo.sh --check}
+        \file{bash \textasciitilde/utopia/vibe-coded/scripts/wsl/vectra\_gazebo.sh --check}
         in each distribution. It lists every tool with its version, builds what is missing when
         asked, and applies the PX4 patches a 10-motor vehicle needs (PX4's gz bridge assumes at
         most 8 ESCs). Repeat until every line says \texttt{[ok]}.
@@ -253,7 +253,7 @@ cd ~/PX4-Autopilot && bash ./Tools/setup/ubuntu.sh     # toolchains; do NOT pass
         \file{pwm\_out\_sim} and adding it overflows flash by 22\,884 bytes, so the exporter ships
         a board label that also drops the fixed-wing and VTOL modules:
 \begin{lstlisting}
-bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --build-firmware --harness <hitl harness dir>
+bash ~/utopia/vibe-coded/scripts/wsl/vectra_gazebo.sh --build-firmware --harness <hitl harness dir>
 \end{lstlisting}
         It copies \file{fmu-v6x\_hitl.px4board}, runs \file{make px4\_fmu-v6x\_hitl} (94.6\,\% of
         flash) and offers the upload. Check on the board: \file{pwm\_out\_sim status} lists
@@ -353,7 +353,7 @@ sensors only, so it plays no part in HITL.
 \midrule
 \endhead
 Motors stay at zero after takeoff; allocator reports thrust unallocated & the geometry has no hover
-trim (tiltlab shows \emph{Fz unattainable}) & pick a feasible sweep row or change hover pitch \\
+trim (vectra shows \emph{Fz unattainable}) & pick a feasible sweep row or change hover pitch \\
 Lifts, then flips within two seconds & PX4 default gains on a 12\,kg, 150\,ms-fan airframe & gains
 from the exporter (\file{px4\_tuning}); never Autotune \\
 Slow 0.25\,Hz roll/pitch swing to the tilt limit, metres of wander & position loop faster than
@@ -363,7 +363,7 @@ Yaw torque demand above 1 & yaw axis has almost no authority; gains sized too st
 Translates away at speed, altitude fine & a standing trim moment the integrator cannot hold &
 raise \param{MC\_PR\_INT\_LIM} (pitch) with a larger \param{MC\_PITCHRATE\_I} \\
 Second Gazebo launch shows a grey or duplicate window & a \file{gzserver} from the last run holds
-port 11345 & \file{tiltlab\_gazebo.sh --stop} (the launcher also asks) \\
+port 11345 & \file{vectra\_gazebo.sh --stop} (the launcher also asks) \\
 \texttt{[WARN:COPY MODE]} window & WSLg lost shared memory & \file{wsl --shutdown}, relaunch \\
 \texttt{Error opening serial device: set\_option: Input/output error}, \texttt{Tx queue overflow}
 & the board re-enumerated as another \file{ttyACM} & relaunch; the launcher picks the one present \\
@@ -503,15 +503,15 @@ are shown once with rotor 0's value. Values marked ``hand tuned'' live in the sc
 \begin{tabular}{@{}p{5.2cm}p{9.6cm}@{}}
 \toprule
 \file{scenarios/*.json} & aircraft descriptions; \param{control.px4\_params\_override} holds tuned gains \\
-\file{backend/tiltlab/export/gazebo.py} & gz sim harness and gain sizing (\file{px4\_tuning}) \\
-\file{backend/tiltlab/export/gazebo\_classic\_hitl.py} & Classic HITL harness, \file{.params}, board label, README \\
-\file{backend/tiltlab/api/gazebo\_launch.py} & the app's launch/status/stop \\
-\file{scripts/wsl/tiltlab\_gazebo.sh} & the launcher (checks, installs, patches, launches, \file{--stop}) \\
+\file{backend/vectra/export/gazebo.py} & gz sim harness and gain sizing (\file{px4\_tuning}) \\
+\file{backend/vectra/export/gazebo\_classic\_hitl.py} & Classic HITL harness, \file{.params}, board label, README \\
+\file{backend/vectra/api/gazebo\_launch.py} & the app's launch/status/stop \\
+\file{scripts/wsl/vectra\_gazebo.sh} & the launcher (checks, installs, patches, launches, \file{--stop}) \\
 \file{scripts/wsl/px4ctl.sh} & SITL: takeoff, land, param, log, stop \\
 \file{scripts/wsl/qgc\_udp\_relay.py} & MAVLink relay to QGroundControl on Windows \\
 \file{scripts/px4\_board.py} & board: status, shell, push, verify, pull-log \\
 \file{scripts/hover\_report.py} & hover quality from a ulog \\
-\file{scripts/tiltlab\_menu.py} & \file{make menu}, the no-browser front door \\
+\file{scripts/vectra\_menu.py} & \file{make menu}, the no-browser front door \\
 \file{docs/sim\_stack.md} & the architecture map and the HITL findings \\
 \file{docs/hitl\_runbook.md} & the HITL checklist for this machine \\
 \file{exports/gazebo/}, \file{exports/gazebo\_hitl/} & generated harnesses (not versioned) \\

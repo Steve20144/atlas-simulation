@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setRebootRecheckMs, useTiltlabStore } from "../store";
+import { setRebootRecheckMs, useVectraStore } from "../store";
 import { PARAM_LINES, tenFanScenario } from "../test/fixtures";
 import type { BoardPushResult, BoardStatus } from "../types";
 import BoardPanel from "./BoardPanel";
@@ -50,12 +50,12 @@ function mockFetch(status: BoardStatus, push: BoardPushResult | { status: number
 describe("BoardPanel and BoardPill", () => {
   beforeEach(() => {
     act(() => {
-      useTiltlabStore.getState().reset();
-      useTiltlabStore.setState({ scenario: tenFanScenario(), paramsLines: PARAM_LINES });
+      useVectraStore.getState().reset();
+      useVectraStore.setState({ scenario: tenFanScenario(), paramsLines: PARAM_LINES });
     });
   });
   afterEach(() => {
-    useTiltlabStore.getState().reset();
+    useVectraStore.getState().reset();
     vi.unstubAllGlobals();
   });
 
@@ -67,7 +67,7 @@ describe("BoardPanel and BoardPill", () => {
       fireEvent.click(screen.getByTestId("board-pill"));
     });
     expect(screen.getByTestId("board-pill")).toHaveAttribute("data-state", "offline");
-    expect(useTiltlabStore.getState().board.message).toMatch(/no Pixhawk/);
+    expect(useVectraStore.getState().board.message).toMatch(/no Pixhawk/);
   });
 
   it("checks, lists the port, then uploads after a confirming second click", async () => {

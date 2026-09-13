@@ -34,8 +34,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from tiltlab.core.metrics import ControlRequirements, compute_metrics, controlled_axes
-from tiltlab.scenario import Scenario
+from vectra.core.metrics import ControlRequirements, compute_metrics, controlled_axes
+from vectra.scenario import Scenario
 
 WING_PAIRS: tuple[tuple[int, int], ...] = ((0, 1), (2, 3), (4, 5), (6, 7))
 CENTRELINE: tuple[int, ...] = (8, 9)

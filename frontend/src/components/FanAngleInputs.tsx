@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from "react";
 import { clampSideTilt, fwdSideToTiltAzimuth, pastHorizontal, signedTilt, tiltAzimuthToFwdSide, wrapAzimuth } from "../geometry";
-import { useTiltlabStore, type AngleMode } from "../store";
+import { useVectraStore, type AngleMode } from "../store";
 import SignedNumberInput from "./SignedNumberInput";
 import type { Fan } from "../types";
 
@@ -21,9 +21,9 @@ const round1 = (v: number) => Math.round(v * 10) / 10;
  * same scenario fields, so the export never changes. Arrow up/down nudge by 1 degree.
  */
 export default function FanAngleInputs({ fan, className = cell }: { fan: Fan; className?: string }) {
-  const mode = useTiltlabStore((s) => s.angleMode);
-  const updateFan = useTiltlabStore((s) => s.updateFan);
-  const live = () => useTiltlabStore.getState().scenario.fans.find((f) => f.id === fan.id) ?? fan;
+  const mode = useVectraStore((s) => s.angleMode);
+  const updateFan = useVectraStore((s) => s.updateFan);
+  const live = () => useVectraStore.getState().scenario.fans.find((f) => f.id === fan.id) ?? fan;
 
   if (mode === "tilt_azimuth") {
     const nudge = (field: "tilt_deg" | "azimuth_deg") => (e: KeyboardEvent<HTMLInputElement>) => {
@@ -98,8 +98,8 @@ export default function FanAngleInputs({ fan, className = cell }: { fan: Fan; cl
 
 /** Two small tabs picking how fan angles are entered; state lives in the store. */
 export function AngleModeToggle() {
-  const mode = useTiltlabStore((s) => s.angleMode);
-  const setAngleMode = useTiltlabStore((s) => s.setAngleMode);
+  const mode = useVectraStore((s) => s.angleMode);
+  const setAngleMode = useVectraStore((s) => s.setAngleMode);
   return (
     <span className="ui-tabs" role="group" aria-label="Angle mode">
       <button className="ui-tab" aria-pressed={mode === "fwd_side"} onClick={() => setAngleMode("fwd_side")}

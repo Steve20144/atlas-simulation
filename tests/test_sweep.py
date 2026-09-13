@@ -7,8 +7,8 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from tiltlab.api.app import app
-from tiltlab.core.sweep import (
+from vectra.api.app import app
+from vectra.core.sweep import (
     SweepSpec,
     apply_angles,
     candidate_angles,
@@ -18,7 +18,7 @@ from tiltlab.core.sweep import (
     signed_lateral_to_angles,
     sweep_table,
 )
-from tiltlab.scenario import Scenario
+from vectra.scenario import Scenario
 
 from .conftest import FIXTURES
 
@@ -183,7 +183,7 @@ def foil_scenario() -> Scenario:
 
 def test_signed_lateral_tilt_maps_to_left_right_azimuth():
     """Negative is left (-Y, azimuth 270), positive right (+Y, azimuth 90), zero straight down."""
-    from tiltlab.scenario import tilt_azimuth_to_axis
+    from vectra.scenario import tilt_azimuth_to_axis
 
     assert signed_lateral_to_angles(0.0) == (0.0, 0.0)
     assert signed_lateral_to_angles(-20.0) == (20.0, 270.0)
@@ -295,7 +295,7 @@ def test_sweep_endpoint_nose(foil_scenario):
 
 def test_nose_fwd_axis_leans_front_forward_and_rear_aft(foil_scenario):
     """nose_axis fwd: opposed pairing gives front +v (azimuth 0) and rear -v (azimuth 180)."""
-    from tiltlab.core.sweep import signed_nose_to_angles
+    from vectra.core.sweep import signed_nose_to_angles
 
     assert signed_nose_to_angles(30, "fwd") == (30.0, 0.0)
     assert signed_nose_to_angles(-30, "fwd") == (30.0, 180.0)

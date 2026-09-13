@@ -26,14 +26,14 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from tiltlab.core.params_px4 import (
+from vectra.core.params_px4 import (
     PARAM_TYPE_FLOAT,
     PARAM_TYPE_INT32,
     default_header,
     params_file_from_dict,
     write_params_file,
 )
-from tiltlab.export.naming import timestamped_name
+from vectra.export.naming import timestamped_name
 
 PIXHAWK_USB_IDS = {(0x3185, 0x0035), (0x26AC, 0x0011), (0x26AC, 0x0010)}
 PIXHAWK_WORDS = ("px4", "pixhawk", "fmu", "holybro")
@@ -283,7 +283,7 @@ def backup_current(
     typed: dict[str, int | float] = {
         k: (int(v) if types.get(k) == PARAM_TYPE_INT32 else v) for k, v in known.items()
     }
-    header = default_header(note=f"board values before tiltlab push ({stem})")
+    header = default_header(note=f"board values before vectra push ({stem})")
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / timestamped_name(f"{stem}_before", "params")
     write_params_file(params_file_from_dict(typed, types, header), path)

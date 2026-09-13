@@ -8,7 +8,7 @@ import json
 import numpy as np
 import pytest
 
-from tiltlab.cad.fusion_dashboard import (
+from vectra.cad.fusion_dashboard import (
     FusionFrame,
     Weights,
     build_scenario,
@@ -21,8 +21,8 @@ from tiltlab.cad.fusion_dashboard import (
     order_edfs_px4,
     volume_centroid_mm,
 )
-from tiltlab.core.params_px4 import read_params_file
-from tiltlab.scenario import Scenario
+from vectra.core.params_px4 import read_params_file
+from vectra.scenario import Scenario
 
 from .conftest import FIXTURES
 

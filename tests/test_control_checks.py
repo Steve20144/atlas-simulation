@@ -7,9 +7,9 @@ import json
 import numpy as np
 import pytest
 
-from tiltlab.core.metrics import ControlRequirements, compute_metrics, fan_lag_s, inertia_matrix
-from tiltlab.core.sweep import SweepSpec, run_sweep
-from tiltlab.scenario import Scenario
+from vectra.core.metrics import ControlRequirements, compute_metrics, fan_lag_s, inertia_matrix
+from vectra.core.sweep import SweepSpec, run_sweep
+from vectra.scenario import Scenario
 
 from .conftest import FIXTURES
 

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from tiltlab.core.fan import (
+from vectra.core.fan import (
     G0,
     XFLY80_NOMINAL_PACK_V,
     Battery,

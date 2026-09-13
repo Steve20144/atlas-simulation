@@ -6,9 +6,9 @@ is the from-scratch tutorial.
 ## One picture
 
 ```
- scenario JSON  ──► tiltlab (this repo) ──► harness export ──► WSL launcher ──► Gazebo + PX4
+ scenario JSON  ──► vectra (this repo) ──► harness export ──► WSL launcher ──► Gazebo + PX4
  scenarios/*.json    allocator replica,     exports/gazebo/<name>/       scripts/wsl/           ┌─ SITL: gz sim + PX4 SITL
-                     metrics, sweeps,       exports/gazebo_hitl/<name>_hitl/   tiltlab_gazebo.sh     │  (Ubuntu-24.04, lockstep)
+                     metrics, sweeps,       exports/gazebo_hitl/<name>_hitl/   vectra_gazebo.sh     │  (Ubuntu-24.04, lockstep)
                      PX4 gain sizing        model, world, airframe/.params                       └─ HITL: Gazebo Classic + Pixhawk
                                                                                                     (Ubuntu-22.04, USB via usbipd)
 ```
@@ -18,30 +18,30 @@ Three ways to press the button, all ending in the same launcher:
 | entry point | when |
 |---|---|
 | **App**: Metrics panel > Launch Gazebo > SITL / HITL / Stop | normal use; exports the current scenario and starts the launcher, shows its console tail |
-| **Menu**: `make menu` (scripts/tiltlab_menu.py) | no browser; also exports, USB attach, firmware build, hover report, stop |
-| **Shell**: `wsl -d <distro> -- bash ~/utopia/vibe-coded/scripts/wsl/tiltlab_gazebo.sh --mode <sitl|hitl> --harness <dir>` | scripting, debugging the launcher itself |
+| **Menu**: `make menu` (scripts/vectra_menu.py) | no browser; also exports, USB attach, firmware build, hover report, stop |
+| **Shell**: `wsl -d <distro> -- bash ~/utopia/vibe-coded/scripts/wsl/vectra_gazebo.sh --mode <sitl|hitl> --harness <dir>` | scripting, debugging the launcher itself |
 
 ## Pieces
 
-### tiltlab (Windows, `make dev` or the preview server on :8000)
-- `backend/tiltlab/core/` replicates PX4's control allocator from the pinned v1.17.0 source and
+### vectra (Windows, `make dev` or the preview server on :8000)
+- `backend/vectra/core/` replicates PX4's control allocator from the pinned v1.17.0 source and
   computes hover trim, authority, coupling and the sweep. `frame.hover_pitch_deg` rotates the
   airframe into the flight-controller frame, so "PX4 level" means "airframe at that pitch".
-- `backend/tiltlab/export/gazebo.py` writes the gz sim harness and sizes PX4 gains (`px4_tuning`)
+- `backend/vectra/export/gazebo.py` writes the gz sim harness and sizes PX4 gains (`px4_tuning`)
   from authority, inertia and fan lag. `control.px4_params_override` in the scenario wins over
   the rule for any non-`CA_` key: that is where a hand-tuned set is saved.
-- `backend/tiltlab/export/gazebo_classic_hitl.py` writes the Gazebo Classic harness, the QGC
+- `backend/vectra/export/gazebo_classic_hitl.py` writes the Gazebo Classic harness, the QGC
   `.params` for the board, the `fmu-v6x_hitl.px4board` firmware label and a README. The HITL set
   adds what the board needs to behave like SITL (see "HITL findings").
-- `backend/tiltlab/api/gazebo_launch.py` is the app's launch/status/stop; it only picks arguments
+- `backend/vectra/api/gazebo_launch.py` is the app's launch/status/stop; it only picks arguments
   for the launcher.
 
-### WSL launcher (`scripts/wsl/tiltlab_gazebo.sh`, run inside WSL)
+### WSL launcher (`scripts/wsl/vectra_gazebo.sh`, run inside WSL)
 Checks tools, installs the harness into the PX4 tree, applies the PX4 patches a 10-motor vehicle
 needs (gz bridge ESC count 8 -> 12, `GZMixingInterfaceESC.cpp` clamp), normalises line endings,
 detects the serial device, starts the QGC UDP relay for HITL, launches. `--stop` takes everything
 down. `--build-firmware` builds and uploads `px4_fmu-v6x_hitl`. The same file is reachable as
-`~/utopia/wsl/tiltlab_gazebo.sh` (symlink) for older commands. LF line endings are enforced by
+`~/utopia/wsl/vectra_gazebo.sh` (symlink) for older commands. LF line endings are enforced by
 `.gitattributes`; a CRLF bash script does not run.
 
 ### Board tool (`scripts/px4_board.py`, run inside WSL with pymavlink)

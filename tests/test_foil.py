@@ -9,12 +9,12 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from tiltlab.api.app import app
-from tiltlab.core.geometry import rotors_from_scenario
-from tiltlab.core.metrics import compute_metrics
-from tiltlab.core.sweep import SweepSpec, apply_deflections, candidate_deflections, run_sweep
-from tiltlab.export.params import ca_geometry_params
-from tiltlab.scenario import Foil, Scenario, deflect_axis
+from vectra.api.app import app
+from vectra.core.geometry import rotors_from_scenario
+from vectra.core.metrics import compute_metrics
+from vectra.core.sweep import SweepSpec, apply_deflections, candidate_deflections, run_sweep
+from vectra.export.params import ca_geometry_params
+from vectra.scenario import Foil, Scenario, deflect_axis
 
 from .conftest import FIXTURES
 

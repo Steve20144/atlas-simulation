@@ -1,6 +1,6 @@
-"""Interactive menu for the tiltlab stack: app, SITL, HITL, exports, firmware, logs.
+"""Interactive menu for the vectra stack: app, SITL, HITL, exports, firmware, logs.
 
-    uv run --project backend python scripts/tiltlab_menu.py [--dry-run]
+    uv run --project backend python scripts/vectra_menu.py [--dry-run]
 
 Every entry drives a tool that already exists (the Makefile, the WSL launcher, the exporters,
 hover_report.py); this only picks the arguments and shows the command before running it, so
@@ -170,7 +170,7 @@ def launch(mode: str) -> None:
     if hitl:
         print("  fans and ESCs unpowered; params loaded and SYS_HITL 1 confirmed (see docs)")
     inner = (
-        f"bash {bash_path(WSL_HELPERS + '/tiltlab_gazebo.sh')} "
+        f"bash {bash_path(WSL_HELPERS + '/vectra_gazebo.sh')} "
         f"--mode {mode} --harness {bash_path(arg)}"
     )
     run_wsl(HITL_DISTRO if hitl else SITL_DISTRO, inner)
@@ -191,9 +191,9 @@ def export_harness() -> None:
         return
     import json
 
-    from tiltlab.export.gazebo import export_gazebo
-    from tiltlab.export.gazebo_classic_hitl import export_gazebo_classic_hitl
-    from tiltlab.scenario import Scenario
+    from vectra.export.gazebo import export_gazebo
+    from vectra.export.gazebo_classic_hitl import export_gazebo_classic_hitl
+    from vectra.scenario import Scenario
 
     scenario = Scenario.model_validate(json.loads(path.read_text()))
     if kind in ("sitl", "both"):
@@ -223,7 +223,7 @@ def build_firmware() -> None:
         return
     arg = str(harness) if str(harness).startswith(("/", "~")) else to_wsl(harness)
     inner = (
-        f"bash {bash_path(WSL_HELPERS + '/tiltlab_gazebo.sh')} "
+        f"bash {bash_path(WSL_HELPERS + '/vectra_gazebo.sh')} "
         f"--build-firmware --harness {bash_path(arg)}"
     )
     run_wsl(HITL_DISTRO, inner)
@@ -241,7 +241,7 @@ def reset_sim() -> None:
     HITL: disarm and put the model back where it spawned; after a flip use the hard path."""
     mode = ask("which sim is running, sitl / hitl", "hitl").lower()
     if mode == "sitl":
-        run_wsl(SITL_DISTRO, f"bash {bash_path(WSL_HELPERS + '/tiltlab_gazebo.sh')} --reset --mode sitl")
+        run_wsl(SITL_DISTRO, f"bash {bash_path(WSL_HELPERS + '/vectra_gazebo.sh')} --reset --mode sitl")
         return
     root = REPO / "exports" / ("gazebo_hitl" if mode == "hitl" else "gazebo")
     harness = pick_dir(root, f"{mode.upper()} harness in use")
@@ -249,7 +249,7 @@ def reset_sim() -> None:
         return
     hard = ask("hard reset (stop, reboot the board, relaunch)? y/n", "n").lower().startswith("y")
     arg = str(harness) if str(harness).startswith(("/", "~")) else to_wsl(harness)
-    inner = (f"bash {bash_path(WSL_HELPERS + '/tiltlab_gazebo.sh')} --reset "
+    inner = (f"bash {bash_path(WSL_HELPERS + '/vectra_gazebo.sh')} --reset "
              f"{'--hard ' if hard else ''}--mode {mode} --harness {bash_path(arg)}")
     run_wsl(HITL_DISTRO if mode == "hitl" else SITL_DISTRO, inner)
 
@@ -262,7 +262,7 @@ def stop_sim() -> None:
 
 
 MENU: tuple[tuple[str, Callable[[], None]], ...] = (
-    ("tiltlab app (rebuild UI, make dev, opens :8000)", open_app),
+    ("vectra app (rebuild UI, make dev, opens :8000)", open_app),
     (f"launch SITL  (gz sim, {SITL_DISTRO})", lambda: launch("sitl")),
     (f"launch HITL  (Gazebo Classic + Pixhawk, {HITL_DISTRO})", lambda: launch("hitl")),
     ("export a harness from a scenario", export_harness),
@@ -280,7 +280,7 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="print commands, run nothing")
     DRY_RUN = parser.parse_args().dry_run
     while True:
-        print("\ntiltlab" + ("  [dry run]" if DRY_RUN else ""))
+        print("\nvectra" + ("  [dry run]" if DRY_RUN else ""))
         for i, (label, _) in enumerate(MENU, 1):
             print(f"  {i}) {label}")
         print("  q) quit")

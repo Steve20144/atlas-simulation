@@ -1,9 +1,9 @@
-"""tiltlab: tilt-fan multicopter analysis and PX4-in-the-loop simulation."""
+"""vectra: tilt-fan multicopter analysis and PX4-in-the-loop simulation."""
 
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    __version__ = version("tiltlab")
+    __version__ = version("vectra")
 except PackageNotFoundError:  # pragma: no cover - source checkout without install
     __version__ = "0.1.0"
 

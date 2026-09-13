@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 
 /**
  * SYS_HITL on the Pixhawk (0 off, 1 HITL, 2 SIH) and the reboot PX4 needs afterwards: rcS only
@@ -7,10 +7,10 @@ import { useTiltlabStore } from "../store";
  * > 0). Shown once a status check has read the value. Reboot asks for a second click.
  */
 export default function BoardHil() {
-  const status = useTiltlabStore((s) => s.board.status);
-  const busy = useTiltlabStore((s) => s.board.pushing || s.board.checking);
-  const gazeboRunning = useTiltlabStore((s) => s.gazebo.running);
-  const { setBoardHitl, rebootBoard } = useTiltlabStore.getState();
+  const status = useVectraStore((s) => s.board.status);
+  const busy = useVectraStore((s) => s.board.pushing || s.board.checking);
+  const gazeboRunning = useVectraStore((s) => s.gazebo.running);
+  const { setBoardHitl, rebootBoard } = useVectraStore.getState();
   const [armed, setArmed] = useState(false);
   if (!status?.connected) return null;
   const hitl = status.sys_hitl;

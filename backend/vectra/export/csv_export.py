@@ -8,8 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from tiltlab.export.naming import timestamped_name
-from tiltlab.scenario import Scenario
+from vectra.export.naming import timestamped_name
+from vectra.scenario import Scenario
 
 
 def flatten_row(row: Mapping[str, Any], prefix: str = "", sep: str = ".") -> dict[str, Any]:

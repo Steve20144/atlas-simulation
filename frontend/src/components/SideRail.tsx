@@ -1,4 +1,4 @@
-import { useTiltlabStore, type ViewFlag } from "../store";
+import { useVectraStore, type ViewFlag } from "../store";
 
 /** Small line icons drawn inline so the rail needs no icon dependency. */
 const ICONS: Record<string, JSX.Element> = {
@@ -53,11 +53,11 @@ function Icon({ name }: { name: string }) {
 
 /** Left icon rail: panel and layer toggles at the top, board connection at the bottom. */
 export default function SideRail() {
-  const view = useTiltlabStore((s) => s.view);
-  const toggleView = useTiltlabStore((s) => s.toggleView);
-  const connected = useTiltlabStore((s) => s.board.status?.connected ?? null);
-  const checking = useTiltlabStore((s) => s.board.checking);
-  const checkBoard = useTiltlabStore((s) => s.checkBoard);
+  const view = useVectraStore((s) => s.view);
+  const toggleView = useVectraStore((s) => s.toggleView);
+  const connected = useVectraStore((s) => s.board.status?.connected ?? null);
+  const checking = useVectraStore((s) => s.board.checking);
+  const checkBoard = useVectraStore((s) => s.checkBoard);
   const dot = checking ? "ui-dot-busy" : connected === null ? "" : connected ? "ui-dot-ok" : "ui-dot-bad";
 
   return (

@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import tiltlab.api.app as app_module
-from tiltlab.api.app import app
+import vectra.api.app as app_module
+from vectra.api.app import app
 
 SCENARIOS = Path(__file__).resolve().parents[1] / "scenarios"
 LATENCY_BUDGET_MS = 50.0
@@ -163,7 +163,7 @@ def test_export_endpoints_write_into_exports_dir(
 def test_gazebo_launch_status_stop_dry_run(client: TestClient, tmp_path: Path,
                                             monkeypatch: pytest.MonkeyPatch) -> None:
     """Dry run exports the harness and returns the WSL command without starting anything."""
-    monkeypatch.setenv("TILTLAB_GAZEBO_DRY_RUN", "1")
+    monkeypatch.setenv("VECTRA_GAZEBO_DRY_RUN", "1")
     monkeypatch.setattr(app_module, "EXPORTS_DIR", tmp_path / "exports")
     body = {"scenario": scenario_json("atlas_phase01_cad_control"), "mode": "sitl"}
     r = client.post("/api/gazebo/launch", json=body)

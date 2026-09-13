@@ -1,4 +1,4 @@
-"""Pydantic request and response models of the tiltlab REST API.
+"""Pydantic request and response models of the vectra REST API.
 
 Physical units in the metrics payload are stated in the keys of core/metrics.py (N, N m, W);
 ``collective`` is the fraction of the vertical thrust available at u = 1 (dimensionless).
@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from tiltlab.scenario import Scenario
+from vectra.scenario import Scenario
 
 Concept = Literal["stock", "fully_actuated"]
 

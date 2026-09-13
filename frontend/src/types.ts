@@ -1,6 +1,6 @@
 /**
  * Scenario data model, mirroring PLAN.md section 5 (scenarios/*.json) and
- * backend/tiltlab/scenario.py. Frames: FRD body, NED world. SI units
+ * backend/vectra/scenario.py. Frames: FRD body, NED world. SI units
  * internally; degrees only for tilt, azimuth and attitude offsets, exactly as
  * they appear in the stored JSON.
  */
@@ -117,7 +117,7 @@ export interface OutputSelection {
 }
 
 /**
- * A jet-deflecting foil behind a group of motors (backend/tiltlab/scenario.py Foil). The motors'
+ * A jet-deflecting foil behind a group of motors (backend/vectra/scenario.py Foil). The motors'
  * tilt/azimuth describe the MOTOR axis (90 / 0 = horizontal, blowing aft). The foil turns the
  * jet down by deflection_deg: 0 = straight aft (pure forward thrust), 90 = straight down (pure
  * lift), 180 = straight forward. The force acts at pressure_points_frd_m (keyed by fan id).
@@ -214,7 +214,7 @@ export interface ScoreMetrics {
   normalised?: Record<string, number>;
 }
 
-/** POST /api/metrics response (backend/tiltlab/api/schemas.py MetricsResponse). */
+/** POST /api/metrics response (backend/vectra/api/schemas.py MetricsResponse). */
 export interface Metrics {
   scenario_name: string;
   concept: ControlConcept;
@@ -273,7 +273,7 @@ export interface ControlMetrics {
 
 export type MetricGroup = "hover" | "authority" | "control" | "coupling" | "conditioning" | "composite";
 
-/** One geometry evaluated by POST /api/sweep (backend/tiltlab/core/sweep.py). */
+/** One geometry evaluated by POST /api/sweep (backend/vectra/core/sweep.py). */
 export interface SweepCandidate {
   variable: "foil" | "tilt";
   /** Tilt variable only. */
@@ -374,7 +374,7 @@ export interface SweepResponse {
   best: SweepCandidate | null;
 }
 
-/** One row of the foil design sheet (backend/tiltlab/export/angle_sheet.py). Extra keys hold the
+/** One row of the foil design sheet (backend/vectra/export/angle_sheet.py). Extra keys hold the
  * CAD coordinates, named motor_centre_cad_<units>, duct_exit_cad_<units>, pressure_point_cad_<units>. */
 export interface FoilSheetRow {
   rotor: number;

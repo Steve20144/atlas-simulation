@@ -1,5 +1,5 @@
 import { describeAxis, effectiveFan } from "../geometry";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import type { Fan, Foil } from "../types";
 import FanAngleInputs, { ANGLE_HEADINGS, AngleModeToggle } from "./FanAngleInputs";
 
@@ -7,9 +7,9 @@ const num = "w-16 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-
 
 /** The fans that do not blow into a foil (nose fans): angles, resulting thrust direction, hover u. */
 export default function CentrelineFans({ fans, foils }: { fans: Fan[]; foils: Foil[] }) {
-  const allFans = useTiltlabStore((s) => s.scenario.fans);
-  const hoverU = useTiltlabStore((s) => s.metrics?.hover?.u);
-  const mode = useTiltlabStore((s) => s.angleMode);
+  const allFans = useVectraStore((s) => s.scenario.fans);
+  const hoverU = useVectraStore((s) => s.metrics?.hover?.u);
+  const mode = useVectraStore((s) => s.angleMode);
   const [h1, h2] = ANGLE_HEADINGS[mode];
   return (
     <div className="ui-sub">

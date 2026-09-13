@@ -3,13 +3,13 @@ import MetricsPanel from "./components/MetricsPanel";
 import SideRail from "./components/SideRail";
 import TopBar from "./components/TopBar";
 import Viewer3D from "./components/Viewer3D";
-import { useTiltlabStore } from "./store";
+import { useVectraStore } from "./store";
 
-export const APP_NAME = "tiltlab";
+export const APP_NAME = "vectra";
 
 export default function App() {
-  const showGeometry = useTiltlabStore((s) => s.view.geometry);
-  const showMetrics = useTiltlabStore((s) => s.view.metrics);
+  const showGeometry = useVectraStore((s) => s.view.geometry);
+  const showMetrics = useVectraStore((s) => s.view.metrics);
   const columns = [showGeometry ? "minmax(280px, 24%)" : null, "minmax(0,1fr)", showMetrics ? "minmax(320px, 27%)" : null]
     .filter(Boolean)
     .join(" ");

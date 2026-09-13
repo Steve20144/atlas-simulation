@@ -1,6 +1,6 @@
 # Gazebo end-to-end flight, 2026-09-10
 
-Goal: take the Atlas phase-01 CAD scenario through tiltlab's foil sweep, export the winner as a
+Goal: take the Atlas phase-01 CAD scenario through vectra's foil sweep, export the winner as a
 Gazebo (gz sim) harness and fly it with PX4 v1.17 SITL in WSL2, without a ground station.
 
 ## Foil sweep
@@ -13,7 +13,7 @@ vertical nose fans cannot cancel, which is also what PX4's allocator found in Ga
 commands stayed at zero for the all-45-degree set).
 
 Best by score, outer pair to inner pair: **135, 60, 120, 60 deg**. Outer pairs blow forward-up
-(jet turned past vertical), inner pairs aft-up, so the fore-aft components cancel. tiltlab: hover
+(jet turned past vertical), inner pairs aft-up, so the fore-aft components cancel. vectra: hover
 collective 0.45, headroom 0.51, roll 19.3 N m, pitch 18.4 N m, yaw 15.7 N m, all attainable,
 hover power 11.0 kW with the estimated fan curve. Saved as `scenarios/atlas_phase01_cad_hover.json`.
 
@@ -32,8 +32,8 @@ hover power 11.0 kW with the estimated fan curve. Saved as `scenarios/atlas_phas
 6. With PX4's default MC_* gains the vehicle lifted off and flipped within two seconds. The gains
    fit a small quad (about 130 rad/s^2 per unit normalised torque, 12 ms motor spool). This
    airframe has 7 to 21 rad/s^2 per unit with a 150 ms fan spool, so the rate loop was slower
-   than the attitude loop above it. The airframe now carries gains sized from tiltlab's torque
-   authority, the inertia and the fan lag (see `px4_tuning` in `tiltlab/export/gazebo.py`), a
+   than the attitude loop above it. The airframe now carries gains sized from vectra's torque
+   authority, the inertia and the fan lag (see `px4_tuning` in `vectra/export/gazebo.py`), a
    zero idle command with `THR_MDL_FAC 1` so gz thrust is linear in PX4's command, and
    `MPC_THR_HOVER` at the hover collective. Saved SITL parameters from earlier runs are cleared
    by the WSL script, since PX4 only resets them when the autostart id changes.
@@ -55,16 +55,16 @@ below with the body mass reduced by the rotor masses so the model weighs the sce
 | peak attitude over the flight | roll 5.9 deg, pitch 7.7 deg |
 | position drift in hover | 0.39 m max |
 | hover motor commands, rotors 0 to 9 | 0.43 0.43 0.49 0.49 0.46 0.46 0.49 0.49 0.39 0.35, mean 0.449 |
-| tiltlab hover prediction for the same set | 0.43 0.43 0.49 0.49 0.46 0.46 0.49 0.49 0.39 0.34, mean 0.449 |
+| vectra hover prediction for the same set | 0.43 0.43 0.49 0.49 0.46 0.46 0.49 0.49 0.39 0.34, mean 0.449 |
 | touchdown speed | 0.0 m/s, auto-disarm |
 
-PX4's allocator in Gazebo settled on the same per-motor hover distribution tiltlab's port of the
+PX4's allocator in Gazebo settled on the same per-motor hover distribution vectra's port of the
 allocator predicts, to two decimals on every motor.
 
 ## Reproduce
 
 ```bash
-wsl -d Ubuntu-24.04 bash "/mnt/c/Users/stefa/Documents/Utopia Labs/wsl/tiltlab_gazebo.sh" \
+wsl -d Ubuntu-24.04 bash "/mnt/c/Users/stefa/Documents/Utopia Labs/wsl/vectra_gazebo.sh" \
   --mode sitl --harness "/mnt/c/Users/stefa/Documents/Utopia Labs/vibe-coded/exports/gazebo/atlas_phase01_cad_hover"
 ```
 

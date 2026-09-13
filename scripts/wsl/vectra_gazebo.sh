@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# tiltlab_gazebo.sh: take a Gazebo harness exported by the tiltlab app (vibe-coded/exports/...)
+# vectra_gazebo.sh: take a Gazebo harness exported by the vectra app (vibe-coded/exports/...)
 # into Gazebo on this WSL/Ubuntu machine.
 #
-#   bash tiltlab_gazebo.sh                    # HITL: Gazebo Classic + the real Pixhawk over USB (default)
-#   bash tiltlab_gazebo.sh --mode sitl        # SITL: gz sim + PX4 built on this machine, no hardware
-#   bash tiltlab_gazebo.sh --check            # only report what is installed, change nothing
-#   bash tiltlab_gazebo.sh --harness <dir>    # a specific export directory (default: newest one)
-#   bash tiltlab_gazebo.sh --px4 <dir>        # PX4 checkout (default ~/PX4-Autopilot, tag v1.17.0)
-#   bash tiltlab_gazebo.sh --serial /dev/ttyACM1
-#   bash tiltlab_gazebo.sh --build-firmware   # HITL: also build px4_fmu-v6x with pwm_out_sim (and offer upload)
-#   bash tiltlab_gazebo.sh --yes              # answer yes to every question
-#   bash tiltlab_gazebo.sh --stop             # stop PX4 SITL, gz sim, Gazebo Classic and the QGC relay
-#   bash tiltlab_gazebo.sh --reset --mode sitl             # SITL: restart PX4, respawn the vehicle, clock back to 0
-#   bash tiltlab_gazebo.sh --reset --mode hitl --harness D # HITL: disarm, reset model poses; exit 3 if termination latched
-#   bash tiltlab_gazebo.sh --reset --hard ... # HITL: also stop, reboot the board, relaunch (after a flip)
+#   bash vectra_gazebo.sh                    # HITL: Gazebo Classic + the real Pixhawk over USB (default)
+#   bash vectra_gazebo.sh --mode sitl        # SITL: gz sim + PX4 built on this machine, no hardware
+#   bash vectra_gazebo.sh --check            # only report what is installed, change nothing
+#   bash vectra_gazebo.sh --harness <dir>    # a specific export directory (default: newest one)
+#   bash vectra_gazebo.sh --px4 <dir>        # PX4 checkout (default ~/PX4-Autopilot, tag v1.17.0)
+#   bash vectra_gazebo.sh --serial /dev/ttyACM1
+#   bash vectra_gazebo.sh --build-firmware   # HITL: also build px4_fmu-v6x with pwm_out_sim (and offer upload)
+#   bash vectra_gazebo.sh --yes              # answer yes to every question
+#   bash vectra_gazebo.sh --stop             # stop PX4 SITL, gz sim, Gazebo Classic and the QGC relay
+#   bash vectra_gazebo.sh --reset --mode sitl             # SITL: restart PX4, respawn the vehicle, clock back to 0
+#   bash vectra_gazebo.sh --reset --mode hitl --harness D # HITL: disarm, reset model poses; exit 3 if termination latched
+#   bash vectra_gazebo.sh --reset --hard ... # HITL: also stop, reboot the board, relaunch (after a flip)
 #
 # Steps: 1 check packages (with versions), 2 install what is missing (asks first), 3 ask whether to
 # continue when everything is present, 4 copy the harness into PX4's Gazebo tree and launch.
@@ -32,7 +32,7 @@ HARNESS=""
 PX4_DIR="${PX4_DIR:-$HOME/PX4-Autopilot}"
 PX4_TAG="v1.17.0"
 SERIAL_DEV="/dev/ttyACM0"
-TILTLAB_WIN="${TILTLAB_WIN:-$(cd "$(dirname "$0")/../.." && pwd)}"  # the repo this script lives in
+VECTRA_WIN="${VECTRA_WIN:-$(cd "$(dirname "$0")/../.." && pwd)}"  # the repo this script lives in
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -46,15 +46,15 @@ while [ $# -gt 0 ]; do
     --harness) HARNESS="$2"; shift 2 ;;
     --px4) PX4_DIR="$2"; shift 2 ;;
     --serial) SERIAL_DEV="$2"; shift 2 ;;
-    --tiltlab) TILTLAB_WIN="$2"; shift 2 ;;
+    --vectra) VECTRA_WIN="$2"; shift 2 ;;
     -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) echo "unknown option $1"; exit 2 ;;
   esac
 done
 case "$MODE" in hitl|sitl) ;; *) echo "--mode must be hitl or sitl"; exit 2 ;; esac
 SITL_BUILD="$PX4_DIR/build/px4_sitl_default"
-RESET_FLAG="$SITL_BUILD/tiltlab.reset"          # exists while a SITL reset is pending
-LAUNCHER_PID="$SITL_BUILD/tiltlab.launcher.pid" # pid of the launcher loop that relaunches PX4
+RESET_FLAG="$SITL_BUILD/vectra.reset"          # exists while a SITL reset is pending
+LAUNCHER_PID="$SITL_BUILD/vectra.launcher.pid" # pid of the launcher loop that relaunches PX4
 if [ "$STOP" = 1 ]; then
   # one command for the app and the menu: whichever simulator is up, take it down
   pkill -f "bin/px4" 2>/dev/null || true
@@ -104,7 +104,7 @@ if [ "$RESET" = 1 ]; then
       touch "$RESET_FLAG"; pkill -f "bin/px4" 2>/dev/null || true
       echo "sim reset requested: PX4 restarts and the vehicle respawns at its start pose (about 15 s, then 'Ready for takeoff!')"
     else
-      echo "no 'tiltlab_gazebo.sh --mode sitl' launcher is running; reset is available when the sim was started with it"; exit 2
+      echo "no 'vectra_gazebo.sh --mode sitl' launcher is running; reset is available when the sim was started with it"; exit 2
     fi
     exit 0
   fi
@@ -114,16 +114,16 @@ if [ "$RESET" = 1 ]; then
   [ -n "$HARNESS" ] || { echo "--reset --mode hitl needs --harness <dir>"; exit 2; }
   W="$(grep -ho '<world name="[^"]*"' "$HARNESS"/worlds/* 2>/dev/null | head -1 | sed 's/.*="//; s/"//')"
   [ -n "$W" ] || { echo "no <world name=...> in $HARNESS/worlds"; exit 2; }
-  BOARD="python3 $TILTLAB_WIN/scripts/px4_board.py"
-  (cd "$TILTLAB_WIN" && timeout 40 $BOARD shell 'commander disarm -f' >/dev/null 2>&1) || true
+  BOARD="python3 $VECTRA_WIN/scripts/px4_board.py"
+  (cd "$VECTRA_WIN" && timeout 40 $BOARD shell 'commander disarm -f' >/dev/null 2>&1) || true
   gz world -w "$W" --reset-models >/dev/null 2>&1 && echo "Gazebo Classic: model poses reset in $W"
-  FD="$(cd "$TILTLAB_WIN" && timeout 40 $BOARD shell 'listener vehicle_status 1' 2>/dev/null | awk '/failure_detector_status:/{print $2}' | tr -d '\r')"
+  FD="$(cd "$VECTRA_WIN" && timeout 40 $BOARD shell 'listener vehicle_status 1' 2>/dev/null | awk '/failure_detector_status:/{print $2}' | tr -d '\r')"
   if [ "${FD:-0}" != 0 ] || [ "$HARD" = 1 ]; then
     echo "board: failure_detector_status ${FD:-0}; flight termination latches until reboot"
     if [ "$HARD" = 1 ]; then
       "$0" --stop >/dev/null 2>&1 || true
       DEV="$(ls /dev/ttyACM* 2>/dev/null | head -1)"
-      (cd "$TILTLAB_WIN" && timeout 30 $BOARD --dev "$DEV" shell reboot >/dev/null 2>&1) || true
+      (cd "$VECTRA_WIN" && timeout 30 $BOARD --dev "$DEV" shell reboot >/dev/null 2>&1) || true
       sleep 25
       exec "$0" --mode "$MODE" --yes --harness "$HARNESS"
     fi
@@ -157,11 +157,11 @@ need_apt() {  # need_apt <package> [<binary for version>] [<version args>]
 }
 
 # ---------------------------------------------------------------- 1. checks
-bold "tiltlab Gazebo harness ($MODE)"
+bold "vectra Gazebo harness ($MODE)"
 bold "1. Environment"
 if ! command -v apt-get >/dev/null 2>&1 || [ ! -r /etc/os-release ]; then
   miss "this is not an apt-based Linux (Ubuntu). Run it inside your WSL Ubuntu shell:"
-  info "  wsl -d Ubuntu   then   bash \"/mnt/c/Users/stefa/Documents/Utopia Labs/wsl/tiltlab_gazebo.sh\""
+  info "  wsl -d Ubuntu   then   bash \"/mnt/c/Users/stefa/Documents/Utopia Labs/wsl/vectra_gazebo.sh\""
   exit 1
 fi
 if grep -qi microsoft /proc/version 2>/dev/null; then ok "WSL kernel: $(uname -r)"; else info "not WSL: $(uname -r)"; fi
@@ -248,10 +248,10 @@ if [ "$MODE" = hitl ]; then
   if command -v QGroundControl >/dev/null 2>&1 || ls ~/QGroundControl*.AppImage >/dev/null 2>&1; then ok "QGroundControl found in WSL"; else info "QGroundControl: use the Windows install; Gazebo forwards MAVLink to UDP 14550 (works across WSL2 with mirrored networking or a Windows host IP; see README of the harness)"; fi
 fi
 
-bold "6. Harness from tiltlab"
+bold "6. Harness from vectra"
 if [ -z "$HARNESS" ]; then
   SUB="gazebo_hitl"; [ "$MODE" = sitl ] && SUB="gazebo"
-  HARNESS="$(ls -td "$TILTLAB_WIN"/exports/"$SUB"/*/ 2>/dev/null | head -1 || true)"
+  HARNESS="$(ls -td "$VECTRA_WIN"/exports/"$SUB"/*/ 2>/dev/null | head -1 || true)"
   HARNESS="${HARNESS%/}"
 fi
 if [ -n "$HARNESS" ] && [ -f "$HARNESS/README.md" ]; then
@@ -259,7 +259,7 @@ if [ -n "$HARNESS" ] && [ -f "$HARNESS/README.md" ]; then
   NAME="$(basename "$HARNESS")"
   ls "$HARNESS"/models 2>/dev/null | sed 's/^/     model: /'
 else
-  miss "no harness found. In the tiltlab app load your scenario and click Export > ${MODE^^} (HITL) or Gazebo (SITL), or pass --harness <dir>"
+  miss "no harness found. In the vectra app load your scenario and click Export > ${MODE^^} (HITL) or Gazebo (SITL), or pass --harness <dir>"
 fi
 
 if [ "$CHECK_ONLY" = 1 ]; then exit 0; fi
@@ -315,7 +315,7 @@ if [ "$NEED_INSTALL" = 1 ]; then
 else
   echo
   bold "Everything required is present."
-  ask "Continue and bring the tiltlab harness into Gazebo ($MODE)?" || { echo "Stopped."; exit 0; }
+  ask "Continue and bring the vectra harness into Gazebo ($MODE)?" || { echo "Stopped."; exit 0; }
 fi
 
 # ---------------------------------------------------------------- 2b. optional HITL firmware
@@ -328,7 +328,7 @@ if [ "$MODE" = hitl ] && [ "$BUILD_FW" = 1 ]; then
     tr -d '\r' < "$HARNESS/px4/fmu-v6x_hitl.px4board" > "$BOARD_CFG"
     ok "board label -> $BOARD_CFG"
   else
-    miss "no px4/fmu-v6x_hitl.px4board in $HARNESS (re-export the harness from tiltlab)"; exit 1
+    miss "no px4/fmu-v6x_hitl.px4board in $HARNESS (re-export the harness from vectra)"; exit 1
   fi
   if [ -d "$PX4_DIR/platforms/nuttx" ] && command -v arm-none-eabi-gcc >/dev/null 2>&1; then
     (cd "$PX4_DIR" && make px4_fmu-v6x_hitl)
@@ -453,14 +453,14 @@ else
   # overruns the stack and glibc aborts PX4 (__stack_chk_fail) right after "gz_bridge world: ...".
   GZ_ESC="$PX4_DIR/src/modules/simulation/gz_bridge/GZMixingInterfaceESC.cpp"
   if [ "$N_MOTORS" -gt 8 ] && grep -q 'esc_status.esc_count = actuators.velocity_size();' "$GZ_ESC"; then
-    sed -i 's/esc_status.esc_count = actuators.velocity_size();/esc_status.esc_count = actuators.velocity_size() < esc_status_s::CONNECTED_ESC_MAX ? actuators.velocity_size() : esc_status_s::CONNECTED_ESC_MAX; \/\/ tiltlab: esc_status holds 8 entries/' "$GZ_ESC"
+    sed -i 's/esc_status.esc_count = actuators.velocity_size();/esc_status.esc_count = actuators.velocity_size() < esc_status_s::CONNECTED_ESC_MAX ? actuators.velocity_size() : esc_status_s::CONNECTED_ESC_MAX; \/\/ vectra: esc_status holds 8 entries/' "$GZ_ESC"
     sed -i 's/for (int i = 0; i < actuators.velocity_size(); i++) {/for (int i = 0; i < esc_status.esc_count; i++) {/' "$GZ_ESC"
     grep -q 'i < esc_status.esc_count' "$GZ_ESC" && ok "patched $GZ_ESC: esc_status feedback clamped to 8 entries (10-motor PX4 would abort otherwise); PX4 will rebuild" || warn "could not patch $GZ_ESC; PX4 will abort with 10 motors, see the harness README"
   fi
   AIRFRAME="$(ls "$HARNESS"/px4/airframes/* | head -1)"; AF="$(basename "$AIRFRAME")"
   AF_DIR="$PX4_DIR/ROMFS/px4fmu_common/init.d-posix/airframes"; AF_ID="${AF%%_*}"
   CMAKE="$AF_DIR/CMakeLists.txt"
-  # remove earlier tiltlab copies of this model under another id (the old 4010 collided with x500_mono_cam)
+  # remove earlier vectra copies of this model under another id (the old 4010 collided with x500_mono_cam)
   for OLD in "$AF_DIR"/*_gz_"$MODEL"; do
     if [ -e "$OLD" ] && [ "$(basename "$OLD")" != "$AF" ]; then
       rm -f "$OLD"; sed -i "/^\t$(basename "$OLD")\$/d" "$CMAKE"; warn "removed stale airframe $(basename "$OLD")"
@@ -468,8 +468,8 @@ else
   done
   # PX4's rcS sources every airframes/<SYS_AUTOSTART>_* file and keeps the last one, so the id must be unique
   for CLASH in $(ls "$AF_DIR" | grep "^${AF_ID}_" | grep -v "^$AF\$" || true); do
-    if grep -q "Generated by tiltlab" "$AF_DIR/$CLASH"; then
-      rm -f "$AF_DIR/$CLASH"; sed -i "/^\t$CLASH\$/d" "$CMAKE"; warn "removed older tiltlab airframe $CLASH (same autostart id $AF_ID)"
+    if grep -q "Generated by vectra" "$AF_DIR/$CLASH"; then
+      rm -f "$AF_DIR/$CLASH"; sed -i "/^\t$CLASH\$/d" "$CMAKE"; warn "removed older vectra airframe $CLASH (same autostart id $AF_ID)"
     else
       miss "autostart id $AF_ID is already used by stock PX4 airframe $CLASH; PX4 would load that one instead. Rename the scenario (the id is derived from its name) and re-export"; exit 1
     fi
@@ -507,10 +507,10 @@ else
     export PX4_PARAM_MAV_0_BROADCAST=1
     # WSLg: Mesa often cannot open the GPU for OpenGL (libEGL "failed to get driver name", ZINK
     # "failed to choose pdev") and the gz GUI then shows an empty grey window. Software OpenGL is
-    # slow but renders; set TILTLAB_GPU=1 to try the GPU instead.
-    if grep -qi microsoft /proc/version 2>/dev/null && [ "${TILTLAB_GPU:-0}" != 1 ]; then
+    # slow but renders; set VECTRA_GPU=1 to try the GPU instead.
+    if grep -qi microsoft /proc/version 2>/dev/null && [ "${VECTRA_GPU:-0}" != 1 ]; then
       export LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb
-      info "Gazebo GUI on software OpenGL (WSLg); export TILTLAB_GPU=1 before running to use the GPU"
+      info "Gazebo GUI on software OpenGL (WSLg); export VECTRA_GPU=1 before running to use the GPU"
     fi
     WSL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
     HOST_IP="$(ip route show default 2>/dev/null | awk '{print $3}' | head -n 1)"

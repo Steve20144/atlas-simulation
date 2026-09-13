@@ -1,11 +1,11 @@
 """Launch, watch and stop the Gazebo harness from the app (SITL in gz sim or HITL in Classic).
 
 The backend runs natively on the Windows machine that owns the Pixhawk (PLAN.md section 3), so it
-starts the WSL launcher ``scripts/wsl/tiltlab_gazebo.sh`` through ``wsl.exe`` and hands the user
+starts the WSL launcher ``scripts/wsl/vectra_gazebo.sh`` through ``wsl.exe`` and hands the user
 the same console the CLI menu would. One launcher, one code path: the app only picks arguments.
 
 Inside Docker or on a machine without WSL the endpoints answer 501 with the command to run by
-hand. ``TILTLAB_GAZEBO_DRY_RUN=1`` returns the command without starting anything (tests).
+hand. ``VECTRA_GAZEBO_DRY_RUN=1`` returns the command without starting anything (tests).
 """
 
 from __future__ import annotations
@@ -18,20 +18,20 @@ import sys
 from pathlib import Path
 from typing import Any, Literal
 
-from tiltlab.export.gazebo import export_gazebo
-from tiltlab.export.gazebo_classic_hitl import export_gazebo_classic_hitl
-from tiltlab.scenario import Scenario
+from vectra.export.gazebo import export_gazebo
+from vectra.export.gazebo_classic_hitl import export_gazebo_classic_hitl
+from vectra.scenario import Scenario
 
 Mode = Literal["sitl", "hitl"]
 
 # the repo is reachable in both distros as ~/utopia/vibe-coded (a symlink; the space in
-# "Utopia Labs" breaks quoting through wsl.exe), see scripts/tiltlab_menu.py
-WSL_REPO = os.environ.get("TILTLAB_WSL_REPO", "~/utopia/vibe-coded")
+# "Utopia Labs" breaks quoting through wsl.exe), see scripts/vectra_menu.py
+WSL_REPO = os.environ.get("VECTRA_WSL_REPO", "~/utopia/vibe-coded")
 DISTRO: dict[str, str] = {
-    "sitl": os.environ.get("TILTLAB_WSL_SITL_DISTRO", "Ubuntu-24.04"),  # gz sim Harmonic
-    "hitl": os.environ.get("TILTLAB_WSL_HITL_DISTRO", "Ubuntu-22.04"),  # Gazebo Classic 11
+    "sitl": os.environ.get("VECTRA_WSL_SITL_DISTRO", "Ubuntu-24.04"),  # gz sim Harmonic
+    "hitl": os.environ.get("VECTRA_WSL_HITL_DISTRO", "Ubuntu-22.04"),  # Gazebo Classic 11
 }
-LAUNCHER = "scripts/wsl/tiltlab_gazebo.sh"
+LAUNCHER = "scripts/wsl/vectra_gazebo.sh"
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 _proc: subprocess.Popen[bytes] | None = None
@@ -43,7 +43,7 @@ def available() -> bool:
 
 
 def dry_run() -> bool:
-    return os.environ.get("TILTLAB_GAZEBO_DRY_RUN") == "1"
+    return os.environ.get("VECTRA_GAZEBO_DRY_RUN") == "1"
 
 
 def wsl_path(path: Path, repo_root: Path) -> str:

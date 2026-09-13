@@ -1,5 +1,5 @@
 import { describeAxis, effectiveFan } from "../geometry";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import type { Foil } from "../types";
 
 const num = "w-16 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-right tabular-nums";
@@ -11,10 +11,10 @@ interface Props {
 
 /** One foil: a deflection slider, the resulting thrust direction in words, optional per-motor angles. */
 export default function FoilCard({ foil, title }: Props) {
-  const fans = useTiltlabStore((s) => s.scenario.fans);
-  const foils = useTiltlabStore((s) => s.scenario.foils);
-  const hoverU = useTiltlabStore((s) => s.metrics?.hover?.u);
-  const { setFoilDeflection, setFoilFanDeflection } = useTiltlabStore.getState();
+  const fans = useVectraStore((s) => s.scenario.fans);
+  const foils = useVectraStore((s) => s.scenario.foils);
+  const hoverU = useVectraStore((s) => s.metrics?.hover?.u);
+  const { setFoilDeflection, setFoilFanDeflection } = useVectraStore.getState();
   const segmented = Object.keys(foil.per_fan_deflection_deg ?? {}).length > 0;
   const first = fans.find((f) => f.id === foil.fan_ids[0]);
   const eff = first ? effectiveFan(first, foils) : null;

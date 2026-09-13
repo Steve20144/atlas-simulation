@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from tiltlab.scenario import Scenario
+from vectra.scenario import Scenario
 
 
 class FoilSheetRequest(BaseModel):

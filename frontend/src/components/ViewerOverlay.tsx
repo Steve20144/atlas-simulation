@@ -1,5 +1,5 @@
 import { PRESETS } from "../presets";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import { turboGradient } from "../colormap";
 import { jetVelocity } from "./Airflow";
 import { fmt } from "./format";
@@ -7,13 +7,13 @@ import HoverPitchControl from "./HoverPitchControl";
 
 /** Unit card, as the drone card in the reference: identity plus the numbers that matter at a glance. */
 function UnitCard() {
-  const name = useTiltlabStore((s) => s.scenario.meta.name);
-  const concept = useTiltlabStore((s) => s.concept);
-  const massKg = useTiltlabStore((s) => s.scenario.mass.total_kg);
-  const estimated = useTiltlabStore((s) => s.scenario.mass.estimated ?? false);
-  const hover = useTiltlabStore((s) => s.metrics?.hover);
-  const fans = useTiltlabStore((s) => s.scenario.fans.length);
-  const board = useTiltlabStore((s) => s.board.status);
+  const name = useVectraStore((s) => s.scenario.meta.name);
+  const concept = useVectraStore((s) => s.concept);
+  const massKg = useVectraStore((s) => s.scenario.mass.total_kg);
+  const estimated = useVectraStore((s) => s.scenario.mass.estimated ?? false);
+  const hover = useVectraStore((s) => s.metrics?.hover);
+  const fans = useVectraStore((s) => s.scenario.fans.length);
+  const board = useVectraStore((s) => s.board.status);
   const maxU = hover ? Math.max(...hover.u) : NaN;
   const headroom = hover?.headroom ?? NaN;
   const dot = !hover ? "" : headroom > 0.25 ? "ui-dot-ok" : headroom > 0.1 ? "ui-dot-warn" : "ui-dot-bad";
@@ -62,9 +62,9 @@ function UnitCard() {
 
 /** Collective and hover pitch, the two trim inputs, as a pill row (City / District / Street). */
 function TrimRow() {
-  const collective = useTiltlabStore((s) => s.collective);
-  const collectiveHover = useTiltlabStore((s) => s.metrics?.collective_hover);
-  const setCollective = useTiltlabStore((s) => s.setCollective);
+  const collective = useVectraStore((s) => s.collective);
+  const collectiveHover = useVectraStore((s) => s.metrics?.collective_hover);
+  const setCollective = useVectraStore((s) => s.setCollective);
   const sliderValue = collective ?? collectiveHover ?? 0.5;
   return (
     <div className="ui-float pointer-events-auto flex flex-wrap items-center gap-3 px-3 py-1.5">
@@ -84,8 +84,8 @@ function TrimRow() {
 
 /** Bottom strip: presets as unit pills plus the legend for the jet colour scale. */
 function BottomStrip({ maxThrustN }: { maxThrustN: number }) {
-  const applyPreset = useTiltlabStore((s) => s.applyPreset);
-  const showFlow = useTiltlabStore((s) => s.view.flow);
+  const applyPreset = useVectraStore((s) => s.applyPreset);
+  const showFlow = useVectraStore((s) => s.view.flow);
   return (
     <div className="ui-float pointer-events-auto flex flex-wrap items-center gap-2 px-3 py-2">
       <span className="ui-label mr-1">presets</span>

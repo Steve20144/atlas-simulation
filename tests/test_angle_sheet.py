@@ -8,11 +8,11 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from tiltlab.api.app import app
-from tiltlab.cad.fusion_dashboard import FusionFrame
-from tiltlab.core.sweep import apply_deflections
-from tiltlab.export.angle_sheet import cad_rotation, export_angle_sheet, foil_angle_sheet
-from tiltlab.scenario import Scenario
+from vectra.api.app import app
+from vectra.cad.fusion_dashboard import FusionFrame
+from vectra.core.sweep import apply_deflections
+from vectra.export.angle_sheet import cad_rotation, export_angle_sheet, foil_angle_sheet
+from vectra.scenario import Scenario
 
 from .conftest import FIXTURES
 

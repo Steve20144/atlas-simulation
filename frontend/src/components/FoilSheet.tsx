@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import type { FoilSheetRow } from "../types";
 
 const btn = "ui-btn";
@@ -10,7 +10,7 @@ const btn = "ui-btn";
  * CAD (exhaust direction and pressure point in the CAD frame, change from the as-built 45 deg).
  */
 export default function FoilSheet() {
-  const scenario = useTiltlabStore((s) => s.scenario);
+  const scenario = useVectraStore((s) => s.scenario);
   const [rows, setRows] = useState<FoilSheetRow[]>([]);
   const [status, setStatus] = useState("");
   const units = scenario.frame.cad_units;

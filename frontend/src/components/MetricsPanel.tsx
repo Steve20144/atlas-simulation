@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import type { MetricGroup } from "../types";
 import AuthorityTable, { Badge } from "./AuthorityTable";
 import BoardPanel from "./BoardPanel";
@@ -31,10 +31,10 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 /** Right panel: metric groups with show/hide tick boxes, badges, estimated banner, params preview. */
 export default function MetricsPanel() {
-  const metrics = useTiltlabStore((s) => s.metrics);
-  const visible = useTiltlabStore((s) => s.visibleGroups);
-  const toggleGroup = useTiltlabStore((s) => s.toggleGroup);
-  const massEstimated = useTiltlabStore((s) => s.scenario.mass.estimated ?? false);
+  const metrics = useVectraStore((s) => s.metrics);
+  const visible = useVectraStore((s) => s.visibleGroups);
+  const toggleGroup = useVectraStore((s) => s.toggleGroup);
+  const massEstimated = useVectraStore((s) => s.scenario.mass.estimated ?? false);
   const estimated = Boolean(metrics?.estimated) || massEstimated;
 
   return (

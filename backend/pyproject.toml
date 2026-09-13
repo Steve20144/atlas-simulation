@@ -1,5 +1,5 @@
 [project]
-name = "tiltlab"
+name = "vectra"
 version = "0.1.0"
 description = "Tilt-fan multicopter analysis, PX4 allocator replica and simulation workbench."
 readme = "README.md"
@@ -41,7 +41,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["tiltlab"]
+packages = ["vectra"]
 
 [tool.mypy]
 python_version = "3.11"

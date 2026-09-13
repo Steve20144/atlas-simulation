@@ -23,10 +23,10 @@ from typing import Any
 import numpy as np
 from scipy.optimize import linprog, lsq_linear
 
-from tiltlab.core.allocation import ControlAllocatorReplica
-from tiltlab.core.fan import FanCurve
-from tiltlab.core.geometry import Rotor, compute_effectiveness_matrix, rotors_from_scenario
-from tiltlab.scenario import Scenario
+from vectra.core.allocation import ControlAllocatorReplica
+from vectra.core.fan import FanCurve
+from vectra.core.geometry import Rotor, compute_effectiveness_matrix, rotors_from_scenario
+from vectra.scenario import Scenario
 
 AXIS_NAMES: tuple[str, ...] = ("roll", "pitch", "yaw", "Fx", "Fy", "Fz")
 AXIS_UNITS: tuple[str, ...] = ("N m", "N m", "N m", "N", "N", "N")

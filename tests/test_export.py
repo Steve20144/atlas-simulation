@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import FIXTURES
-from tiltlab.core.params_px4 import read_params_file
-from tiltlab.export import (
+from vectra.core.params_px4 import read_params_file
+from vectra.export import (
     export_metrics_csv,
     export_params,
     export_scenario_json,
@@ -20,7 +20,7 @@ from tiltlab.export import (
     latest_backup_params,
     timestamped_name,
 )
-from tiltlab.scenario import Scenario
+from vectra.scenario import Scenario
 
 REPO = Path(__file__).resolve().parents[1]
 BASE = FIXTURES / "20260909_1515_params_v4_rig_airmode.params"
@@ -69,11 +69,11 @@ def test_params_export_changes_only_geometry_and_concept_lines(
     base_lines, out_lines = _lines(BASE), _lines(out)
     base_header = [ln for ln in base_lines if ln.startswith(b"#")]
     out_header = [ln for ln in out_lines if ln.startswith(b"#")]
-    # every original header line survives, in order, and the tiltlab block is added
+    # every original header line survives, in order, and the vectra block is added
     it = iter(out_header)
     assert all(any(h == o for o in it) for h in base_header)
     joined = b"\n".join(out_header).decode()
-    assert "tiltlab export" in joined and "xfly80_3280" in joined and "ESTIMATED" in joined
+    assert "vectra export" in joined and "xfly80_3280" in joined and "ESTIMATED" in joined
     assert re.search(r"#\s+0\s+30\.000\s+90\.000", joined)
     base_data = [ln for ln in base_lines if ln and not ln.startswith(b"#")]
     out_data = [ln for ln in out_lines if ln and not ln.startswith(b"#")]

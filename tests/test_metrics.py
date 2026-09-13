@@ -15,8 +15,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tiltlab.core.metrics import DEFAULT_WEIGHTS, compute_metrics, metrics_table
-from tiltlab.scenario import Scenario
+from vectra.core.metrics import DEFAULT_WEIGHTS, compute_metrics, metrics_table
+from vectra.scenario import Scenario
 
 SCENARIOS = Path(__file__).resolve().parents[1] / "scenarios"
 

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import type { ControlConcept } from "../types";
 import BoardPill from "./BoardPill";
 
@@ -33,12 +33,12 @@ function Mark() {
 
 /** Top bar: brand and scenario on the left, concept tabs centred, board status and activity right. */
 export default function TopBar() {
-  const scenarioName = useTiltlabStore((s) => s.scenario.meta.name);
-  const scenarioNames = useTiltlabStore((s) => s.scenarioNames);
-  const concept = useTiltlabStore((s) => s.concept);
-  const loading = useTiltlabStore((s) => s.loading);
-  const error = useTiltlabStore((s) => s.error);
-  const { loadScenarioNames, loadScenario, saveScenario, setConcept } = useTiltlabStore.getState();
+  const scenarioName = useVectraStore((s) => s.scenario.meta.name);
+  const scenarioNames = useVectraStore((s) => s.scenarioNames);
+  const concept = useVectraStore((s) => s.concept);
+  const loading = useVectraStore((s) => s.loading);
+  const error = useVectraStore((s) => s.error);
+  const { loadScenarioNames, loadScenario, saveScenario, setConcept } = useVectraStore.getState();
 
   useEffect(() => {
     void loadScenarioNames();
@@ -52,7 +52,7 @@ export default function TopBar() {
       <div className="flex items-center gap-3">
         <h1 className="flex items-center gap-2 text-sm">
           <Mark />
-          tiltlab
+          Vectra
         </h1>
         <span className="h-4 w-px" style={{ background: "var(--ui-line)" }} />
         <label className="flex items-center gap-2">

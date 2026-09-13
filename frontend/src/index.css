@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * tiltlab look: monochrome console. Near-black ground, hairline borders, small monospace labels
+ * vectra look: monochrome console. Near-black ground, hairline borders, small monospace labels
  * in upper case, rounded cards, one light accent (white) and three status colours. The slate and
  * sky palettes are remapped here so every existing component falls into the same grey scale.
  */

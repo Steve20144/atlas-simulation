@@ -1,4 +1,4 @@
-import { useTiltlabStore } from "../store";
+import { useVectraStore } from "../store";
 import { ANGLE_HEADINGS, AngleModeToggle } from "./FanAngleInputs";
 import FanRow from "./FanRow";
 
@@ -6,10 +6,10 @@ const th = "px-1 py-1 text-left text-xs font-medium text-slate-400";
 
 /** Left panel: 10 fan rows with output, tilt, azimuth, mirror lock and spin. */
 export default function FanTable() {
-  const fans = useTiltlabStore((s) => s.scenario.fans);
-  const hoverU = useTiltlabStore((s) => s.metrics?.hover?.u);
-  const massKg = useTiltlabStore((s) => s.scenario.mass.total_kg);
-  const mode = useTiltlabStore((s) => s.angleMode);
+  const fans = useVectraStore((s) => s.scenario.fans);
+  const hoverU = useVectraStore((s) => s.metrics?.hover?.u);
+  const massKg = useVectraStore((s) => s.scenario.mass.total_kg);
+  const mode = useVectraStore((s) => s.angleMode);
   const [h1, h2] = ANGLE_HEADINGS[mode];
 
   return (

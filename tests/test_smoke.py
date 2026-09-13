@@ -2,12 +2,12 @@
 
 from fastapi.testclient import TestClient
 
-import tiltlab
-from tiltlab.api.app import app
+import vectra
+from vectra.api.app import app
 
 
 def test_package_has_version() -> None:
-    assert tiltlab.__version__
+    assert vectra.__version__
 
 
 def test_health() -> None:
@@ -16,7 +16,7 @@ def test_health() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["version"] == tiltlab.__version__
+    assert body["version"] == vectra.__version__
 
 
 def test_index_serves_html() -> None:
@@ -24,4 +24,4 @@ def test_index_serves_html() -> None:
         response = client.get("/")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "tiltlab" in response.text.lower()
+    assert "vectra" in response.text.lower()

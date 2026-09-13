@@ -6,7 +6,7 @@ and the CAD coordinates of the motor centre, the duct exit and the pressure poin
 in degrees, CAD coordinates in the scenario's cad_units (mm for the Fusion dashboard).
 
 CAD frame mapping comes from Scenario.frame (cad_forward_axis, cad_up_axis, cad_origin): a
-vector v_frd maps to v_cad = R^T v_frd with R the FRD-from-CAD rotation of tiltlab.cad
+vector v_frd maps to v_cad = R^T v_frd with R the FRD-from-CAD rotation of vectra.cad
 .fusion_dashboard.FusionFrame, and a point p_frd (m) maps to cad_origin + R^T p_frd * scale.
 """
 
@@ -20,8 +20,8 @@ from typing import Any
 
 import numpy as np
 
-from tiltlab.export.naming import timestamped_name
-from tiltlab.scenario import Scenario, deflect_axis
+from vectra.export.naming import timestamped_name
+from vectra.scenario import Scenario, deflect_axis
 
 AS_BUILT_DEFLECTION_DEG = 45.0
 UNIT_SCALE = {"mm": 1000.0, "m": 1.0, "in": 39.37007874015748}
