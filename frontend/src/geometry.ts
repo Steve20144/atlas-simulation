@@ -92,9 +92,19 @@ export function mirrorAzimuth(azimuthDeg: number): number {
   return ((360 - azimuthDeg) % 360 + 360) % 360;
 }
 
-/** Clamp tilt to the valid [0, 90] degree range. */
+/** Clamp tilt to the valid [0, 180] degree range (0 up, 90 horizontal, 180 down). */
 export function clampTilt(tiltDeg: number): number {
-  return Math.min(90, Math.max(0, tiltDeg));
+  return Math.min(180, Math.max(0, Number.isFinite(tiltDeg) ? tiltDeg : 0));
+}
+
+/**
+ * A signed tilt typed by the user, as stored: -30 at azimuth 0 is the same direction as 30 at
+ * azimuth 180 (leaning aft instead of forward), so a negative tilt flips the azimuth.
+ */
+export function signedTilt(tiltDeg: number, azimuthDeg: number): { tilt: number; azimuth: number } {
+  const t = Number.isFinite(tiltDeg) ? tiltDeg : 0;
+  if (t >= 0) return { tilt: clampTilt(t), azimuth: wrapAzimuth(azimuthDeg) };
+  return { tilt: clampTilt(-t), azimuth: wrapAzimuth(azimuthDeg + 180) };
 }
 
 /** Wrap azimuth into [0, 360). */
@@ -118,12 +128,15 @@ export function frdToScene(v: Vec3): Vec3 {
  * match the two angles a mount is drawn and printed with. axis ~ (tan fwd, tan side, -1).
  */
 export function tiltAzimuthToFwdSide(tiltDeg: number, azimuthDeg: number): { fwd: number; side: number } {
-  const t = Math.min(tiltDeg, 89.9) * DEG;
-  const p = azimuthDeg * DEG;
-  return {
-    fwd: Math.atan(Math.tan(t) * Math.cos(p)) / DEG,
-    side: Math.atan(Math.tan(t) * Math.sin(p)) / DEG,
-  };
+  const [x, y, z] = tiltAzimuthToAxis(tiltDeg, azimuthDeg);
+  // angle from up of the axis projected on the XZ plane (fwd) and on the YZ plane (side);
+  // past horizontal (tilt > 90) these exceed 90 and the pair is no longer independent
+  return { fwd: Math.atan2(x, -z) / DEG, side: Math.atan2(y, -z) / DEG };
+}
+
+/** True when the thrust points below the horizon; fwd/side entry is then not meaningful. */
+export function pastHorizontal(tiltDeg: number): boolean {
+  return tiltDeg > 90;
 }
 
 /** Inverse of tiltAzimuthToFwdSide; tilt in [0, 90), azimuth in [0, 360). */

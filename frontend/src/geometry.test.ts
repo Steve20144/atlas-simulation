@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deflectAxis, describeAxis, effectiveFan, tiltAzimuthToAxis, fwdSideToTiltAzimuth, tiltAzimuthToFwdSide } from "./geometry";
+import { deflectAxis, describeAxis, effectiveFan, tiltAzimuthToAxis, fwdSideToTiltAzimuth, tiltAzimuthToFwdSide, signedTilt, clampTilt, pastHorizontal } from "./geometry";
 import type { Fan, Foil } from "./types";
 
 const close = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
@@ -50,6 +50,21 @@ describe("foil geometry", () => {
     }
     expect(fwdSideToTiltAzimuth(0, 20)).toEqual({ tilt: 20, azimuth: 90 });
     expect(fwdSideToTiltAzimuth(-15, 0)).toEqual({ tilt: 15, azimuth: 180 });
-    expect(tiltAzimuthToFwdSide(90, 0).fwd).toBeGreaterThan(89);
+    expect(tiltAzimuthToFwdSide(90, 0).fwd).toBeCloseTo(90, 6);
+  });
+
+  it("negative and past-horizontal tilts", () => {
+    expect(signedTilt(-30, 0)).toEqual({ tilt: 30, azimuth: 180 });
+    expect(signedTilt(-30, 90)).toEqual({ tilt: 30, azimuth: 270 });
+    expect(signedTilt(120, 0)).toEqual({ tilt: 120, azimuth: 0 });
+    expect(signedTilt(200, 0).tilt).toBe(180);
+    expect(clampTilt(-5)).toBe(0);
+    // tilt 120 forward: thrust points forward and down
+    const a = tiltAzimuthToAxis(120, 0);
+    expect(a[0]).toBeGreaterThan(0);
+    expect(a[2]).toBeGreaterThan(0);
+    expect(tiltAzimuthToFwdSide(120, 0).fwd).toBeCloseTo(120, 6);
+    expect(pastHorizontal(120)).toBe(true);
+    expect(pastHorizontal(90)).toBe(false);
   });
 });

@@ -47,10 +47,10 @@ describe("FanTable", () => {
     expect(fans[1].azimuth_deg).toBe(0);
   });
 
-  it("typed tilt is clamped to 0..90 and the mirror checkbox toggles the lock", () => {
+  it("typed tilt is clamped to 0..180 and the mirror checkbox toggles the lock", () => {
     render(<FanTable />);
-    fireEvent.change(screen.getByLabelText("Tilt fan 2"), { target: { value: "120" } });
-    expect(useTiltlabStore.getState().scenario.fans[2].tilt_deg).toBe(90);
+    fireEvent.change(screen.getByLabelText("Tilt fan 2"), { target: { value: "200" } });
+    expect(useTiltlabStore.getState().scenario.fans[2].tilt_deg).toBe(180);
     fireEvent.click(screen.getByLabelText("Mirror lock fan 2"));
     expect(useTiltlabStore.getState().mirrorLock[2]).toBe(false);
     expect(screen.getByLabelText("Mirror lock fan 8")).toBeDisabled();
@@ -79,5 +79,18 @@ describe("FanTable", () => {
     expect(tiltAzimuthToFwdSide(fans[0].tilt_deg, fans[0].azimuth_deg).fwd).toBeCloseTo(1, 5);
     expect(tiltAzimuthToFwdSide(fans[1].tilt_deg, fans[1].azimuth_deg).fwd).toBeCloseTo(1, 5);
     expect(tiltAzimuthToFwdSide(fans[1].tilt_deg, fans[1].azimuth_deg).side).toBeCloseTo(-30, 5);
+  });
+
+  it("tilt accepts a negative value (opposite lean) and past horizontal", () => {
+    render(<FanTable />);
+    fireEvent.change(screen.getByLabelText("Tilt fan 8"), { target: { value: "-30" } });
+    let f8 = useTiltlabStore.getState().scenario.fans[8];
+    expect([f8.tilt_deg, f8.azimuth_deg]).toEqual([30, 180]);
+    fireEvent.change(screen.getByLabelText("Tilt fan 9"), { target: { value: "120" } });
+    f8 = useTiltlabStore.getState().scenario.fans[9];
+    expect(f8.tilt_deg).toBe(120);
+    act(() => useTiltlabStore.getState().setAngleMode("fwd_side"));
+    expect(screen.getByRole("note")).toHaveTextContent(/tilt 120 az 0: past horizontal/);
+    expect((screen.getByLabelText("Forward tilt fan 8") as HTMLInputElement).value).toBe("-30");
   });
 });

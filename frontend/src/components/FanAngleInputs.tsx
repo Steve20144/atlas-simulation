@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from "react";
-import { clampSideTilt, clampTilt, fwdSideToTiltAzimuth, tiltAzimuthToFwdSide, wrapAzimuth } from "../geometry";
+import { clampSideTilt, fwdSideToTiltAzimuth, pastHorizontal, signedTilt, tiltAzimuthToFwdSide, wrapAzimuth } from "../geometry";
 import { useTiltlabStore, type AngleMode } from "../store";
 import type { Fan } from "../types";
 
@@ -28,15 +28,25 @@ export default function FanAngleInputs({ fan, className = cell }: { fan: Fan; cl
     const nudge = (field: "tilt_deg" | "azimuth_deg") => (e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
       e.preventDefault();
-      const next = live()[field] + (e.key === "ArrowUp" ? 1 : -1);
-      updateFan(fan.id, { [field]: field === "tilt_deg" ? clampTilt(next) : wrapAzimuth(next) });
+      const cur = live();
+      const next = cur[field] + (e.key === "ArrowUp" ? 1 : -1);
+      if (field === "tilt_deg") {
+        const { tilt, azimuth } = signedTilt(next, cur.azimuth_deg);
+        updateFan(fan.id, { tilt_deg: tilt, azimuth_deg: azimuth });
+      } else {
+        updateFan(fan.id, { azimuth_deg: wrapAzimuth(next) });
+      }
     };
     return (
       <>
         <td className="px-1 py-0.5">
-          <input aria-label={`Tilt fan ${fan.id}`} className={className} type="number" min={0} max={90} step={1}
+          <input aria-label={`Tilt fan ${fan.id}`} className={className} type="number" min={-180} max={180} step={1}
+            title="0 up, 90 horizontal, up to 180 pointing down; a negative value leans the opposite way (turns the azimuth by 180)"
             value={fan.tilt_deg} onKeyDown={nudge("tilt_deg")}
-            onChange={(e) => updateFan(fan.id, { tilt_deg: clampTilt(Number(e.target.value)) })} />
+            onChange={(e) => {
+              const { tilt, azimuth } = signedTilt(Number(e.target.value), fan.azimuth_deg);
+              updateFan(fan.id, { tilt_deg: tilt, azimuth_deg: azimuth });
+            }} />
         </td>
         <td className="px-1 py-0.5">
           <input aria-label={`Azimuth fan ${fan.id}`} className={fan.tilt_deg === 0 ? `${className} opacity-50` : className}
@@ -48,6 +58,13 @@ export default function FanAngleInputs({ fan, className = cell }: { fan: Fan; cl
     );
   }
 
+  if (pastHorizontal(fan.tilt_deg)) {
+    return (
+      <td className="px-1 py-0.5 text-[10px]" colSpan={2} style={{ color: "var(--ui-warn)" }} role="note">
+        tilt {fan.tilt_deg} az {fan.azimuth_deg}: past horizontal, edit as tilt / azimuth
+      </td>
+    );
+  }
   const { fwd, side } = tiltAzimuthToFwdSide(fan.tilt_deg, fan.azimuth_deg);
   const setFwdSide = (f: number, s: number) => {
     const { tilt, azimuth } = fwdSideToTiltAzimuth(clampSideTilt(f), clampSideTilt(s));

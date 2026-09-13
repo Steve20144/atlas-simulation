@@ -126,7 +126,7 @@ class Fan(BaseModel):
 
     pos_frd_m: fan thrust application point, metres, FRD body frame, relative to the body
     origin (the CA_ROTORn_P* values are pos_frd_m minus mass.cg_frd_m).
-    tilt_deg / azimuth_deg: see tilt_azimuth_to_axis. km: magnitude of the PX4 moment
+    tilt_deg (0 up, 90 horizontal, 180 down) / azimuth_deg: see tilt_azimuth_to_axis. km: magnitude of the PX4 moment
     coefficient (Torque = KM * Thrust, dimensionless); its sign is derived from spin
     (positive for CCW, module.yaml:211-225) when control.reaction_torque is on.
     """
@@ -135,7 +135,9 @@ class Fan(BaseModel):
     id: int = Field(ge=0, le=NUM_FANS - 1)
     output: str = ""
     pos_frd_m: Vec3
-    tilt_deg: float = Field(ge=0.0, le=90.0)
+    # 0 straight up, 90 horizontal, up to 180 (thrust pointing down); a "negative tilt" is the
+    # same tilt with the azimuth turned by 180, the UI does that conversion
+    tilt_deg: float = Field(ge=0.0, le=180.0)
     azimuth_deg: float = Field(ge=0.0, le=360.0)
     spin: Literal["CW", "CCW"] = "CW"
     mirror_of: int | None = None
