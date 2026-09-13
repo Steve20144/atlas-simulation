@@ -60,6 +60,10 @@ def main() -> None:
         choices=list(NOSE_PAIRINGS),
         help="opposed: front +v rear -v; same: both v; independent: grid squared",
     )
+    p.add_argument(
+        "--nose-axis", default="side", choices=("side", "fwd"),
+        help="side: nose fans lean left/right (about X); fwd: forward/aft (about Y)",
+    )
     ap.add_argument("--concept", default="stock", choices=["stock", "fully_actuated"])
     ap.add_argument("--collective", type=float, default=None)
     ap.add_argument("--min-headroom", type=float, default=0.2)
@@ -93,6 +97,7 @@ def main() -> None:
         centreline_tilts_deg=parse_angles(args.centre),
         nose_tilts_deg=parse_angles(args.nose_tilts) if args.nose_tilts.strip() else [],
         nose_pairing=args.nose_pairing,
+        nose_axis=args.nose_axis,
         concept=args.concept,
         collective=args.collective,
         min_headroom=args.min_headroom,

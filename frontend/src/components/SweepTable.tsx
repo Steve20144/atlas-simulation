@@ -22,13 +22,18 @@ function signed(v: number): string {
 
 export default function SweepTable({ result, angleLabel, leftRight, onApply }: Props) {
   const nose = result.candidates.some((c) => c.nose_tilts_deg);
+  const noseFwd = result.candidates.some((c) => c.nose_axis === "fwd");
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[10px] tabular-nums">
         <thead>
           <tr className="text-slate-400">
             <th className="text-left">{angleLabel}</th>
-            {nose && <th title="nose fans sideways tilt, front / rear, degrees: negative left, positive right">nose F/R</th>}
+            {nose && (
+              <th title={noseFwd ? "nose fans lean, front / rear, degrees: positive forward, negative aft" : "nose fans lean, front / rear, degrees: positive right, negative left"}>
+                nose F/R {noseFwd ? "fwd" : "side"}
+              </th>
+            )}
             <th>W</th>
             <th>headroom</th>
             <th title="angular acceleration from the attainable roll torque over inertia">roll rad/s²</th>

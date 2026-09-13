@@ -291,6 +291,7 @@ export interface SweepCandidate {
   nose_tilts_deg?: number[] | null;
   /** Tilt and azimuth applied to each nose fan, by fan id, degrees. */
   nose_angles_deg?: Record<string, [number, number]> | null;
+  nose_axis?: "side" | "fwd" | null;
   power_W: number;
   headroom: number;
   roll_Nm: number | null;
@@ -337,6 +338,8 @@ export interface SweepRequestBody {
   /** Nose fans sideways tilt grid, signed degrees (negative left, positive right); empty = off. */
   nose_tilts_deg?: number[];
   nose_pairing?: "opposed" | "same" | "independent";
+  /** Which body axis the signed nose values lean about: side (left/right) or fwd (forward/aft). */
+  nose_axis?: "side" | "fwd";
   min_headroom: number;
   min_yaw_Nm: number;
   /** rad/s^2 at hover; 0 = not filtered. */

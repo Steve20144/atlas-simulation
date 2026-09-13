@@ -16,9 +16,11 @@ Tilt variable (``variable="tilt"``): the grid values are raw fan tilts for the f
 ``inward``, ``outward``, ``forward``, ``aft`` or the alternating fore-aft modes; ``per_pair``
 gives each pair its own tilt. Centreline fans (8, 9) take ``centreline_tilts_deg``.
 
-Nose fans (both variables): ``nose_tilts_deg`` adds a sideways tilt grid for the two centreline
-fans. Values are signed degrees about the body X axis: negative tilts the jet to the left (-Y,
-azimuth 270), positive to the right (+Y, azimuth 90); 0 is straight down. ``nose_pairing`` is
+Nose fans (both variables): ``nose_tilts_deg`` adds a signed tilt grid for the two centreline
+fans. With ``nose_axis="side"`` the values are degrees about the body X axis: negative tilts the
+thrust to the left (-Y, azimuth 270), positive to the right (+Y, azimuth 90). With
+``nose_axis="fwd"`` they are degrees about the body Y axis: positive leans the thrust forward
+(azimuth 0), negative aft (azimuth 180). 0 is straight up either way. ``nose_pairing`` is
 ``opposed`` (front fan takes the grid value, rear fan the negative), ``same`` (both take the
 value) or ``independent`` (grid squared, front then rear). Every base candidate is evaluated at
 every nose setting. An empty grid leaves the nose fans as the scenario has them.
@@ -56,6 +58,7 @@ AZIMUTH_MODES: tuple[str, ...] = tuple(PAIR_AZIMUTHS) + tuple(ALTERNATING_MODES)
 VARIABLES: tuple[str, ...] = ("auto", "foil", "tilt")
 FOIL_GROUPINGS: tuple[str, ...] = ("same", "left_right", "per_pair")
 NOSE_PAIRINGS: tuple[str, ...] = ("opposed", "same", "independent")
+NOSE_AXES: tuple[str, ...] = ("side", "fwd")
 # reasons that only reflect a user threshold (the geometry itself can hover and steer)
 THRESHOLD_REASON_PREFIXES: tuple[str, ...] = (
     "headroom", "yaw authority", "roll acceleration", "pitch acceleration",
@@ -110,6 +113,7 @@ class SweepSpec:
     # positive right (+Y); empty = nose fans untouched
     nose_tilts_deg: list[float] = field(default_factory=list)
     nose_pairing: str = "opposed"
+    nose_axis: str = "side"
     concept: str = "stock"
     collective: float | None = None
     min_headroom: float = 0.2
@@ -143,9 +147,11 @@ class SweepSpec:
             raise ValueError(f"azimuth_mode must be one of {list(AZIMUTH_MODES)}")
         if self.nose_pairing not in NOSE_PAIRINGS:
             raise ValueError(f"nose_pairing must be one of {list(NOSE_PAIRINGS)}")
+        if self.nose_axis not in NOSE_AXES:
+            raise ValueError(f"nose_axis must be one of {list(NOSE_AXES)}")
         for t in self.nose_tilts_deg:
-            if not -90.0 <= float(t) <= 90.0:
-                raise ValueError("nose_tilts_deg must lie in [-90, 90] degrees (signed, + right)")
+            if not -180.0 <= float(t) <= 180.0:
+                raise ValueError("nose_tilts_deg must lie in [-180, 180] degrees (signed)")
         if self.rank_by not in RANK_OBJECTIVES:
             raise ValueError(f"rank_by must be one of {list(RANK_OBJECTIVES)}")
         if not self.tilts_deg:
@@ -182,16 +188,24 @@ def nose_fan_ids(scenario: Scenario) -> tuple[int, int]:
     return (a, b) if fans[a].pos_frd_m[0] >= fans[b].pos_frd_m[0] else (b, a)
 
 
-def signed_lateral_to_angles(signed_deg: float) -> tuple[float, float]:
-    """(tilt_deg, azimuth_deg) of a fan tilted sideways by signed_deg about the body X axis.
+def signed_nose_to_angles(signed_deg: float, axis: str = "side") -> tuple[float, float]:
+    """(tilt_deg, azimuth_deg) of a fan leaned by signed_deg about one body axis.
 
-    Positive tilts the thrust toward +Y (right, azimuth 90), negative toward -Y (left, azimuth
-    270); 0 is straight down (azimuth 0). FRD body frame, degrees.
+    axis "side": about body X, positive toward +Y (right, azimuth 90), negative toward -Y (left,
+    azimuth 270). axis "fwd": about body Y, positive toward +X (forward, azimuth 0), negative
+    toward -X (aft, azimuth 180). 0 is straight up (azimuth 0). FRD body frame, degrees.
     """
     s = float(signed_deg)
     if abs(s) < 1e-12:
         return (0.0, 0.0)
+    if axis == "fwd":
+        return (abs(s), 0.0 if s > 0.0 else 180.0)
     return (abs(s), 90.0 if s > 0.0 else 270.0)
+
+
+def signed_lateral_to_angles(signed_deg: float) -> tuple[float, float]:
+    """Sideways case of signed_nose_to_angles (kept for callers of the old name)."""
+    return signed_nose_to_angles(signed_deg, "side")
 
 
 def nose_candidates(scenario: Scenario, spec: SweepSpec) -> Iterator[dict[int, float]]:
@@ -208,8 +222,8 @@ def nose_candidates(scenario: Scenario, spec: SweepSpec) -> Iterator[dict[int, f
             yield {front: float(v), rear: (-float(v) if float(v) != 0.0 else 0.0)}
 
 
-def nose_angles(nose: dict[int, float]) -> dict[int, tuple[float, float]]:
-    return {fid: signed_lateral_to_angles(v) for fid, v in nose.items()}
+def nose_angles(nose: dict[int, float], axis: str = "side") -> dict[int, tuple[float, float]]:
+    return {fid: signed_nose_to_angles(v, axis) for fid, v in nose.items()}
 
 
 def _nose_record(
@@ -222,9 +236,13 @@ def _nose_record(
         "centreline_tilt_deg": float(fans[CENTRELINE[0]].tilt_deg),
         "nose_tilts_deg": None,
         "nose_angles_deg": None,
+        "nose_axis": None,
     }
     if nose is not None:
         rec["nose_tilts_deg"] = [nose[front], nose[rear]]
+        # which body axis the signed values lean about: read back from the applied azimuth
+        az = {fans[fid].azimuth_deg for fid in (front, rear) if fans[fid].tilt_deg > 0}
+        rec["nose_axis"] = "fwd" if az and az <= {0.0, 180.0} else "side"
         rec["nose_angles_deg"] = {
             str(fid): [fans[fid].tilt_deg, fans[fid].azimuth_deg] for fid in (front, rear)
         }
@@ -446,7 +464,7 @@ def evaluate_candidate(
     """Tilt-variable candidate: fan tilt/azimuth per rotor; ``nose`` (signed sideways tilt per
     nose fan) overrides the centreline entries."""
     if nose is not None:
-        angles = {**angles, **nose_angles(nose)}
+        angles = {**angles, **nose_angles(nose, spec.nose_axis)}
     sc = apply_angles(scenario, angles)
     ordered = sorted(angles)
     rec = {
@@ -471,7 +489,7 @@ def evaluate_foil_candidate(
     tilt per nose fan) sets the centreline fans' tilt and azimuth."""
     sc = apply_deflections(scenario, deflections)
     if nose is not None:
-        sc = apply_angles(sc, nose_angles(nose))
+        sc = apply_angles(sc, nose_angles(nose, spec.nose_axis))
     fans = {f.id: f for f in scenario.fans}
     pairs = []
     for a, b in WING_PAIRS:
@@ -549,6 +567,7 @@ def run_sweep(scenario: Scenario, spec: SweepSpec) -> dict[str, Any]:
             "centreline_tilts_deg": list(spec.centreline_tilts_deg),
             "nose_tilts_deg": list(spec.nose_tilts_deg),
             "nose_pairing": spec.nose_pairing,
+            "nose_axis": spec.nose_axis,
             "concept": spec.concept,
             "collective": spec.collective,
             "min_headroom": spec.min_headroom,

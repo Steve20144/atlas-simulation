@@ -220,7 +220,7 @@ def test_nose_pairings(foil_scenario):
     )
     assert len(indep) == 4 and indep[1] == {front: -20.0, rear: 20.0}
     with pytest.raises(ValueError):
-        SweepSpec(tilts_deg=[90], nose_tilts_deg=[95])
+        SweepSpec(tilts_deg=[90], nose_tilts_deg=[181])
     with pytest.raises(ValueError):
         SweepSpec(tilts_deg=[90], nose_tilts_deg=[10], nose_pairing="crossed")
 
@@ -291,3 +291,26 @@ def test_sweep_endpoint_nose(foil_scenario):
     ]
     r = client.post("/api/sweep", json={**body, "nose_pairing": "crossed"})
     assert r.status_code == 422
+
+
+def test_nose_fwd_axis_leans_front_forward_and_rear_aft(foil_scenario):
+    """nose_axis fwd: opposed pairing gives front +v (azimuth 0) and rear -v (azimuth 180)."""
+    from tiltlab.core.sweep import signed_nose_to_angles
+
+    assert signed_nose_to_angles(30, "fwd") == (30.0, 0.0)
+    assert signed_nose_to_angles(-30, "fwd") == (30.0, 180.0)
+    assert signed_nose_to_angles(-30, "side") == (30.0, 270.0)
+    assert signed_nose_to_angles(0, "fwd") == (0.0, 0.0)
+    spec = SweepSpec(
+        tilts_deg=[45], nose_tilts_deg=[30], nose_pairing="opposed", nose_axis="fwd"
+    )
+    result = run_sweep(foil_scenario, spec)
+    assert result["spec"]["nose_axis"] == "fwd"
+    front, rear = nose_fan_ids(foil_scenario)
+    rec = next(r for r in result["candidates"] if r["nose_tilts_deg"] == [30.0, -30.0])
+    assert rec["nose_axis"] == "fwd"
+    assert rec["nose_angles_deg"] == {str(front): [30.0, 0.0], str(rear): [30.0, 180.0]}
+    with pytest.raises(ValueError):
+        SweepSpec(tilts_deg=[45], nose_tilts_deg=[10], nose_axis="yaw")
+    with pytest.raises(ValueError):
+        SweepSpec(tilts_deg=[45], nose_tilts_deg=[181])

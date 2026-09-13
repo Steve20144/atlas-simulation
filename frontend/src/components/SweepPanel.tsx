@@ -70,7 +70,7 @@ export default function SweepPanel() {
           variable: hasFoils ? "foil" : "tilt", foil_grouping: grouping, azimuth_mode: mode, per_pair: perPair,
           min_headroom: minHeadroom, min_yaw_Nm: 0, min_roll_accel: minRollAcc, min_pitch_accel: minPitchAcc,
           min_yaw_accel: minYawAcc, max_coupling: maxCoupling, rank_by: rankBy, top: 12,
-          nose_tilts_deg: noseValues(nose), nose_pairing: nose.pairing,
+          nose_tilts_deg: noseValues(nose), nose_pairing: nose.pairing, nose_axis: nose.axis,
           hover_pitch_deg: pitches.split(",").map((p) => Number(p.trim())).filter((p) => Number.isFinite(p)),
         }),
       );
@@ -85,7 +85,7 @@ export default function SweepPanel() {
     <div className="flex flex-col gap-1 ui-sub" data-testid="sweep-panel">
       <h3>{hasFoils ? "Foil sweep" : "Tilt sweep"}</h3>
       <p className="text-[10px] text-slate-400">
-        Tries every {hasFoils ? "foil deflection" : "wing-fan tilt"} in the grid. A candidate passes when it hovers level and gives the pilot at least the angular acceleration you ask for on roll, pitch and yaw (attainable torque over inertia, at hover) without leaking into the other axes. Rank by control authority to find the deflector set that is easiest to fly. Tick "nose fans sideways" to also tilt the two nose fans left or right about the aircraft's axis.
+        Tries every {hasFoils ? "foil deflection" : "wing-fan tilt"} in the grid. A candidate passes when it hovers level and gives the pilot at least the angular acceleration you ask for on roll, pitch and yaw (attainable torque over inertia, at hover) without leaking into the other axes. Rank by control authority to find the deflector set that is easiest to fly. Tick "nose fans" to also lean the two nose fans, forward / aft (30 and -30 with opposed pairing gives the front fan forward and the rear fan aft) or left / right.
       </p>
       <div className="flex flex-wrap items-center gap-1 text-[11px]">
         <span>{hasFoils ? "deflection from" : "tilt from"}</span>

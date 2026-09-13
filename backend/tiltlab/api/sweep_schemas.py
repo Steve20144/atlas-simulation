@@ -33,6 +33,9 @@ class SweepRequest(BaseModel):
     # (-Y), positive right (+Y). Empty leaves the nose fans as the scenario has them.
     nose_tilts_deg: list[float] = Field(default_factory=list)
     nose_pairing: Literal["opposed", "same", "independent"] = "opposed"
+    nose_axis: Literal["side", "fwd"] = Field(
+        default="side", description="side: lean left/right about X; fwd: lean forward/aft about Y"
+    )
     min_headroom: float = Field(default=0.2, ge=0.0, le=1.0)
     min_yaw_Nm: float = Field(default=0.0, ge=0.0)
     # control checks (rad/s^2 from attainable torque over inertia; 0 or 1 = not filtered)
