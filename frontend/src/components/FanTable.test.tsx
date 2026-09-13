@@ -93,4 +93,19 @@ describe("FanTable", () => {
     expect(screen.getByRole("note")).toHaveTextContent(/tilt 120 az 0: past horizontal/);
     expect((screen.getByLabelText("Forward tilt fan 8") as HTMLInputElement).value).toBe("-30");
   });
+  it("a minus sign being typed into forward tilt is kept until the digits arrive", () => {
+    useTiltlabStore.getState().setAngleMode("fwd_side");
+    render(<FanTable />);
+    const fwd8 = screen.getByLabelText("Forward tilt fan 8") as HTMLInputElement;
+    // a lone "-" reads back from a number input as "" and must not be turned into 0
+    fireEvent.change(fwd8, { target: { value: "" } });
+    expect(fwd8.value).toBe("");
+    expect(useTiltlabStore.getState().scenario.fans[8].tilt_deg).toBe(0);
+    fireEvent.change(fwd8, { target: { value: "-25" } });
+    const f8 = useTiltlabStore.getState().scenario.fans[8];
+    expect(fwd8.value).toBe("-25");
+    expect([f8.tilt_deg, f8.azimuth_deg]).toEqual([25, 180]);
+    fireEvent.blur(fwd8);
+    expect(fwd8.value).toBe("-25");
+  });
 });

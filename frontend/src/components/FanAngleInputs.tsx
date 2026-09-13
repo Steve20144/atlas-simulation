@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { clampSideTilt, fwdSideToTiltAzimuth, pastHorizontal, signedTilt, tiltAzimuthToFwdSide, wrapAzimuth } from "../geometry";
 import { useTiltlabStore, type AngleMode } from "../store";
+import SignedNumberInput from "./SignedNumberInput";
 import type { Fan } from "../types";
 
 const cell = "w-16 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-right tabular-nums";
@@ -40,11 +41,11 @@ export default function FanAngleInputs({ fan, className = cell }: { fan: Fan; cl
     return (
       <>
         <td className="px-1 py-0.5">
-          <input aria-label={`Tilt fan ${fan.id}`} className={className} type="number" min={-180} max={180} step={1}
+          <SignedNumberInput aria-label={`Tilt fan ${fan.id}`} className={className} min={-180} max={180} step={1}
             title="0 up, 90 horizontal, up to 180 pointing down; a negative value leans the opposite way (turns the azimuth by 180)"
             value={fan.tilt_deg} onKeyDown={nudge("tilt_deg")}
-            onChange={(e) => {
-              const { tilt, azimuth } = signedTilt(Number(e.target.value), fan.azimuth_deg);
+            onCommit={(v) => {
+              const { tilt, azimuth } = signedTilt(v, fan.azimuth_deg);
               updateFan(fan.id, { tilt_deg: tilt, azimuth_deg: azimuth });
             }} />
         </td>
@@ -80,16 +81,16 @@ export default function FanAngleInputs({ fan, className = cell }: { fan: Fan; cl
   return (
     <>
       <td className="px-1 py-0.5">
-        <input aria-label={`Forward tilt fan ${fan.id}`} className={className} type="number" min={-89} max={89} step={1}
+        <SignedNumberInput aria-label={`Forward tilt fan ${fan.id}`} className={className} min={-89} max={89} step={1}
           title="thrust leans forward (+) or aft (-), degrees from vertical seen from the side"
           value={round1(fwd)} onKeyDown={nudge("fwd")}
-          onChange={(e) => setFwdSide(Number(e.target.value), side)} />
+          onCommit={(v) => setFwdSide(v, side)} />
       </td>
       <td className="px-1 py-0.5">
-        <input aria-label={`Side tilt fan ${fan.id}`} className={className} type="number" min={-89} max={89} step={1}
+        <SignedNumberInput aria-label={`Side tilt fan ${fan.id}`} className={className} min={-89} max={89} step={1}
           title="thrust leans right (+) or left (-), degrees from vertical seen from the front"
           value={round1(side)} onKeyDown={nudge("side")}
-          onChange={(e) => setFwdSide(fwd, Number(e.target.value))} />
+          onCommit={(v) => setFwdSide(fwd, v)} />
       </td>
     </>
   );
