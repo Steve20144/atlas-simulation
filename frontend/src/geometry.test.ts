@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deflectAxis, describeAxis, effectiveFan, tiltAzimuthToAxis } from "./geometry";
+import { deflectAxis, describeAxis, effectiveFan, tiltAzimuthToAxis, fwdSideToTiltAzimuth, tiltAzimuthToFwdSide } from "./geometry";
 import type { Fan, Foil } from "./types";
 
 const close = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
@@ -35,5 +35,21 @@ describe("foil geometry", () => {
     expect(describeAxis([0, 0, -1])).toBe("straight up");
     expect(describeAxis(deflectAxis(motor, 45))).toBe("up and forward (45 deg from vertical)");
     expect(describeAxis(deflectAxis(motor, 135))).toBe("up and aft (45 deg from vertical)");
+  });
+
+  it("forward/side tilt round-trips with tilt/azimuth and stays independent", () => {
+    for (const [fwd, side] of [[0, 0], [10, 0], [0, -20], [25, 15], [-30, 40], [60, -60]]) {
+      const { tilt, azimuth } = fwdSideToTiltAzimuth(fwd, side);
+      const back = tiltAzimuthToFwdSide(tilt, azimuth);
+      expect(back.fwd).toBeCloseTo(fwd, 6);
+      expect(back.side).toBeCloseTo(side, 6);
+      // the axis leans by tan(fwd) forward and tan(side) right per unit of down
+      const a = tiltAzimuthToAxis(tilt, azimuth);
+      expect(a[0] / -a[2]).toBeCloseTo(Math.tan((fwd * Math.PI) / 180), 6);
+      expect(a[1] / -a[2]).toBeCloseTo(Math.tan((side * Math.PI) / 180), 6);
+    }
+    expect(fwdSideToTiltAzimuth(0, 20)).toEqual({ tilt: 20, azimuth: 90 });
+    expect(fwdSideToTiltAzimuth(-15, 0)).toEqual({ tilt: 15, azimuth: 180 });
+    expect(tiltAzimuthToFwdSide(90, 0).fwd).toBeGreaterThan(89);
   });
 });

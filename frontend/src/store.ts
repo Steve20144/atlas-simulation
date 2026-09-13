@@ -67,6 +67,10 @@ function defaultMirrorLock(scenario: Scenario): Record<number, boolean> {
 
 export type FanPatch = Partial<Pick<Fan, "tilt_deg" | "azimuth_deg" | "output" | "spin">>;
 
+/** How fan angles are entered: two independent leans (forward/aft, right/left) or PX4's
+ * tilt plus azimuth. Both edit Fan.tilt_deg / azimuth_deg. */
+export type AngleMode = "fwd_side" | "tilt_azimuth";
+
 /** Which panels and viewer layers are shown; toggled from the side rail. */
 export type ViewFlag = "geometry" | "metrics" | "cad" | "flow";
 
@@ -102,6 +106,8 @@ export interface TiltlabState {
   gazebo: GazeboStatus & { message: string };
   view: Record<ViewFlag, boolean>;
   board: BoardState;
+  angleMode: AngleMode;
+  setAngleMode: (mode: AngleMode) => void;
 
   toggleView: (flag: ViewFlag) => void;
   setBoardPort: (port: string) => void;
@@ -183,6 +189,8 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
     gazebo: idleGazebo(),
     view: { geometry: true, metrics: true, cad: true, flow: true },
     board: idleBoard(),
+    angleMode: "fwd_side",
+    setAngleMode: (angleMode) => set({ angleMode }),
     toggleView: (flag) => set({ view: { ...get().view, [flag]: !get().view[flag] } }),
     setBoardPort: (port) => set({ board: { ...get().board, port } }),
     checkBoard: async () => {
@@ -454,6 +462,7 @@ export const useTiltlabStore = create<TiltlabState>((set, get) => {
         gazebo: idleGazebo(),
         board: idleBoard(),
         view: { geometry: true, metrics: true, cad: true, flow: true },
+        angleMode: "fwd_side",
         concept: "stock",
         collective: null,
         metrics: null,

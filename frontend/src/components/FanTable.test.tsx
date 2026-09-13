@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { tiltAzimuthToFwdSide } from "../geometry";
 import { useTiltlabStore } from "../store";
 import { installFetchMock, tenFanScenario } from "../test/fixtures";
 import FanTable from "./FanTable";
@@ -10,6 +11,7 @@ describe("FanTable", () => {
     installFetchMock();
     useTiltlabStore.getState().reset();
     useTiltlabStore.getState().setScenario(tenFanScenario());
+    useTiltlabStore.getState().setAngleMode("tilt_azimuth");
   });
 
   afterEach(() => {
@@ -54,12 +56,28 @@ describe("FanTable", () => {
     expect(screen.getByLabelText("Mirror lock fan 8")).toBeDisabled();
   });
 
-  it("explains that azimuth has no effect on a fan at tilt 0", () => {
+  it("forward and side tilt edit the same fan independently and follow the mirror lock", () => {
+    useTiltlabStore.getState().setAngleMode("fwd_side");
     render(<FanTable />);
-    expect(screen.queryByRole("note")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Azimuth fan 8"), { target: { value: "90" } });
-    expect(screen.getByRole("note")).toHaveTextContent(/fan 8: azimuth 90 has no effect at tilt 0.*points right/);
-    fireEvent.change(screen.getByLabelText("Tilt fan 8"), { target: { value: "30" } });
-    expect(screen.queryByRole("note")).toBeNull();
+    // fan 8 is vertical: leaning it 20 degrees to the right needs no prior tilt
+    fireEvent.change(screen.getByLabelText("Side tilt fan 8"), { target: { value: "20" } });
+    let f8 = useTiltlabStore.getState().scenario.fans[8];
+    expect(f8.tilt_deg).toBeCloseTo(20, 5);
+    expect(f8.azimuth_deg).toBeCloseTo(90, 5);
+    // adding a forward lean keeps the side lean
+    fireEvent.change(screen.getByLabelText("Forward tilt fan 8"), { target: { value: "10" } });
+    f8 = useTiltlabStore.getState().scenario.fans[8];
+    expect((screen.getByLabelText("Side tilt fan 8") as HTMLInputElement).value).toBe("20");
+    expect((screen.getByLabelText("Forward tilt fan 8") as HTMLInputElement).value).toBe("10");
+    expect(f8.tilt_deg).toBeGreaterThan(20);
+    // fan 0 (tilt 30, azimuth 90) reads as side 30, forward 0; its mirror partner leans left
+    expect((screen.getByLabelText("Side tilt fan 0") as HTMLInputElement).value).toBe("30");
+    expect((screen.getByLabelText("Forward tilt fan 0") as HTMLInputElement).value).toBe("0");
+    expect((screen.getByLabelText("Side tilt fan 1") as HTMLInputElement).value).toBe("-30");
+    fireEvent.keyDown(screen.getByLabelText("Forward tilt fan 0"), { key: "ArrowUp" });
+    const fans = useTiltlabStore.getState().scenario.fans;
+    expect(tiltAzimuthToFwdSide(fans[0].tilt_deg, fans[0].azimuth_deg).fwd).toBeCloseTo(1, 5);
+    expect(tiltAzimuthToFwdSide(fans[1].tilt_deg, fans[1].azimuth_deg).fwd).toBeCloseTo(1, 5);
+    expect(tiltAzimuthToFwdSide(fans[1].tilt_deg, fans[1].azimuth_deg).side).toBeCloseTo(-30, 5);
   });
 });

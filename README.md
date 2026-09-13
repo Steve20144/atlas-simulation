@@ -164,7 +164,7 @@ The **board** pill in the top bar (and the chip icon at the bottom of the left r
 
 Once a check has succeeded the card also shows **SYS_HITL** as stored on the board with **HIL on** / **HIL off** buttons (`POST /api/board/param`, written with the type the board reports, saved and read back) and **Reboot board** (`POST /api/board/reboot`, `MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN`, second click confirms; the app re-checks the board 8 s later). PX4 reads `SYS_HITL` at boot only (`rcS` line 324 of the pinned tree starts the sensors in HIL mode when it is > 0, line 332 picks SIH when it is 2), so the toggle is not live until the reboot; HITL on the 6X also needs the custom firmware build with `pwm_out_sim`, see the HITL section above.
 
-A note on fan angles in the geometry tables: azimuth is the direction a tilted fan leans towards (0 forward, 90 right), so at tilt 0 it has no effect on the 3D view, the airflow or the exported axes. The tables dim the azimuth cell and show a note for that case; set a tilt and the fan points the way the note says.
+Fan angles in the geometry tables are entered as **fwd / side** by default: forward tilt leans the thrust forward (+) or aft (-) and side tilt leans it right (+) or left (-), each measured from vertical in its own plane, which is how a mount is drawn and printed, and the two are independent (a vertical nose fan leaned 25 degrees to the right is fwd 0, side 25). The **tilt / azimuth** tab shows PX4's convention instead (one tilt from vertical plus the compass direction it leans towards, 0 forward, 90 right); both edit the same `tilt_deg` / `azimuth_deg` fields (axis is proportional to (tan fwd, tan side, -1)), so the exported `CA_ROTORn_A*` do not depend on the mode.
 
 ## API
 

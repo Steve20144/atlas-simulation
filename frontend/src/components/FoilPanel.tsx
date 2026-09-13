@@ -1,5 +1,6 @@
-import { azimuthNote, clampTilt, coandaSeparationDeg, describeAxis, effectiveFan, wrapAzimuth } from "../geometry";
+import { coandaSeparationDeg } from "../geometry";
 import { useTiltlabStore } from "../store";
+import CentrelineFans from "./CentrelineFans";
 import FoilCard from "./FoilCard";
 import FoilSheet from "./FoilSheet";
 
@@ -9,8 +10,7 @@ const num = "w-16 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-
 export default function FoilPanel() {
   const scenario = useTiltlabStore((s) => s.scenario);
   const foilLinked = useTiltlabStore((s) => s.foilLinked);
-  const hoverU = useTiltlabStore((s) => s.metrics?.hover?.u);
-  const { setFoilLinked, setFoilLoss, setCoanda, updateFan } = useTiltlabStore.getState();
+  const { setFoilLinked, setFoilLoss, setCoanda } = useTiltlabStore.getState();
   const foils = scenario.foils ?? [];
   const foilFanIds = new Set(foils.flatMap((f) => f.fan_ids));
   const plainFans = scenario.fans.filter((f) => !foilFanIds.has(f.id));
@@ -79,40 +79,7 @@ export default function FoilPanel() {
         </label>
       )}
 
-      {plainFans.length > 0 && (
-        <div className="ui-sub">
-          <h3>Centreline fans</h3>
-          <table className="mt-1 w-full text-[11px]">
-            <thead>
-              <tr className="text-slate-400">
-                <th className="text-left">fan</th>
-                <th>tilt deg</th>
-                <th>azimuth deg</th>
-                <th className="text-left">thrust</th>
-                <th title="hover command 0..1">u</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plainFans.map((fan) => (
-                <tr key={fan.id} className="border-t border-slate-800">
-                  <td className="py-0.5 text-slate-400">{fan.id}</td>
-                  <td className="py-0.5 text-center">
-                    <input aria-label={`fan ${fan.id} tilt`} type="number" className={num} value={fan.tilt_deg} onChange={(e) => updateFan(fan.id, { tilt_deg: clampTilt(Number(e.target.value)) })} />
-                  </td>
-                  <td className="py-0.5 text-center">
-                    <input aria-label={`fan ${fan.id} azimuth`} type="number" className={fan.tilt_deg === 0 ? `${num} opacity-50` : num} title={fan.tilt_deg === 0 ? "no effect while tilt is 0: tilt the fan and azimuth picks the direction (0 forward, 90 right)" : "0 forward, 90 right, 180 aft, 270 left"} value={fan.azimuth_deg} onChange={(e) => updateFan(fan.id, { azimuth_deg: wrapAzimuth(Number(e.target.value)) })} />
-                  </td>
-                  <td className="py-0.5 text-slate-300">{describeAxis(effectiveFan(fan, foils).axis)}</td>
-                  <td className="py-0.5 text-right tabular-nums text-slate-400">{hoverU?.[scenario.fans.indexOf(fan)]?.toFixed(2) ?? "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {plainFans.map(azimuthNote).filter(Boolean).map((n) => (
-            <p key={n} className="mt-1 text-[10px]" style={{ color: "var(--ui-warn)" }} role="note">{n}</p>
-          ))}
-        </div>
-      )}
+      {plainFans.length > 0 && <CentrelineFans fans={plainFans} foils={foils} />}
       <FoilSheet />
       <p className="text-[10px] leading-snug text-slate-500">
         FRD body frame: X forward, Y right, Z down. Positions come from the CAD; the PX4 rotor

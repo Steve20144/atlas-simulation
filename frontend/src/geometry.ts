@@ -112,12 +112,30 @@ export function frdToScene(v: Vec3): Vec3 {
 }
 
 /**
- * Azimuth only has meaning once the fan is tilted: at tilt 0 the thrust axis is straight up for
- * every azimuth, so a non-zero azimuth there changes nothing in the 3D view or the exported axes.
- * Returns the note to show, or null when the pair is unambiguous.
+ * Forward and side tilt of a thrust axis, degrees: the lean seen from the side (positive forward,
+ * negative aft) and the lean seen from the front (positive right, negative left). Each is the
+ * angle from vertical of the axis projected onto its own plane, so the two are independent and
+ * match the two angles a mount is drawn and printed with. axis ~ (tan fwd, tan side, -1).
  */
-export function azimuthNote(fan: { id: number; tilt_deg: number; azimuth_deg: number }): string | null {
-  if (fan.tilt_deg !== 0 || fan.azimuth_deg === 0) return null;
-  const dir = describeAxis(tiltAzimuthToAxis(10, fan.azimuth_deg)).split(" (")[0].replace("up and ", "");
-  return `fan ${fan.id}: azimuth ${fan.azimuth_deg} has no effect at tilt 0; set a tilt and it points ${dir}`;
+export function tiltAzimuthToFwdSide(tiltDeg: number, azimuthDeg: number): { fwd: number; side: number } {
+  const t = Math.min(tiltDeg, 89.9) * DEG;
+  const p = azimuthDeg * DEG;
+  return {
+    fwd: Math.atan(Math.tan(t) * Math.cos(p)) / DEG,
+    side: Math.atan(Math.tan(t) * Math.sin(p)) / DEG,
+  };
+}
+
+/** Inverse of tiltAzimuthToFwdSide; tilt in [0, 90), azimuth in [0, 360). */
+export function fwdSideToTiltAzimuth(fwdDeg: number, sideDeg: number): { tilt: number; azimuth: number } {
+  const tf = Math.tan(clampSideTilt(fwdDeg) * DEG);
+  const ts = Math.tan(clampSideTilt(sideDeg) * DEG);
+  const tilt = Math.atan(Math.hypot(tf, ts)) / DEG;
+  const azimuth = tilt < 1e-9 ? 0 : wrapAzimuth(Math.atan2(ts, tf) / DEG);
+  return { tilt: Math.round(tilt * 1e6) / 1e6, azimuth: Math.round(azimuth * 1e6) / 1e6 };
+}
+
+/** Forward and side tilt stay short of 90 so the tangent stays finite. */
+export function clampSideTilt(deg: number): number {
+  return Math.min(89, Math.max(-89, Number.isFinite(deg) ? deg : 0));
 }
