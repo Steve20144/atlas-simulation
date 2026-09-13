@@ -456,3 +456,13 @@ export interface BoardPushResult {
   backup: string | null;
   console: string;
 }
+
+/** POST /api/board/flight: HITL off plus everything the HITL set changed, from the flight backup. */
+export interface BoardFlightResult extends BoardPushResult {
+  params: Record<string, number>;
+  /** per parameter: backup (flight .params file), default (PX4 default) or hitl_undo. */
+  sources: Record<string, "backup" | "default" | "hitl_undo">;
+  warnings: string[];
+  base: string;
+  reboot_required: boolean;
+}

@@ -1,5 +1,5 @@
 import type {
-  BoardParamResult, BoardPushResult, BoardStatus, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
+  BoardFlightResult, BoardParamResult, BoardPushResult, BoardStatus, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
   SweepRequestBody, SweepResponse,
 } from "./types";
 
@@ -71,9 +71,13 @@ export const api = {
   /** Write the previewed CA_* set to the board through its shell, save, read back; backup first. */
   boardPush: (scenario: Scenario, concept: ControlConcept, port = "auto") =>
     post<BoardPushResult>("/api/board/push", { scenario, concept, port }),
-  /** Write one parameter (SYS_HITL for the HIL toggle) with the type the board reports. */
+  /** Write one parameter (SYS_HITL 1 for HIL on) with the type the board reports. */
   boardParam: (name: string, value: number, port = "auto") =>
     post<BoardParamResult>("/api/board/param", { name, value, port }),
+  /** HIL off that survives a reboot: SYS_HITL 0 plus SYS_AUTOSTART and the rest of the HITL set
+   * restored from the flight backup (the HIL airframe re-enables SYS_HITL at boot otherwise). */
+  boardFlight: (scenario: Scenario, port = "auto") =>
+    post<BoardFlightResult>("/api/board/flight", { scenario, port }),
   /** Reboot the autopilot; the USB link is gone for a few seconds afterwards. */
   boardReboot: (port = "auto") => post<{ port: string; rebooted: boolean }>("/api/board/reboot", { port }),
 };

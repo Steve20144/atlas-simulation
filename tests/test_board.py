@@ -15,6 +15,7 @@ import vectra.api.app as app_module
 from vectra.api.app import app
 from vectra.core.params_px4 import PARAM_TYPE_FLOAT, PARAM_TYPE_INT32, read_params_file
 from vectra.px4 import board
+from vectra.scenario import Scenario
 
 SCENARIOS = Path(__file__).resolve().parents[1] / "scenarios"
 
@@ -219,6 +220,67 @@ def test_push_without_board_is_404(client: TestClient, monkeypatch) -> None:
     monkeypatch.setattr(board, "list_ports", lambda: [])
     r = client.post("/api/board/push", json={"scenario": scenario_json("baseline_dihedral30")})
     assert r.status_code == 404
+
+
+def test_flight_params_restores_hitl_set_from_backup() -> None:
+    """SYS_HITL 0 alone is undone at boot by airframe 1001 (param set SYS_HITL 1), so the flight
+    set must move SYS_AUTOSTART and the rest of the HITL set back to the backup's values."""
+    from vectra.export.params import latest_backup_params
+    from vectra.px4.flight import flight_params
+
+    base = read_params_file(latest_backup_params())
+    fs = flight_params(base, None)
+    p, src = fs.params, fs.sources
+    assert p["SYS_HITL"] == 0 and src["SYS_HITL"] == "hitl_undo"
+    assert p["SYS_AUTOSTART"] == 4001 and src["SYS_AUTOSTART"] == "backup"
+    assert p["EKF2_EN"] == 1 and p["SYS_HAS_MAG"] == 1 and p["SYS_HAS_BARO"] == 1
+    assert p["CBRK_SUPPLY_CHK"] == 0 and p["GPS_1_CONFIG"] == 201
+    assert p["CAL_ACC0_ID"] == 5767194 and p["CAL_GYRO0_ID"] == 5767194
+    assert p["CAL_ACC1_ID"] == 2818066 and fs.types["CAL_ACC0_XOFF"] == PARAM_TYPE_FLOAT
+    assert p["CAL_ACC0_XOFF"] == pytest.approx(-0.035091143)
+    assert all(p[f"HIL_ACT_FUNC{i}"] == 0 for i in range(1, 11))
+    assert any("controller gains" in w for w in fs.warnings)
+    assert not any("recalibrate" in w for w in fs.warnings)
+
+    # with the scenario the HITL gains come back from the backup too (THR_MDL_FAC flew as 0)
+    sc = Scenario.model_validate(json.loads((SCENARIOS / "baseline_dihedral30.json").read_text()))
+    fs2 = flight_params(base, sc)
+    assert fs2.params["THR_MDL_FAC"] == 0 and fs2.sources["THR_MDL_FAC"] == "backup"
+
+    # no backup at all: PX4 defaults, the sim IMU id cleared and a recalibration warning
+    fs3 = flight_params(None, None)
+    assert fs3.params["SYS_AUTOSTART"] == 4001 and fs3.sources["SYS_AUTOSTART"] == "default"
+    assert fs3.params["CAL_ACC0_ID"] == 0 and "CAL_ACC0_XOFF" not in fs3.params
+    assert any("recalibrate" in w for w in fs3.warnings)
+    assert any("SYS_AUTOSTART" in w for w in fs3.warnings)
+
+
+def test_flight_endpoint_writes_the_set_and_backs_up(client: TestClient, monkeypatch) -> None:
+    hitl_board = {
+        "SYS_HITL": (1, PARAM_TYPE_INT32),
+        "SYS_AUTOSTART": (1001, PARAM_TYPE_INT32),
+        "EKF2_EN": (0, PARAM_TYPE_INT32),
+        "CAL_ACC0_ID": (1310988, PARAM_TYPE_INT32),
+        "HIL_ACT_FUNC1": (101, PARAM_TYPE_INT32),
+        "THR_MDL_FAC": (1.0, PARAM_TYPE_FLOAT),
+    }
+    link = FakeLink(hitl_board)
+    monkeypatch.setattr(board, "list_ports", lambda: [PIXHAWK])
+    monkeypatch.setattr(board, "connect", lambda port, timeout_s=5.0: link)
+    body = {"scenario": scenario_json("baseline_dihedral30")}
+    r = client.post("/api/board/flight", json=body)
+    assert r.status_code == 200, r.text
+    res = r.json()
+    assert res["reboot_required"] and res["mismatches"] == []
+    assert res["params"]["SYS_HITL"] == 0 and res["sources"]["SYS_AUTOSTART"] == "backup"
+    assert link.store["SYS_HITL"][0] == 0 and link.store["SYS_AUTOSTART"][0] == 4001
+    assert link.store["EKF2_EN"][0] == 1 and link.store["HIL_ACT_FUNC1"][0] == 0
+    assert link.store["CAL_ACC0_ID"][0] == 5767194 and link.store["THR_MDL_FAC"][0] == 0
+    assert "SYS_HITL" in res["changed"] and "SYS_AUTOSTART" in res["changed"]
+    assert Path(res["backup"]).name.endswith("_hitl_off_before.params")
+    assert client.get("/api/board/status").json()["sys_hitl"] == 0
+    r = client.post("/api/board/flight", json={"base": "nope.params"})
+    assert r.status_code == 400
 
 
 def test_hil_toggle_and_reboot_endpoints(client: TestClient, monkeypatch) -> None:

@@ -4,7 +4,9 @@ import { useVectraStore } from "../store";
 /**
  * SYS_HITL on the Pixhawk (0 off, 1 HITL, 2 SIH) and the reboot PX4 needs afterwards: rcS only
  * reads SYS_HITL at boot (line 324 of the pinned tree starts the sensors in HIL mode when it is
- * > 0). Shown once a status check has read the value. Reboot asks for a second click.
+ * > 0). HIL off restores the whole HITL set from the flight backup, because the HIL airframe
+ * (SYS_AUTOSTART 1001) runs `param set SYS_HITL 1` at every boot and a bare 0 comes back as 1.
+ * Shown once a status check has read the value. Reboot asks for a second click.
  */
 export default function BoardHil() {
   const status = useVectraStore((s) => s.board.status);
@@ -45,7 +47,7 @@ export default function BoardHil() {
         className={hitl === 0 ? "ui-btn-active" : "ui-btn"}
         aria-pressed={hitl === 0}
         disabled={busy || hitl === 0}
-        title="SYS_HITL 0: normal flight firmware behaviour on the next boot"
+        title="Back to flight: SYS_HITL 0 plus SYS_AUTOSTART, EKF2_EN, sensor presence, IMU calibration, GPS port and the HITL gains restored from the flight parameter backup (a bare SYS_HITL 0 is set back to 1 by the HIL airframe at boot). Current values are backed up under exports/board. Reboot afterwards."
         onClick={() => void setBoardHitl(false)}
       >
         HIL off

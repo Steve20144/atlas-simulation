@@ -35,6 +35,14 @@ function mockFetch(status: BoardStatus, push: BoardPushResult | { status: number
         return ok({ name: b.name, wanted: b.value, before: 0, after: b.value, type_code: 6, verified: true, reboot_required: true });
       }
       if (url === "/api/board/reboot") return ok({ port: "COM7", rebooted: true });
+      if (url === "/api/board/flight") {
+        return ok({
+          ...pushed, sent: 30, changed: ["SYS_HITL", "SYS_AUTOSTART"], verified: 30,
+          params: { SYS_HITL: 0, SYS_AUTOSTART: 4001, EKF2_EN: 1 },
+          sources: { SYS_HITL: "hitl_undo", SYS_AUTOSTART: "backup", EKF2_EN: "backup" },
+          warnings: ["controller gains stay"], base: "tests/fixtures/flight.params", reboot_required: true,
+        });
+      }
       if (url === "/api/board/push") {
         if ("detail" in push) {
           return Promise.resolve({ ok: false, status: push.status, text: async () => push.detail } as Response);
@@ -125,5 +133,24 @@ describe("BoardPanel and BoardPill", () => {
     expect(calls.some((c) => c.url === "/api/board/reboot")).toBe(true);
     // the re-check after the reboot ran and the board reports again (it follows a timer, so wait)
     await waitFor(() => expect(calls.filter((c) => c.url.startsWith("/api/board/status")).length).toBe(2));
+  });
+
+  it("HIL off restores the flight set through /api/board/flight, not a bare SYS_HITL write", async () => {
+    setRebootRecheckMs(0);
+    const calls = mockFetch({ ...online, sys_hitl: 1 }, pushed);
+    render(<BoardPanel />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Check" }));
+    });
+    expect(screen.getByText("on (HITL)")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "HIL off" }));
+    });
+    const flight = calls.find((c) => c.url === "/api/board/flight");
+    expect(flight?.body).toMatchObject({ port: "auto", scenario: { fans: expect.any(Array) } });
+    expect(calls.some((c) => c.url === "/api/board/param")).toBe(false);
+    expect(screen.getByText("off")).toBeInTheDocument();
+    expect(useVectraStore.getState().board.message).toMatch(/HITL off: 30 parameters written \(2 from flight.params, SYS_AUTOSTART 4001, EKF2_EN 1\)/);
+    expect(useVectraStore.getState().board.message).toMatch(/controller gains stay/);
   });
 });

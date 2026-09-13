@@ -35,6 +35,7 @@ from vectra.core.params_px4 import (
     PARAM_TYPE_INT32,
     format_param_value,
     hover_frame_params,
+    read_params_file,
     scenario_to_ca_params,
 )
 from vectra.export import export_metrics_csv, export_params
@@ -335,11 +336,14 @@ def gazebo_reset_endpoint() -> dict[str, Any]:
 
 # ---------------------------------------------------------------- pixhawk over usb
 from vectra.api.schemas import (  # noqa: E402
+    BoardFlightRequest,
     BoardParamRequest,
     BoardPortRequest,
     BoardPushRequest,
 )
+from vectra.export.params import latest_backup_params  # noqa: E402
 from vectra.px4 import board  # noqa: E402
+from vectra.px4.flight import flight_params  # noqa: E402
 
 BOARD_BACKUP_DIR = EXPORTS_DIR / "board"
 
@@ -436,6 +440,35 @@ def board_param_endpoint(req: BoardParamRequest) -> dict[str, Any]:
     """Write one parameter (SYS_HITL for the HIL toggle), save, read back. reboot_required says
     whether PX4 only reads it at boot."""
     return _with_board(req.port, lambda m, dev: board.set_param(m, req.name, req.value).as_dict())
+
+
+@app.post("/api/board/flight")
+def board_flight_endpoint(req: BoardFlightRequest) -> dict[str, Any]:
+    """HIL off that survives a reboot. SYS_HITL 0 alone comes back as 1 because the HIL airframe
+    (SYS_AUTOSTART 1001) runs `param set SYS_HITL 1` at every boot (1001_rc_quad_x.hil:14), so this
+    also restores SYS_AUTOSTART, EKF2_EN, SYS_HAS_MAG/BARO, CBRK_SUPPLY_CHK, GPS_1_CONFIG, the IMU
+    calibration slots and (with a scenario) the HITL gains from the flight backup, saves, reads
+    back and backs up the current values to exports/board/. Reboot afterwards."""
+    try:
+        base_path = Path(req.base) if req.base else latest_backup_params()
+        if not base_path.is_file():
+            raise FileNotFoundError(f"base params file not found: {base_path}")
+        base = read_params_file(base_path)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    fs = flight_params(base, req.scenario)
+
+    def job(m: Any, dev: str) -> dict[str, Any]:
+        backup_dir = BOARD_BACKUP_DIR if req.backup else None
+        res = board.push_params(m, dev, fs.params, fs.types, backup_dir, "hitl_off")
+        return {
+            **res.as_dict(),
+            **fs.as_dict(),
+            "base": str(base_path),
+            "reboot_required": True,
+        }
+
+    return _with_board(req.port, job)
 
 
 @app.post("/api/board/reboot")

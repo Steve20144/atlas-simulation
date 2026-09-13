@@ -5,7 +5,7 @@ import TopBar from "./components/TopBar";
 import Viewer3D from "./components/Viewer3D";
 import { useVectraStore } from "./store";
 
-export const APP_NAME = "vectra";
+export const APP_NAME = "Vectra";
 
 export default function App() {
   const showGeometry = useVectraStore((s) => s.view.geometry);

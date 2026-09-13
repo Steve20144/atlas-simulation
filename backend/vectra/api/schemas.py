@@ -127,6 +127,21 @@ class BoardParamRequest(BaseModel):
     port: str = "auto"
 
 
+class BoardFlightRequest(BaseModel):
+    """Take the board from HITL back to flight: SYS_HITL 0 plus everything the HITL set changed
+    (SYS_AUTOSTART, EKF2_EN, sensor presence, IMU calibration, gains) from the flight backup."""
+
+    model_config = ConfigDict(extra="forbid")
+    scenario: Scenario | None = Field(
+        default=None, description="when given, the HITL controller gains are restored too"
+    )
+    port: str = "auto"
+    base: str | None = Field(
+        default=None, description="flight .params backup; default: the newest backup on disk"
+    )
+    backup: bool = Field(default=True, description="write the board current values first")
+
+
 class BoardPortRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     port: str = "auto"

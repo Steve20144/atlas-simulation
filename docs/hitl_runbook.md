@@ -141,8 +141,16 @@ works the same as in SITL, and `scripts/hover_report.py` reads the copied ulog.
 
 ## Returning to flight configuration
 
-Load the real flight parameter file, confirm `SYS_HITL` is 0, reboot, and check `hil_state: 0`
-before powering anything.
+Setting `SYS_HITL 0` on its own does not stick: the HITL set put `SYS_AUTOSTART` on the HIL
+airframe 1001, whose script runs `param set SYS_HITL 1` at every boot
+(`ROMFS/px4fmu_common/init.d/airframes/1001_rc_quad_x.hil:14`), and rcS zeroes `GPS_1_CONFIG`
+while in HIL mode (`rcS:329`). Use **HIL off** in the app's Pixhawk card (`POST /api/board/flight`):
+it writes `SYS_HITL 0` plus `SYS_AUTOSTART`, `EKF2_EN`, `SYS_HAS_MAG`, `SYS_HAS_BARO`,
+`CBRK_SUPPLY_CHK`, `GPS_1_CONFIG`, the IMU calibration slots and the HITL gains from the flight
+backup, then **Reboot board**. Without the app: load the real flight parameter file in QGC (that
+file carries `SYS_AUTOSTART`), set `SYS_HITL 0`, reboot. Either way confirm `SYS_HITL` reads 0
+after the reboot and `hil_state: 0` before powering anything. If the calibration could not be
+restored, recalibrate accelerometer and gyro.
 
 ## Known failure signatures
 

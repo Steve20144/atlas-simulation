@@ -219,17 +219,37 @@ export const useVectraStore = create<VectraState>((set, get) => {
     setBoardHitl: async (on) => {
       set({ board: { ...get().board, pushing: true } });
       try {
-        const r = await api.boardParam("SYS_HITL", on ? 1 : 0, get().board.port);
         const status = get().board.status;
-        const message = r.verified
-          ? `SYS_HITL ${r.before} -> ${r.after} saved; reboot the board for it to take effect`
-          : `SYS_HITL did not read back (board has ${r.after})`;
+        if (on) {
+          const r = await api.boardParam("SYS_HITL", 1, get().board.port);
+          const message = r.verified
+            ? `SYS_HITL ${r.before} -> ${r.after} saved; reboot the board for it to take effect`
+            : `SYS_HITL did not read back (board has ${r.after})`;
+          set({
+            board: {
+              ...get().board,
+              pushing: false,
+              message,
+              status: status ? { ...status, sys_hitl: r.after === null ? null : Math.round(r.after) } : status,
+            },
+          });
+          return;
+        }
+        // HIL off: SYS_HITL 0 alone comes back as 1, the HIL airframe (SYS_AUTOSTART 1001) sets
+        // it at every boot; the backend restores the whole HITL set from the flight backup.
+        const r = await api.boardFlight(get().scenario, get().board.port);
+        const restored = Object.keys(r.params).filter((k) => r.sources[k] === "backup").length;
+        const head = r.mismatches.length === 0
+          ? `HITL off: ${r.sent} parameters written (${restored} from ${r.base.split(/[\\/]/).pop()}, ` +
+            `SYS_AUTOSTART ${r.params.SYS_AUTOSTART}, EKF2_EN ${r.params.EKF2_EN}); reboot the board for it to take effect`
+          : `HITL off: ${r.mismatches.length} of ${r.sent} parameters did not read back (${r.mismatches.map((m) => m.name).join(", ")})`;
+        const message = [head, ...r.warnings].join(" | ");
         set({
           board: {
             ...get().board,
             pushing: false,
             message,
-            status: status ? { ...status, sys_hitl: r.after === null ? null : Math.round(r.after) } : status,
+            status: status && r.mismatches.length === 0 ? { ...status, sys_hitl: 0 } : status,
           },
         });
       } catch (e) {
