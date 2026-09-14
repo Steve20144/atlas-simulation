@@ -1,5 +1,5 @@
 import type {
-  BoardFlightResult, BoardLogResult, BoardParamResult, BoardPushResult, BoardStatus, ThrustSnapshot, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
+  BoardFlightResult, BoardLogResult, BoardParamResult, BoardParamValue, BoardPushResult, BoardStatus, ThrustSnapshot, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, ParamInfo, Scenario,
   SweepRequestBody, SweepResponse,
 } from "./types";
 
@@ -74,6 +74,14 @@ export const api = {
   /** Write one parameter (SYS_HITL 1 for HIL on) with the type the board reports. */
   boardParam: (name: string, value: number, port = "auto") =>
     post<BoardParamResult>("/api/board/param", { name, value, port }),
+  /** Read one parameter's current value from the board (PX4 params editor). */
+  boardReadParam: (name: string, port = "auto") =>
+    request<BoardParamValue>(`/api/board/param?name=${encodeURIComponent(name)}&port=${encodeURIComponent(port)}`),
+  /** Search the pinned PX4 tree's parameter catalogue by name or description. */
+  paramSearch: (q: string, limit = 30) =>
+    request<{ count: number; results: ParamInfo[] }>(`/api/px4/params?q=${encodeURIComponent(q)}&limit=${limit}`)
+      .then((r) => r.results),
+  paramInfo: (name: string) => request<ParamInfo>(`/api/px4/params/${encodeURIComponent(name)}`),
   /** HIL off that survives a reboot: SYS_HITL 0 plus SYS_AUTOSTART and the rest of the HITL set
    * restored from the flight backup (the HIL airframe re-enables SYS_HITL at boot otherwise). */
   boardFlight: (scenario: Scenario, port = "auto") =>

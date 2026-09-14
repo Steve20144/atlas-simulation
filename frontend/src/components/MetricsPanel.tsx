@@ -8,7 +8,7 @@ import CouplingTable from "./CouplingTable";
 import ExportPanel from "./ExportPanel";
 import GazeboPanel from "./GazeboPanel";
 import { fmt } from "./format";
-import ParamsPreview from "./ParamsPreview";
+import ParamsEditor from "./ParamsEditor";
 import SweepPanel from "./SweepPanel";
 
 const GROUPS: { id: MetricGroup; label: string }[] = [
@@ -29,7 +29,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** Right panel: metric groups with show/hide tick boxes, badges, estimated banner, params preview. */
+/** Right panel: metric groups with show/hide tick boxes, badges, estimated banner, PX4 params editor. */
 export default function MetricsPanel() {
   const metrics = useVectraStore((s) => s.metrics);
   const visible = useVectraStore((s) => s.visibleGroups);
@@ -133,7 +133,7 @@ export default function MetricsPanel() {
       )}
 
       {metrics && <SweepPanel />}
-      <div className="ui-sub"><ParamsPreview /></div>
+      <div className="ui-sub"><ParamsEditor /></div>
       <div className="ui-sub"><ExportPanel /></div>
       <div className="ui-sub"><GazeboPanel /></div>
       <div className="ui-sub"><BoardPanel /></div>

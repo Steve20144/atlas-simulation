@@ -992,76 +992,6 @@ wheels = [
 ]
 
 [[package]]
-name = "vectra"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "cadquery-ocp" },
-    { name = "fast-simplification" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "jinja2" },
-    { name = "markdown" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "pydantic" },
-    { name = "pygltflib" },
-    { name = "pymavlink" },
-    { name = "pyserial" },
-    { name = "python-multipart" },
-    { name = "pyulog" },
-    { name = "scipy" },
-    { name = "trimesh" },
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "websockets" },
-]
-
-[package.optional-dependencies]
-pdf = [
-    { name = "weasyprint" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cadquery-ocp" },
-    { name = "fast-simplification" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "jinja2" },
-    { name = "markdown" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "pydantic", specifier = ">=2" },
-    { name = "pygltflib" },
-    { name = "pymavlink" },
-    { name = "pyserial" },
-    { name = "python-multipart" },
-    { name = "pyulog" },
-    { name = "scipy" },
-    { name = "trimesh" },
-    { name = "uvicorn", extras = ["standard"] },
-    { name = "weasyprint", marker = "extra == 'pdf'" },
-    { name = "websockets" },
-]
-provides-extras = ["pdf"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-]
-
-[[package]]
 name = "tinycss2"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1166,6 +1096,78 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/74/4f/256aca690709e9b008b7108bc85fba619a2bc37c6d80743d18abad16ee09/uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:56a2d1fae65fd82197cb8c53c367310b3eabe1bbb9fb5a04d28e3e3520e4f702", size = 3804529, upload-time = "2025-10-16T22:16:25.246Z" },
     { url = "https://files.pythonhosted.org/packages/7f/74/03c05ae4737e871923d21a76fe28b6aad57f5c03b6e6bfcfa5ad616013e4/uvloop-0.22.1-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:40631b049d5972c6755b06d0bfe8233b1bd9a8a6392d9d1c45c10b6f9e9b2733", size = 3621267, upload-time = "2025-10-16T22:16:26.819Z" },
     { url = "https://files.pythonhosted.org/packages/75/be/f8e590fe61d18b4a92070905497aec4c0e64ae1761498cad09023f3f4b3e/uvloop-0.22.1-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:535cc37b3a04f6cd2c1ef65fa1d370c9a35b6695df735fcff5427323f2cd5473", size = 3723105, upload-time = "2025-10-16T22:16:28.252Z" },
+]
+
+[[package]]
+name = "vectra"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "cadquery-ocp" },
+    { name = "fast-simplification" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "markdown" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pydantic" },
+    { name = "pygltflib" },
+    { name = "pymavlink" },
+    { name = "pyserial" },
+    { name = "python-multipart" },
+    { name = "pyulog" },
+    { name = "scipy" },
+    { name = "trimesh" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "websockets" },
+]
+
+[package.optional-dependencies]
+pdf = [
+    { name = "weasyprint" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pyyaml" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cadquery-ocp" },
+    { name = "fast-simplification" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "markdown" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pydantic", specifier = ">=2" },
+    { name = "pygltflib" },
+    { name = "pymavlink" },
+    { name = "pyserial" },
+    { name = "python-multipart" },
+    { name = "pyulog" },
+    { name = "scipy" },
+    { name = "trimesh" },
+    { name = "uvicorn", extras = ["standard"] },
+    { name = "weasyprint", marker = "extra == 'pdf'" },
+    { name = "websockets" },
+]
+provides-extras = ["pdf"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "ruff" },
 ]
 
 [[package]]

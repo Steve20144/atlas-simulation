@@ -446,6 +446,30 @@ export interface BoardParamResult {
   reboot_required: boolean;
 }
 
+/** GET /api/board/param: one parameter's current value on the board. */
+export interface BoardParamValue {
+  name: string;
+  value: number;
+  type_code: number;
+}
+
+/** One PX4 parameter definition from the pinned v1.17.0 tree (GET /api/px4/params). */
+export interface ParamInfo {
+  name: string;
+  short: string;
+  long: string;
+  type: "int32" | "float" | "enum" | "boolean" | "bitmask";
+  unit: string | null;
+  min: number | null;
+  max: number | null;
+  default: number | null;
+  /** enum or bitmask labels by code */
+  values: Record<string, string> | null;
+  group: string;
+  reboot: boolean;
+  source: string;
+}
+
 /** POST /api/board/push: what was written through the NSH shell and what read back. */
 export interface BoardPushResult {
   port: string;

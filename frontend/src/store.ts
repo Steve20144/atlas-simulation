@@ -4,6 +4,7 @@ import { mirrorAzimuth } from "./geometry";
 import { DIHEDRAL_SCENARIO_NAME, presetOmni, presetVertical, type PresetId } from "./presets";
 import type {
   BoardLogResult,
+  BoardParamResult,
   BoardPushResult,
   ThrustSnapshot,
   BoardStatus,
@@ -15,6 +16,7 @@ import type {
   Foil,
   MetricGroup,
   Metrics,
+  ParamInfo,
   Scenario,
   SweepCandidate,
   Vec3,
@@ -98,6 +100,24 @@ export interface ThrustState {
 
 const idleThrust = (): ThrustState => ({ running: false, snapshot: null, error: null });
 
+/** PX4 params editor: the picked parameter, its catalogue entry and what the board reported. */
+export interface ParamEditState {
+  name: string | null;
+  info: ParamInfo | null;
+  boardValue: number | null;
+  typeCode: number | null;
+  busy: boolean;
+  message: string;
+  result: BoardParamResult | null;
+}
+
+const idleParamEdit = (): ParamEditState => ({
+  name: null, info: null, boardValue: null, typeCode: null, busy: false, message: "", result: null,
+});
+
+const rejection = (r: PromiseSettledResult<unknown>): string =>
+  r.status === "rejected" ? String((r.reason as Error)?.message ?? r.reason) : "";
+
 const idleBoard = (): BoardState => ({
   status: null, checking: false, pushing: false, pulling: false, result: null, log: null, message: "", port: "auto",
 });
@@ -134,6 +154,14 @@ export interface VectraState {
   /** Download the newest .ulg the board recorded into exports/logs/. */
   pullBoardLog: () => Promise<void>;
   thrust: ThrustState;
+  paramEdit: ParamEditState;
+  /** PX4 params editor: pick a parameter (catalogue entry plus a read from the board). */
+  selectParam: (name: string) => Promise<void>;
+  /** Re-read the picked parameter from the board. */
+  readParam: () => Promise<void>;
+  /** POST /api/board/param: param set, param save, read back; result lands in paramEdit. */
+  writeParam: (value: number) => Promise<void>;
+  clearParam: () => void;
   /** Test thrust: start the live feed and poll it. */
   startThrustFeed: () => Promise<void>;
   stopThrustFeed: () => Promise<void>;
@@ -216,10 +244,68 @@ export const useVectraStore = create<VectraState>((set, get) => {
     gazebo: idleGazebo(),
     view: { geometry: true, metrics: true, cad: true, flow: true },
     board: idleBoard(),
+    paramEdit: idleParamEdit(),
     angleMode: "fwd_side",
     setAngleMode: (angleMode) => set({ angleMode }),
     toggleView: (flag) => set({ view: { ...get().view, [flag]: !get().view[flag] } }),
     setBoardPort: (port) => set({ board: { ...get().board, port } }),
+    clearParam: () => set({ paramEdit: idleParamEdit() }),
+    selectParam: async (name) => {
+      const upper = name.trim().toUpperCase();
+      set({ paramEdit: { ...idleParamEdit(), name: upper, busy: true, message: `reading ${upper} from the board` } });
+      const [info, value] = await Promise.allSettled([
+        api.paramInfo(upper),
+        api.boardReadParam(upper, get().board.port),
+      ]);
+      if (get().paramEdit.name !== upper) return; // a later pick won
+      const read = value.status === "fulfilled" ? value.value : null;
+      set({
+        paramEdit: {
+          ...get().paramEdit,
+          busy: false,
+          info: info.status === "fulfilled" ? info.value : null,
+          boardValue: read ? read.value : null,
+          typeCode: read ? read.type_code : null,
+          message: read ? `board has ${upper} = ${read.value}` : `board: ${rejection(value)}`,
+        },
+      });
+    },
+    readParam: async () => {
+      const name = get().paramEdit.name;
+      if (!name) return;
+      set({ paramEdit: { ...get().paramEdit, busy: true } });
+      try {
+        const read = await api.boardReadParam(name, get().board.port);
+        set({
+          paramEdit: {
+            ...get().paramEdit, busy: false, boardValue: read.value, typeCode: read.type_code,
+            message: `board has ${name} = ${read.value}`,
+          },
+        });
+      } catch (e) {
+        set({ paramEdit: { ...get().paramEdit, busy: false, message: `board: ${(e as Error).message}` } });
+      }
+    },
+    writeParam: async (value) => {
+      const name = get().paramEdit.name;
+      if (!name) return;
+      set({ paramEdit: { ...get().paramEdit, busy: true, message: `writing ${name} = ${value}` } });
+      try {
+        const r = await api.boardParam(name, value, get().board.port);
+        const message = r.verified
+          ? `${name} ${r.before ?? "?"} -> ${r.after} saved${r.reboot_required ? "; reboot the board for it to take effect" : ""}`
+          : `${name} did not read back (board has ${r.after})`;
+        const status = get().board.status;
+        set({
+          paramEdit: { ...get().paramEdit, busy: false, result: r, boardValue: r.after, typeCode: r.type_code, message },
+          board: name === "SYS_HITL" && status && r.after !== null
+            ? { ...get().board, status: { ...status, sys_hitl: Math.round(r.after) } }
+            : get().board,
+        });
+      } catch (e) {
+        set({ paramEdit: { ...get().paramEdit, busy: false, message: (e as Error).message } });
+      }
+    },
     checkBoard: async () => {
       set({ board: { ...get().board, checking: true } });
       try {
@@ -550,6 +636,7 @@ export const useVectraStore = create<VectraState>((set, get) => {
         scenario: emptyScenario(),
         gazebo: idleGazebo(),
         board: idleBoard(),
+        paramEdit: idleParamEdit(),
         thrust: idleThrust(),
         view: { geometry: true, metrics: true, cad: true, flow: true },
         angleMode: "fwd_side",

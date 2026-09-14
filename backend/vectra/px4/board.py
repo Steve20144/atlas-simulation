@@ -341,6 +341,25 @@ class ParamSetResult:
         return asdict(self)
 
 
+@dataclass
+class ParamGetResult:
+    name: str
+    value: float
+    type_code: int
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def get_param(m: Link, name: str) -> ParamGetResult:
+    """Read one parameter (PARAM_REQUEST_READ) decoded with the type the board reports for it.
+    Unknown names raise BoardError (the board never answers the read)."""
+    got = read_param(m, name)
+    if got is None:
+        raise BoardError(f"the board has no parameter {name}")
+    return ParamGetResult(name=name, value=decode_param_value(got[0], got[1]), type_code=got[1])
+
+
 def set_param(m: Link, name: str, value: float) -> ParamSetResult:
     """Write one parameter through the shell with the type the board reports for it, save, and
     read it back. Unknown names raise BoardError (the board never answers the read)."""

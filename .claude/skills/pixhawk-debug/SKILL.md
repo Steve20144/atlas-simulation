@@ -125,6 +125,10 @@ All-zero motors for a pure thrust command means PX4 does the same.
 - HIL stuck: **HIL off** (`POST /api/board/flight`) restores SYS_HITL, SYS_AUTOSTART, EKF2_EN,
   sensor presence, IMU calibration slots and gains from the flight backup; then **Reboot board**.
 - RC calibration lock: **Reboot board** (`POST /api/board/reboot`).
+- Any other single parameter (MC_AIRMODE, MPC_THR_HOVER, ...): **PX4 params** in the Metrics rail.
+  Search by name or description, it reads the board value, type a new one, **write** (param set,
+  save, read back). Backend: `GET /api/px4/params?q=`, `GET /api/board/param?name=`,
+  `POST /api/board/param`. Catalogue from the pinned tree: `scripts/build_param_catalog.py`.
 - Any write or reboot needs the user's go-ahead in the chat first, and the fans unpowered.
 
 ## 7. Report

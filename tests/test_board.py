@@ -438,6 +438,21 @@ def test_thrust_feed_endpoints_hold_the_board_lock(client: TestClient, monkeypat
     assert client.post("/api/board/thrust_feed/stop", json={}).json() == {"stopped": False}
 
 
+def test_read_param_endpoint(client: TestClient, monkeypatch) -> None:
+    link = FakeLink(
+        {"SYS_HITL": (0, PARAM_TYPE_INT32), "MPC_THR_HOVER": (0.409, PARAM_TYPE_FLOAT)}
+    )
+    monkeypatch.setattr(board, "list_ports", lambda: [PIXHAWK])
+    monkeypatch.setattr(board, "connect", lambda port, timeout_s=5.0: link)
+    r = client.get("/api/board/param?name=MPC_THR_HOVER").json()
+    assert r["name"] == "MPC_THR_HOVER" and r["type_code"] == PARAM_TYPE_FLOAT
+    assert r["value"] == pytest.approx(0.409, abs=1e-6)
+    assert client.get("/api/board/param?name=SYS_HITL").json()["value"] == 0
+    assert client.get("/api/board/param?name=NOPE_X").status_code == 503
+    assert client.get("/api/board/param?name=bad").status_code == 422
+    assert link.closed and not board.LOCK.locked()
+
+
 def test_hil_toggle_and_reboot_endpoints(client: TestClient, monkeypatch) -> None:
     link = FakeLink({"SYS_HITL": (0, PARAM_TYPE_INT32)})
     monkeypatch.setattr(board, "list_ports", lambda: [PIXHAWK])

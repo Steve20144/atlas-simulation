@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -342,7 +342,7 @@ from vectra.api.schemas import (  # noqa: E402
     BoardPushRequest,
 )
 from vectra.export.params import latest_backup_params  # noqa: E402
-from vectra.px4 import board  # noqa: E402
+from vectra.px4 import board, param_catalog  # noqa: E402
 from vectra.px4.flight import flight_params  # noqa: E402
 from vectra.px4.telemetry import ThrustFeed  # noqa: E402
 
@@ -437,6 +437,34 @@ def _with_board(port: str, job: Any) -> Any:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     finally:
         board.LOCK.release()
+
+
+@app.get("/api/px4/params")
+def px4_params_search_endpoint(
+    q: str = "", limit: int = Query(default=30, ge=1, le=200)
+) -> dict[str, Any]:
+    """Search the pinned PX4 v1.17.0 parameter catalogue by name or description (PX4 params
+    editor). count is the catalogue size, not the number of hits."""
+    return {"count": param_catalog.count(), "results": param_catalog.search(q, limit)}
+
+
+@app.get("/api/px4/params/{name}")
+def px4_param_endpoint(name: str) -> dict[str, Any]:
+    """One catalogue entry: description, type, unit, range, enum labels, reboot flag."""
+    p = param_catalog.lookup(name)
+    if p is None:
+        raise HTTPException(
+            status_code=404, detail=f"{name} is not in the pinned tree's parameter definitions"
+        )
+    return p
+
+
+@app.get("/api/board/param")
+def board_param_read_endpoint(
+    name: str = Query(pattern=r"^[A-Z][A-Z0-9_]{1,15}$"), port: str = "auto"
+) -> dict[str, Any]:
+    """Read one parameter's current value from the board, decoded with the type it reports."""
+    return _with_board(port, lambda m, dev: board.get_param(m, name).as_dict())
 
 
 @app.post("/api/board/param")
