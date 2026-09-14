@@ -480,3 +480,40 @@ export interface BoardLogResult {
   /** GET url that serves the file for download. */
   url: string;
 }
+
+/** One 10 Hz sample of the thrust feed; t in s since the feed started. */
+export interface ThrustSample {
+  t: number;
+  rc_raw: number | null;
+  /** 0..1 stick after PX4's calibration and dead zone (MANUAL_CONTROL) or from the raw channel. */
+  throttle: number | null;
+  /** 0..1 collective the attitude controller asks for (ATTITUDE_TARGET.thrust). */
+  thrust_sp: number | null;
+  armed: boolean;
+  main_us: number[];
+  aux_us: number[];
+}
+
+/** GET /api/board/thrust_feed: what the board makes of the throttle stick, live. */
+export interface ThrustSnapshot {
+  running: boolean;
+  port: string;
+  uptime_s: number;
+  error: string | null;
+  latest: {
+    rc_raw: number | null;
+    rc_channels: number[];
+    throttle: number | null;
+    throttle_source: "MANUAL_CONTROL" | "RC_CHANNELS" | null;
+    thrust_sp: number | null;
+    armed: boolean;
+    hil: boolean;
+    mode: string | null;
+    /** pulse widths (us) on the px4io MAIN outputs and the fmu AUX outputs */
+    main_us: number[];
+    aux_us: number[];
+  };
+  params: Record<string, number | null>;
+  counts: Record<string, number>;
+  samples: ThrustSample[];
+}

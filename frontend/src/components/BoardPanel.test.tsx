@@ -35,6 +35,17 @@ function mockFetch(status: BoardStatus, push: BoardPushResult | { status: number
         return ok({ name: b.name, wanted: b.value, before: 0, after: b.value, type_code: 6, verified: true, reboot_required: true });
       }
       if (url === "/api/board/reboot") return ok({ port: "COM7", rebooted: true });
+      if (url === "/api/board/thrust_feed/start" || url.startsWith("/api/board/thrust_feed?")) {
+        return ok({
+          running: true, port: "COM7", uptime_s: 1.2, error: null,
+          latest: { rc_raw: 1200, rc_channels: [1500, 1500, 1200], throttle: 0.23, throttle_source: "MANUAL_CONTROL", thrust_sp: 0.35,
+            armed: true, hil: false, mode: "STABILIZED", main_us: [1301, 1302], aux_us: [1400] },
+          params: { MPC_THR_HOVER: 0.5, MPC_MANTHR_MIN: 0.08, RC3_MIN: 1000, RC3_MAX: 2000 }, counts: {},
+          samples: [{ t: 0, rc_raw: 1200, throttle: 0.2, thrust_sp: 0.3, armed: true, main_us: [], aux_us: [] },
+            { t: 1, rc_raw: 1200, throttle: 0.23, thrust_sp: 0.35, armed: true, main_us: [], aux_us: [] }],
+        });
+      }
+      if (url === "/api/board/thrust_feed/stop") return ok({ stopped: true });
       if (url === "/api/board/pull_log") {
         return ok({
           port: "COM7", path: "exports/logs/20260913_1900_flight_log012.ulg", log_id: 12, num_logs: 15,
@@ -139,6 +150,29 @@ describe("BoardPanel and BoardPill", () => {
     expect(calls.some((c) => c.url === "/api/board/reboot")).toBe(true);
     // the re-check after the reboot ran and the board reports again (it follows a timer, so wait)
     await waitFor(() => expect(calls.filter((c) => c.url.startsWith("/api/board/status")).length).toBe(2));
+  });
+
+  it("Test thrust starts the live feed, shows the pipeline and stops it", async () => {
+    const calls = mockFetch(online, pushed);
+    render(<BoardPanel />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Test thrust" }));
+    });
+    expect(calls.find((c) => c.url === "/api/board/thrust_feed/start")?.body).toMatchObject({ port: "auto" });
+    const feed = screen.getByTestId("thrust-feed");
+    expect(feed).toHaveTextContent("ARMED / STABILIZED");
+    expect(feed).toHaveTextContent("1200 us");
+    expect(feed).toHaveTextContent("23%");
+    expect(feed).toHaveTextContent("35%");
+    expect(feed).toHaveTextContent("MAIN 1");
+    expect(feed).toHaveTextContent("1400");
+    expect(screen.getByRole("button", { name: "Check" })).toBeDisabled();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Stop test" }));
+    });
+    expect(calls.some((c) => c.url === "/api/board/thrust_feed/stop")).toBe(true);
+    expect(useVectraStore.getState().thrust.running).toBe(false);
+    expect(screen.getByRole("button", { name: "Check" })).not.toBeDisabled();
   });
 
   it("Latest flight data pulls the newest log and offers the file", async () => {

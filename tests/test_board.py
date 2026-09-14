@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import struct
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -114,16 +115,17 @@ class FakeLink:
         )
 
     def recv_match(self, type=None, blocking=False, timeout=None):
-        if type == "HEARTBEAT":
+        types = list(type) if isinstance(type, (list, tuple)) else [type]
+        for i, msg in enumerate(self.queue):
+            if msg.get_type() in types:
+                return self.queue.pop(i)
+        if "HEARTBEAT" in types and len(types) == 1:
             if not self.heartbeat:
                 return None
             return SimpleNamespace(
                 get_srcComponent=lambda: 1, get_srcSystem=lambda: 1,
                 base_mode=32 | 64, custom_mode=0, type=2, autopilot=12,
             )
-        for i, msg in enumerate(self.queue):
-            if msg.get_type() == type:
-                return self.queue.pop(i)
         return None
 
     def close(self) -> None:
@@ -354,6 +356,86 @@ def test_pull_log_endpoint_saves_and_serves_the_file(
     assert got.status_code == 200 and got.content == b"ULog" * 300
     assert client.get("/api/board/logs/nope.ulg").status_code == 404
     assert client.get("/api/board/logs/..%2Fx.ulg").status_code in (400, 404)
+
+
+def _feed_messages(armed: bool) -> list:
+    hb = SimpleNamespace(
+        get_type=lambda: "HEARTBEAT", get_srcComponent=lambda: 1,
+        base_mode=(128 if armed else 0) | 64, custom_mode=(7 << 24), type=2, autopilot=12,
+    )
+    chans = {f"chan{i}_raw": 1500 for i in range(1, 9)}
+    rc = SimpleNamespace(get_type=lambda: "RC_CHANNELS", chancount=8, **chans)
+    rc.chan3_raw = 1200
+    mc = SimpleNamespace(get_type=lambda: "MANUAL_CONTROL", x=0, y=0, z=230, r=0)
+    at = SimpleNamespace(get_type=lambda: "ATTITUDE_TARGET", thrust=0.35)
+    zeros = {f"servo{i}_raw": 0 for i in range(1, 17)}
+    main = SimpleNamespace(get_type=lambda: "SERVO_OUTPUT_RAW", port=0, **zeros)
+    for i in range(1, 9):
+        setattr(main, f"servo{i}_raw", 1300 + i)
+    aux = SimpleNamespace(get_type=lambda: "SERVO_OUTPUT_RAW", port=1, **zeros)
+    aux.servo1_raw, aux.servo2_raw = 1400, 1410
+    return [hb, rc, mc, at, main, aux]
+
+
+def test_thrust_feed_records_stick_throttle_thrust_and_outputs(monkeypatch) -> None:
+    """MANUAL_CONTROL z 230 -> throttle 0.23 (z = (throttle + 1) * 500), ATTITUDE_TARGET.thrust,
+    SERVO_OUTPUT_RAW ports 0 and 1 -> MAIN / AUX pulse widths, armed from HEARTBEAT."""
+    from vectra.px4 import telemetry
+
+    monkeypatch.setattr(telemetry, "SAMPLE_PERIOD_S", 0.0)
+    rc3 = {"RC3_MIN": (1000.0, PARAM_TYPE_FLOAT), "RC3_MAX": (2000.0, PARAM_TYPE_FLOAT)}
+    link = FakeLink(
+        {**rc3, "MPC_THR_HOVER": (0.5, PARAM_TYPE_FLOAT), "RC_MAP_THROTTLE": (3, PARAM_TYPE_INT32)}
+    )
+    feed = telemetry.ThrustFeed(link, "COM7")
+    feed.start()
+    link.queue.extend(_feed_messages(armed=True))
+    deadline = time.time() + 3.0
+    while time.time() < deadline and feed.snapshot()["counts"].get("SERVO_OUTPUT_RAW", 0) < 2:
+        time.sleep(0.02)
+    snap = feed.snapshot()
+    feed.stop()
+    lt = snap["latest"]
+    assert lt["rc_raw"] == 1200 and lt["throttle"] == pytest.approx(0.23)
+    assert lt["throttle_source"] == "MANUAL_CONTROL"
+    assert lt["thrust_sp"] == pytest.approx(0.35) and lt["armed"] is True
+    assert lt["main_us"] == [1301, 1302, 1303, 1304, 1305, 1306, 1307, 1308]
+    assert lt["aux_us"] == [1400, 1410]
+    assert snap["params"]["MPC_THR_HOVER"] == 0.5 and snap["params"]["MPC_MANTHR_MIN"] is None
+    assert len(snap["samples"]) >= 1 and snap["samples"][-1]["thrust_sp"] == pytest.approx(0.35)
+    assert link.closed
+    # without MANUAL_CONTROL the stick position comes from the raw channel and the RC3 range
+    feed2 = telemetry.ThrustFeed(FakeLink(rc3), "COM7")
+    feed2.params = {"RC3_MIN": 1000.0, "RC3_MAX": 2000.0, "RC_MAP_THROTTLE": None}
+    feed2._ingest(_feed_messages(False)[1])
+    assert feed2.latest["throttle"] == pytest.approx(0.2)
+    assert feed2.latest["throttle_source"] == "RC_CHANNELS"
+
+
+def test_thrust_feed_endpoints_hold_the_board_lock(client: TestClient, monkeypatch) -> None:
+    from vectra.px4 import telemetry
+
+    monkeypatch.setattr(telemetry, "SAMPLE_PERIOD_S", 0.0)
+    link = FakeLink({})
+    link.queue.extend(_feed_messages(armed=False))
+    monkeypatch.setattr(board, "list_ports", lambda: [PIXHAWK])
+    monkeypatch.setattr(board, "connect", lambda port, timeout_s=5.0: link)
+    r = client.post("/api/board/thrust_feed/start", json={"port": "COM7"})
+    assert r.status_code == 200, r.text
+    assert r.json()["running"] is True and r.json()["port"] == "COM7"
+    # the feed owns the link: other board operations must not open the port meanwhile
+    assert client.get("/api/board/status?port=COM7").status_code == 409
+    deadline = time.time() + 3.0
+    while time.time() < deadline:
+        if client.get("/api/board/thrust_feed").json()["latest"]["thrust_sp"] is not None:
+            break
+        time.sleep(0.02)
+    snap = client.get("/api/board/thrust_feed?seconds=5").json()
+    assert snap["latest"]["thrust_sp"] == pytest.approx(0.35) and snap["latest"]["armed"] is False
+    assert client.post("/api/board/thrust_feed/stop", json={}).json() == {"stopped": True}
+    assert link.closed and not board.LOCK.locked()
+    assert client.get("/api/board/thrust_feed").status_code == 404
+    assert client.post("/api/board/thrust_feed/stop", json={}).json() == {"stopped": False}
 
 
 def test_hil_toggle_and_reboot_endpoints(client: TestClient, monkeypatch) -> None:

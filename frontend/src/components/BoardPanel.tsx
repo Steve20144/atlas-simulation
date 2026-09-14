@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useVectraStore } from "../store";
 import BoardHil from "./BoardHil";
+import BoardMessages from "./BoardMessages";
+import ThrustFeed from "./ThrustFeed";
 
 /**
  * Pixhawk 6X Pro over USB. Check reports the heartbeat, firmware and flags; Upload writes the
@@ -12,11 +14,12 @@ export default function BoardPanel() {
   const board = useVectraStore((s) => s.board);
   const lines = useVectraStore((s) => s.paramsLines);
   const gazeboHitl = useVectraStore((s) => s.gazebo.running && s.gazebo.mode === "hitl");
-  const { checkBoard, pushBoard, pullBoardLog, setBoardPort } = useVectraStore.getState();
+  const feeding = useVectraStore((s) => s.thrust.running);
+  const { checkBoard, pushBoard, pullBoardLog, startThrustFeed, setBoardPort } = useVectraStore.getState();
   const [armed, setArmed] = useState(false);
   const st = board.status;
   const ports = st?.ports ?? [];
-  const busy = board.checking || board.pushing || board.pulling;
+  const busy = board.checking || board.pushing || board.pulling || feeding;
   const canPush = lines.length > 0 && !busy && !gazeboHitl;
   const dot = board.checking ? "ui-dot-busy" : st === null ? "" : st.connected ? "ui-dot-ok" : "ui-dot-bad";
 
@@ -73,6 +76,14 @@ export default function BoardPanel() {
           {board.pulling ? "downloading log" : "Latest flight data"}
         </button>
         <button
+          className="ui-btn"
+          disabled={busy || gazeboHitl}
+          title="Live view of what the board makes of the throttle stick: RC pulse, PX4 throttle, thrust setpoint and the pulse width on every ESC output, 10 Hz. The outputs stay live: fans and ESCs unpowered."
+          onClick={() => void startThrustFeed()}
+        >
+          Test thrust
+        </button>
+        <button
           className={armed ? "ui-btn-primary ui-btn" : "ui-btn"}
           disabled={!canPush}
           title={
@@ -107,37 +118,8 @@ export default function BoardPanel() {
       )}
 
       <BoardHil />
-
-      {board.message && (
-        <p
-          className="break-all text-[10px]"
-          style={{ color: board.result && board.result.mismatches.length > 0 ? "var(--ui-bad)" : "var(--ui-muted)" }}
-        >
-          {board.message}
-        </p>
-      )}
-      {board.log && (
-        <p className="break-all text-[10px]" style={{ color: "var(--ui-dim)" }}>
-          saved {board.log.path}{" "}
-          <a className="underline" href={board.log.url} download>
-            download .ulg
-          </a>
-        </p>
-      )}
-      {board.result?.backup && (
-        <p className="break-all text-[10px]" style={{ color: "var(--ui-dim)" }}>
-          backup {board.result.backup}
-        </p>
-      )}
-      {board.result && board.result.mismatches.length > 0 && (
-        <ul className="text-[10px] tabular-nums" style={{ color: "var(--ui-bad)" }}>
-          {board.result.mismatches.slice(0, 8).map((m) => (
-            <li key={m.name}>
-              {m.name}: wanted {m.wanted}, board has {m.board ?? "no answer"}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ThrustFeed />
+      <BoardMessages />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { DIHEDRAL_SCENARIO_NAME, presetOmni, presetVertical, type PresetId } fro
 import type {
   BoardLogResult,
   BoardPushResult,
+  ThrustSnapshot,
   BoardStatus,
   GazeboMode,
   GazeboStatus,
@@ -88,6 +89,15 @@ export interface BoardState {
   port: string;
 }
 
+/** Live thrust feed (Test thrust): polled at 5 Hz while running. */
+export interface ThrustState {
+  running: boolean;
+  snapshot: ThrustSnapshot | null;
+  error: string | null;
+}
+
+const idleThrust = (): ThrustState => ({ running: false, snapshot: null, error: null });
+
 const idleBoard = (): BoardState => ({
   status: null, checking: false, pushing: false, pulling: false, result: null, log: null, message: "", port: "auto",
 });
@@ -123,6 +133,10 @@ export interface VectraState {
   setBoardHitl: (on: boolean) => Promise<void>;
   /** Download the newest .ulg the board recorded into exports/logs/. */
   pullBoardLog: () => Promise<void>;
+  thrust: ThrustState;
+  /** Test thrust: start the live feed and poll it. */
+  startThrustFeed: () => Promise<void>;
+  stopThrustFeed: () => Promise<void>;
   /** Reboot the autopilot and re-check after the USB link is back. */
   rebootBoard: () => Promise<void>;
   setScenario: (scenario: Scenario) => void;
@@ -164,6 +178,13 @@ const idleGazebo = (): GazeboStatus & { message: string } => ({
 });
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let thrustTimer: ReturnType<typeof setInterval> | null = null;
+export const THRUST_POLL_MS = 200;
+
+function stopThrustPolling(): void {
+  if (thrustTimer) clearInterval(thrustTimer);
+  thrustTimer = null;
+}
 let refreshSeq = 0;
 
 export const useVectraStore = create<VectraState>((set, get) => {
@@ -207,6 +228,36 @@ export const useVectraStore = create<VectraState>((set, get) => {
       } catch (e) {
         set({ board: { ...get().board, status: null, checking: false, message: (e as Error).message } });
       }
+    },
+    thrust: idleThrust(),
+    startThrustFeed: async () => {
+      set({ thrust: { running: false, snapshot: null, error: null }, board: { ...get().board, message: "" } });
+      try {
+        const snapshot = await api.thrustFeedStart(get().board.port);
+        set({ thrust: { running: true, snapshot, error: null } });
+        stopThrustPolling();
+        thrustTimer = setInterval(async () => {
+          try {
+            const s = await api.thrustFeed();
+            set({ thrust: { running: s.running, snapshot: s, error: s.error } });
+            if (!s.running) stopThrustPolling();
+          } catch (e) {
+            stopThrustPolling();
+            set({ thrust: { ...get().thrust, running: false, error: (e as Error).message } });
+          }
+        }, THRUST_POLL_MS);
+      } catch (e) {
+        set({ thrust: { running: false, snapshot: null, error: null }, board: { ...get().board, message: (e as Error).message } });
+      }
+    },
+    stopThrustFeed: async () => {
+      stopThrustPolling();
+      try {
+        await api.thrustFeedStop();
+      } catch (e) {
+        set({ board: { ...get().board, message: (e as Error).message } });
+      }
+      set({ thrust: { ...get().thrust, running: false } });
     },
     pullBoardLog: async () => {
       set({ board: { ...get().board, pulling: true, log: null, message: "listing logs on the board" } });
@@ -494,10 +545,12 @@ export const useVectraStore = create<VectraState>((set, get) => {
     reset: () => {
       if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = null;
+      stopThrustPolling();
       set({
         scenario: emptyScenario(),
         gazebo: idleGazebo(),
         board: idleBoard(),
+        thrust: idleThrust(),
         view: { geometry: true, metrics: true, cad: true, flow: true },
         angleMode: "fwd_side",
         concept: "stock",

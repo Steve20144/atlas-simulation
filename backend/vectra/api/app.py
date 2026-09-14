@@ -344,9 +344,12 @@ from vectra.api.schemas import (  # noqa: E402
 from vectra.export.params import latest_backup_params  # noqa: E402
 from vectra.px4 import board  # noqa: E402
 from vectra.px4.flight import flight_params  # noqa: E402
+from vectra.px4.telemetry import ThrustFeed  # noqa: E402
 
 BOARD_BACKUP_DIR = EXPORTS_DIR / "board"
 BOARD_LOGS_DIR = EXPORTS_DIR / "logs"
+# the one live thrust feed; while it runs it holds board.LOCK so Check / Upload answer 409
+THRUST_FEED: dict[str, ThrustFeed | None] = {"feed": None}
 
 
 def _board_free() -> None:
@@ -494,6 +497,62 @@ def board_log_file(name: str) -> FileResponse:
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"log '{name}' not found")
     return FileResponse(path, media_type="application/octet-stream", filename=name)
+
+
+@app.post("/api/board/thrust_feed/start")
+def thrust_feed_start_endpoint(req: BoardPortRequest) -> dict[str, Any]:
+    """Test thrust: open the board link, turn the MANUAL_CONTROL / SERVO_OUTPUT_RAW streams up
+    to 10 Hz and start recording stick, PX4 throttle, thrust setpoint and ESC pulse widths.
+    Holds the board lock until /stop. Measurement only: PX4 auto-disarms 5 s after a software
+    lockdown outside HITL (Commander.cpp:2314-2329), so the outputs stay live; fans unpowered."""
+    if THRUST_FEED["feed"] is not None and THRUST_FEED["feed"].running:
+        return THRUST_FEED["feed"].snapshot()
+    _thrust_feed_close()
+    dev = board.pick_port(req.port)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="no Pixhawk on any serial port")
+    _board_free()  # acquires board.LOCK; the feed keeps it
+    try:
+        m = board.connect(dev)
+        feed = ThrustFeed(m, dev)
+        feed.start()
+    except board.BoardError as exc:
+        board.LOCK.release()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception:
+        board.LOCK.release()
+        raise
+    THRUST_FEED["feed"] = feed
+    return feed.snapshot()
+
+
+@app.get("/api/board/thrust_feed")
+def thrust_feed_endpoint(seconds: float = 30.0) -> dict[str, Any]:
+    """Latest values plus the samples of the last `seconds` (10 Hz)."""
+    feed = THRUST_FEED["feed"]
+    if feed is None:
+        raise HTTPException(status_code=404, detail="thrust feed not running")
+    return feed.snapshot(seconds)
+
+
+@app.post("/api/board/thrust_feed/stop")
+def thrust_feed_stop_endpoint() -> dict[str, Any]:
+    """Stop the feed, restore the stream rates, close the link and free the board."""
+    was = THRUST_FEED["feed"] is not None
+    _thrust_feed_close()
+    return {"stopped": was}
+
+
+def _thrust_feed_close() -> None:
+    feed = THRUST_FEED["feed"]
+    if feed is None:
+        return
+    THRUST_FEED["feed"] = None
+    try:
+        feed.stop()
+    finally:
+        if board.LOCK.locked():
+            board.LOCK.release()
 
 
 @app.post("/api/board/reboot")

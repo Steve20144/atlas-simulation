@@ -1,5 +1,5 @@
 import type {
-  BoardFlightResult, BoardLogResult, BoardParamResult, BoardPushResult, BoardStatus, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
+  BoardFlightResult, BoardLogResult, BoardParamResult, BoardPushResult, BoardStatus, ThrustSnapshot, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
   SweepRequestBody, SweepResponse,
 } from "./types";
 
@@ -82,4 +82,8 @@ export const api = {
   boardReboot: (port = "auto") => post<{ port: string; rebooted: boolean }>("/api/board/reboot", { port }),
   /** Download the newest flight log from the board's SD card into exports/logs/ (slow over USB). */
   boardPullLog: (port = "auto") => post<BoardLogResult>("/api/board/pull_log", { port }),
+  /** Test thrust: live stick -> throttle -> thrust setpoint -> ESC pulse widths from the board. */
+  thrustFeedStart: (port = "auto") => post<ThrustSnapshot>("/api/board/thrust_feed/start", { port }),
+  thrustFeed: (seconds = 30) => request<ThrustSnapshot>(`/api/board/thrust_feed?seconds=${seconds}`),
+  thrustFeedStop: () => post<{ stopped: boolean }>("/api/board/thrust_feed/stop", {}),
 };
