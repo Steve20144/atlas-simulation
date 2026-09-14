@@ -216,6 +216,10 @@ Fan angles in the geometry tables are entered as **fwd / side** by default: forw
 
 `docs/v1_metrics_snapshot.md` holds the metrics of the three shipped scenarios as returned by the API.
 
+## Debugging a flight
+
+`scripts/flight_debug.py <file.ulg>` triages a Pixhawk log: parameters that matter, warnings, arming windows and reasons, the stick to thrust path (raw channel, PX4 throttle, thrust setpoint, fitted slope), per-motor commands and pulse widths while armed, allocator saturation, attitude, and a findings list of the failure signatures seen on this aircraft (infeasible geometry giving zero motors, RC calibration lock, HIL airframe, hover-thrust rescaling, board pitch offset). `.claude/skills/pixhawk-debug/SKILL.md` is the step-by-step procedure for a fresh Claude session: find the port, pull the newest log through the app, run the triage, read the board live, fix through Vectra.
+
 ## Working on the code
 
 - Conventions are in `CLAUDE.md`: one module per session, `make test` green before each commit, no hard-coded CT, mass or positions (they come from the Scenario), PX4 behaviour ported from the pinned tree with file:line citations, golden-test tolerances never loosened.
