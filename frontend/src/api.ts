@@ -1,5 +1,5 @@
 import type {
-  BoardFlightResult, BoardParamResult, BoardPushResult, BoardStatus, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
+  BoardFlightResult, BoardLogResult, BoardParamResult, BoardPushResult, BoardStatus, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, Scenario,
   SweepRequestBody, SweepResponse,
 } from "./types";
 
@@ -80,4 +80,6 @@ export const api = {
     post<BoardFlightResult>("/api/board/flight", { scenario, port }),
   /** Reboot the autopilot; the USB link is gone for a few seconds afterwards. */
   boardReboot: (port = "auto") => post<{ port: string; rebooted: boolean }>("/api/board/reboot", { port }),
+  /** Download the newest flight log from the board's SD card into exports/logs/ (slow over USB). */
+  boardPullLog: (port = "auto") => post<BoardLogResult>("/api/board/pull_log", { port }),
 };

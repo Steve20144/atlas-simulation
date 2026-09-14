@@ -23,6 +23,7 @@ import struct
 import threading
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -368,3 +369,116 @@ def reboot(m: Link) -> None:
         m.target_system, m.target_component, CMD_PREFLIGHT_REBOOT_SHUTDOWN, 0, 1, 0, 0, 0, 0, 0, 0
     )
     m.recv_match(type="COMMAND_ACK", blocking=True, timeout=2.0)
+
+
+# ---------------------------------------------------------------- flight logs
+# MAVLink log transfer protocol: LOG_REQUEST_LIST -> LOG_ENTRY (id, num_logs, time_utc, size),
+# LOG_REQUEST_DATA (id, ofs, count) -> LOG_DATA chunks of up to 90 bytes, LOG_REQUEST_END.
+LOG_RECV_TIMEOUT_S = 3.0
+LOG_LIST_TIMEOUT_S = 20.0
+LOG_STALL_S = 4.0  # no chunk for this long: re-request from the first gap
+LOG_ABORT_S = 45.0  # no chunk at all for this long: give up
+LOG_MAX_S = 1200.0  # a whole download may not take longer (USB CDC moves about 50 kB/s)
+LOG_CHUNK = 90
+
+
+@dataclass
+class LogPullResult:
+    port: str
+    path: str
+    log_id: int
+    num_logs: int
+    size: int
+    time_utc: int
+    seconds: float
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def list_logs(m: Link) -> dict[int, Any]:
+    """LOG_ENTRY messages by log id (each has num_logs, time_utc in s since epoch or 0, size)."""
+    ts, tc = m.target_system, m.target_component
+    m.mav.log_request_list_send(ts, tc, 0, 0xFFFF)
+    entries: dict[int, Any] = {}
+    end = time.time() + LOG_LIST_TIMEOUT_S
+    while time.time() < end:
+        e = m.recv_match(type="LOG_ENTRY", blocking=True, timeout=LOG_RECV_TIMEOUT_S)
+        if e is None:
+            if entries:
+                break
+            continue
+        entries[int(e.id)] = e
+        if e.num_logs and len(entries) >= int(e.num_logs):
+            break
+    return entries
+
+
+def newest_log(entries: dict[int, Any]) -> Any:
+    """The latest flight: highest UTC time (real flights carry GPS time; bench sessions report
+    0), ties broken by the highest id."""
+    return max(entries.values(), key=lambda e: (int(e.time_utc), int(e.id)))
+
+
+def log_file_name(entry: Any) -> str:
+    if int(entry.time_utc) > 0:
+        stamp = datetime.fromtimestamp(int(entry.time_utc), tz=UTC).strftime(
+            "%Y%m%d_%H%M"
+        )
+        return f"{stamp}_flight_log{int(entry.id):03d}.ulg"
+    return timestamped_name(f"board_log{int(entry.id):03d}", "ulg")
+
+
+def download_log(m: Link, entry: Any) -> bytes:
+    """Fetch one log completely; stalled or lost chunks are re-requested from the first gap."""
+    ts, tc = m.target_system, m.target_component
+    log_id, size = int(entry.id), int(entry.size)
+    if size <= 0:
+        raise BoardError(f"log {log_id} on the board is empty")
+    buf, have = bytearray(size), bytearray(size)
+    m.mav.log_request_data_send(ts, tc, log_id, 0, 0xFFFFFFFF)
+    start = last = time.time()
+    while have.find(b"\x00") >= 0:
+        d = m.recv_match(type="LOG_DATA", blocking=True, timeout=LOG_RECV_TIMEOUT_S)
+        now = time.time()
+        if d is not None and int(d.id) == log_id and int(d.count) > 0:
+            ofs, stop = int(d.ofs), min(int(d.ofs) + int(d.count), size)
+            buf[ofs:stop] = bytes(d.data[: stop - ofs])
+            have[ofs:stop] = b"\x01" * (stop - ofs)
+            last = now
+        elif now - last > LOG_ABORT_S:
+            m.mav.log_request_end_send(ts, tc)
+            got = sum(have)
+            raise BoardError(f"log {log_id} download stalled after {got} of {size} bytes")
+        elif now - last > LOG_STALL_S:
+            gap = have.find(b"\x00")
+            nxt = have.find(b"\x01", gap)
+            m.mav.log_request_data_send(ts, tc, log_id, gap, (nxt if nxt > 0 else size) - gap)
+            last = now
+        if now - start > LOG_MAX_S:
+            m.mav.log_request_end_send(ts, tc)
+            raise BoardError(f"log {log_id} download exceeded {LOG_MAX_S:.0f} s")
+    m.mav.log_request_end_send(ts, tc)
+    return bytes(buf)
+
+
+def pull_latest_log(m: Link, port: str, out_dir: Path) -> LogPullResult:
+    """Download the newest log on the board into out_dir as a .ulg file."""
+    t0 = time.time()
+    entries = list_logs(m)
+    if not entries:
+        raise BoardError("the board lists no logs (SD card empty or logger off)")
+    entry = newest_log(entries)
+    data = download_log(m, entry)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / log_file_name(entry)
+    path.write_bytes(data)
+    return LogPullResult(
+        port=port,
+        path=str(path),
+        log_id=int(entry.id),
+        num_logs=len(entries),
+        size=len(data),
+        time_utc=int(entry.time_utc),
+        seconds=round(time.time() - t0, 1),
+    )

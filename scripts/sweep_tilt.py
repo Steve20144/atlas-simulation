@@ -60,7 +60,7 @@ def main() -> None:
         choices=list(NOSE_PAIRINGS),
         help="opposed: front +v rear -v; same: both v; independent: grid squared",
     )
-    p.add_argument(
+    ap.add_argument(
         "--nose-axis", default="side", choices=("side", "fwd"),
         help="side: nose fans lean left/right (about X); fwd: forward/aft (about Y)",
     )

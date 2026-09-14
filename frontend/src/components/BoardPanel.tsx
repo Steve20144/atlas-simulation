@@ -12,11 +12,11 @@ export default function BoardPanel() {
   const board = useVectraStore((s) => s.board);
   const lines = useVectraStore((s) => s.paramsLines);
   const gazeboHitl = useVectraStore((s) => s.gazebo.running && s.gazebo.mode === "hitl");
-  const { checkBoard, pushBoard, setBoardPort } = useVectraStore.getState();
+  const { checkBoard, pushBoard, pullBoardLog, setBoardPort } = useVectraStore.getState();
   const [armed, setArmed] = useState(false);
   const st = board.status;
   const ports = st?.ports ?? [];
-  const busy = board.checking || board.pushing;
+  const busy = board.checking || board.pushing || board.pulling;
   const canPush = lines.length > 0 && !busy && !gazeboHitl;
   const dot = board.checking ? "ui-dot-busy" : st === null ? "" : st.connected ? "ui-dot-ok" : "ui-dot-bad";
 
@@ -61,6 +61,18 @@ export default function BoardPanel() {
           Check
         </button>
         <button
+          className="ui-btn"
+          disabled={busy || gazeboHitl}
+          title={
+            gazeboHitl
+              ? "the HITL session owns the serial port; stop it first"
+              : "Download the newest .ulg the board recorded (highest GPS time, then highest id) into exports/logs/. About 50 kB/s over USB, so a long flight takes minutes."
+          }
+          onClick={() => void pullBoardLog()}
+        >
+          {board.pulling ? "downloading log" : "Latest flight data"}
+        </button>
+        <button
           className={armed ? "ui-btn-primary ui-btn" : "ui-btn"}
           disabled={!canPush}
           title={
@@ -102,6 +114,14 @@ export default function BoardPanel() {
           style={{ color: board.result && board.result.mismatches.length > 0 ? "var(--ui-bad)" : "var(--ui-muted)" }}
         >
           {board.message}
+        </p>
+      )}
+      {board.log && (
+        <p className="break-all text-[10px]" style={{ color: "var(--ui-dim)" }}>
+          saved {board.log.path}{" "}
+          <a className="underline" href={board.log.url} download>
+            download .ulg
+          </a>
         </p>
       )}
       {board.result?.backup && (

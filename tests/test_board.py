@@ -33,8 +33,41 @@ class FakeLink:
             param_request_read_send=self._request_read,
             serial_control_send=self._serial,
             command_long_send=self._command,
+            log_request_list_send=self._log_list,
+            log_request_data_send=self._log_data,
+            log_request_end_send=lambda sysid, compid: None,
         )
         self.closed = False
+        # id -> (time_utc, bytes); the first full-range data request drops one chunk so the
+        # gap re-request path runs
+        self.logs: dict[int, tuple[int, bytes]] = {}
+        self.dropped_once = False
+
+    def _log_list(self, sysid, compid, start, end) -> None:
+        ids = sorted(self.logs)
+        for lid in ids:
+            t, data = self.logs[lid]
+            self.queue.append(
+                SimpleNamespace(
+                    get_type=lambda: "LOG_ENTRY", id=lid, num_logs=len(ids),
+                    last_log_num=ids[-1], time_utc=t, size=len(data),
+                )
+            )
+
+    def _log_data(self, sysid, compid, lid, ofs, count) -> None:
+        data = self.logs[lid][1]
+        stop = len(data) if count == 0xFFFFFFFF else min(ofs + count, len(data))
+        for k, o in enumerate(range(ofs, stop, board.LOG_CHUNK)):
+            if count == 0xFFFFFFFF and k == 1 and not self.dropped_once:
+                self.dropped_once = True
+                continue
+            chunk = data[o : min(o + board.LOG_CHUNK, stop)]
+            self.queue.append(
+                SimpleNamespace(
+                    get_type=lambda: "LOG_DATA", id=lid, ofs=o, count=len(chunk),
+                    data=list(chunk) + [0] * (board.LOG_CHUNK - len(chunk)),
+                )
+            )
 
     def _request_read(self, sysid, compid, name, index) -> None:
         name = name.decode()
@@ -102,6 +135,9 @@ def fast_link(monkeypatch: pytest.MonkeyPatch) -> None:
     """The fake answers at once, so do not sit in the settle and timeout loops."""
     monkeypatch.setattr(board, "SHELL_SETTLE_S", 0.0)
     monkeypatch.setattr(board, "PARAM_TIMEOUT_S", 0.01)
+    monkeypatch.setattr(board, "LOG_RECV_TIMEOUT_S", 0.0)
+    monkeypatch.setattr(board, "LOG_STALL_S", 0.0)
+    monkeypatch.setattr(board, "LOG_LIST_TIMEOUT_S", 1.0)
 
 
 def scenario_json(name: str) -> dict:
@@ -281,6 +317,43 @@ def test_flight_endpoint_writes_the_set_and_backs_up(client: TestClient, monkeyp
     assert client.get("/api/board/status").json()["sys_hitl"] == 0
     r = client.post("/api/board/flight", json={"base": "nope.params"})
     assert r.status_code == 400
+
+
+def test_pull_latest_log_picks_newest_flight_and_fills_gaps(tmp_path: Path) -> None:
+    """Newest = highest UTC time then id (a bench session with time 0 does not win over an older
+    id with GPS time); a dropped chunk is re-requested from the first gap; bytes match."""
+    flight = bytes(range(256)) * 9 + b"ULog tail"  # 2313 bytes, not a chunk multiple
+    link = FakeLink({})
+    link.logs = {3: (0, b"sess" * 60), 5: (1_757_700_000, flight), 7: (0, b"later bench" * 20)}
+    res = board.pull_latest_log(link, "COM7", tmp_path / "logs")
+    assert res.log_id == 5 and res.num_logs == 3 and res.size == len(flight)
+    assert link.dropped_once and Path(res.path).read_bytes() == flight
+    assert Path(res.path).name == "20250912_1800_flight_log005.ulg"
+    link.logs = {2: (0, b"x" * 100)}
+    res2 = board.pull_latest_log(link, "COM7", tmp_path / "logs")
+    assert res2.log_id == 2 and Path(res2.path).name.endswith("_board_log002.ulg")
+    with pytest.raises(board.BoardError, match="no logs"):
+        link.logs = {}
+        board.pull_latest_log(link, "COM7", tmp_path / "logs")
+
+
+def test_pull_log_endpoint_saves_and_serves_the_file(
+    client: TestClient, monkeypatch, tmp_path: Path
+) -> None:
+    link = FakeLink({})
+    link.logs = {1: (1_757_700_000, b"ULog" * 300)}
+    monkeypatch.setattr(board, "list_ports", lambda: [PIXHAWK])
+    monkeypatch.setattr(board, "connect", lambda port, timeout_s=5.0: link)
+    monkeypatch.setattr(app_module, "BOARD_LOGS_DIR", tmp_path / "logs")
+    r = client.post("/api/board/pull_log", json={"port": "COM7"})
+    assert r.status_code == 200, r.text
+    res = r.json()
+    assert res["log_id"] == 1 and res["size"] == 1200 and res["url"].endswith(".ulg")
+    assert Path(res["path"]).is_file()
+    got = client.get(res["url"])
+    assert got.status_code == 200 and got.content == b"ULog" * 300
+    assert client.get("/api/board/logs/nope.ulg").status_code == 404
+    assert client.get("/api/board/logs/..%2Fx.ulg").status_code in (400, 404)
 
 
 def test_hil_toggle_and_reboot_endpoints(client: TestClient, monkeypatch) -> None:

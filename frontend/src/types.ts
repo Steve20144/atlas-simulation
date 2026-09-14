@@ -466,3 +466,17 @@ export interface BoardFlightResult extends BoardPushResult {
   base: string;
   reboot_required: boolean;
 }
+
+/** POST /api/board/pull_log: the newest .ulg on the board, saved under exports/logs/. */
+export interface BoardLogResult {
+  port: string;
+  path: string;
+  log_id: number;
+  num_logs: number;
+  size: number;
+  /** seconds since the epoch from the log entry; 0 when the board had no GPS time. */
+  time_utc: number;
+  seconds: number;
+  /** GET url that serves the file for download. */
+  url: string;
+}

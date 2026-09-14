@@ -346,6 +346,7 @@ from vectra.px4 import board  # noqa: E402
 from vectra.px4.flight import flight_params  # noqa: E402
 
 BOARD_BACKUP_DIR = EXPORTS_DIR / "board"
+BOARD_LOGS_DIR = EXPORTS_DIR / "logs"
 
 
 def _board_free() -> None:
@@ -469,6 +470,30 @@ def board_flight_endpoint(req: BoardFlightRequest) -> dict[str, Any]:
         }
 
     return _with_board(req.port, job)
+
+
+@app.post("/api/board/pull_log")
+def board_pull_log_endpoint(req: BoardPortRequest) -> dict[str, Any]:
+    """Download the newest flight log (.ulg) from the board's SD card into exports/logs/ over the
+    MAVLink log transfer protocol; newest = highest UTC time, then highest id. Slow over USB:
+    about 50 kB/s, so minutes for a long flight."""
+
+    def job(m: Any, dev: str) -> dict[str, Any]:
+        res = board.pull_latest_log(m, dev, BOARD_LOGS_DIR)
+        return {**res.as_dict(), "url": f"/api/board/logs/{Path(res.path).name}"}
+
+    return _with_board(req.port, job)
+
+
+@app.get("/api/board/logs/{name}")
+def board_log_file(name: str) -> FileResponse:
+    """Serve a pulled .ulg from exports/logs/ so the browser can save it."""
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+\.ulg", name) or ".." in name:
+        raise HTTPException(status_code=400, detail="invalid log name")
+    path = BOARD_LOGS_DIR / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"log '{name}' not found")
+    return FileResponse(path, media_type="application/octet-stream", filename=name)
 
 
 @app.post("/api/board/reboot")

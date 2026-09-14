@@ -3,6 +3,7 @@ import { api } from "./api";
 import { mirrorAzimuth } from "./geometry";
 import { DIHEDRAL_SCENARIO_NAME, presetOmni, presetVertical, type PresetId } from "./presets";
 import type {
+  BoardLogResult,
   BoardPushResult,
   BoardStatus,
   GazeboMode,
@@ -79,13 +80,16 @@ export interface BoardState {
   status: BoardStatus | null;
   checking: boolean;
   pushing: boolean;
+  /** downloading the latest flight log */
+  pulling: boolean;
   result: BoardPushResult | null;
+  log: BoardLogResult | null;
   message: string;
   port: string;
 }
 
 const idleBoard = (): BoardState => ({
-  status: null, checking: false, pushing: false, result: null, message: "", port: "auto",
+  status: null, checking: false, pushing: false, pulling: false, result: null, log: null, message: "", port: "auto",
 });
 
 export interface VectraState {
@@ -117,6 +121,8 @@ export interface VectraState {
   pushBoard: () => Promise<void>;
   /** Write SYS_HITL (0 off, 1 HITL) and refresh the status; PX4 reads it at boot only. */
   setBoardHitl: (on: boolean) => Promise<void>;
+  /** Download the newest .ulg the board recorded into exports/logs/. */
+  pullBoardLog: () => Promise<void>;
   /** Reboot the autopilot and re-check after the USB link is back. */
   rebootBoard: () => Promise<void>;
   setScenario: (scenario: Scenario) => void;
@@ -200,6 +206,17 @@ export const useVectraStore = create<VectraState>((set, get) => {
         set({ board: { ...get().board, status, checking: false, message: status.message } });
       } catch (e) {
         set({ board: { ...get().board, status: null, checking: false, message: (e as Error).message } });
+      }
+    },
+    pullBoardLog: async () => {
+      set({ board: { ...get().board, pulling: true, log: null, message: "listing logs on the board" } });
+      try {
+        const log = await api.boardPullLog(get().board.port);
+        const when = log.time_utc > 0 ? new Date(log.time_utc * 1000).toLocaleString() : "no GPS time (bench session)";
+        const message = `log ${log.log_id} of ${log.num_logs} saved (${(log.size / 1e6).toFixed(1)} MB in ${log.seconds} s, ${when})`;
+        set({ board: { ...get().board, pulling: false, log, message } });
+      } catch (e) {
+        set({ board: { ...get().board, pulling: false, message: (e as Error).message } });
       }
     },
     pushBoard: async () => {

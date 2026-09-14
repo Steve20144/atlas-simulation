@@ -35,6 +35,12 @@ function mockFetch(status: BoardStatus, push: BoardPushResult | { status: number
         return ok({ name: b.name, wanted: b.value, before: 0, after: b.value, type_code: 6, verified: true, reboot_required: true });
       }
       if (url === "/api/board/reboot") return ok({ port: "COM7", rebooted: true });
+      if (url === "/api/board/pull_log") {
+        return ok({
+          port: "COM7", path: "exports/logs/20260913_1900_flight_log012.ulg", log_id: 12, num_logs: 15,
+          size: 3_200_000, time_utc: 1_757_790_000, seconds: 64, url: "/api/board/logs/20260913_1900_flight_log012.ulg",
+        });
+      }
       if (url === "/api/board/flight") {
         return ok({
           ...pushed, sent: 30, changed: ["SYS_HITL", "SYS_AUTOSTART"], verified: 30,
@@ -133,6 +139,18 @@ describe("BoardPanel and BoardPill", () => {
     expect(calls.some((c) => c.url === "/api/board/reboot")).toBe(true);
     // the re-check after the reboot ran and the board reports again (it follows a timer, so wait)
     await waitFor(() => expect(calls.filter((c) => c.url.startsWith("/api/board/status")).length).toBe(2));
+  });
+
+  it("Latest flight data pulls the newest log and offers the file", async () => {
+    const calls = mockFetch(online, pushed);
+    render(<BoardPanel />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Latest flight data" }));
+    });
+    expect(calls.find((c) => c.url === "/api/board/pull_log")?.body).toMatchObject({ port: "auto" });
+    const link = screen.getByRole("link", { name: "download .ulg" }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("/api/board/logs/20260913_1900_flight_log012.ulg");
+    expect(useVectraStore.getState().board.message).toMatch(/log 12 of 15 saved \(3\.2 MB in 64 s/);
   });
 
   it("HIL off restores the flight set through /api/board/flight, not a bare SYS_HITL write", async () => {
