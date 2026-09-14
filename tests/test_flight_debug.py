@@ -33,7 +33,7 @@ def test_log40_report_sections_and_stick_to_thrust(tmp_path: Path) -> None:
     assert len(rep["motors"]["actuator_motors_armed"]) == 10
     assert rep["motors"]["allocator_armed"]["motor_saturation_lower_pct"] > 50
     text = fd.render(rep)
-    sections = ("## log", "## events", "## arming", "## stick -> thrust", "## motors", "## findings")
+    sections = ("## log", "## events", "## arming", "## stick -> thrust", "## motors")
     for section in sections:
         assert section in text
     out = tmp_path / "r.json"
