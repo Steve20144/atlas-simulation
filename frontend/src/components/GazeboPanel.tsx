@@ -21,6 +21,11 @@ export default function GazeboPanel() {
   const reset = useVectraStore((s) => s.resetGazebo);
   const wslShutdown = useVectraStore((s) => s.wslShutdown);
 
+  // one poll on mount picks up a session started by another client (curl, a script, another
+  // browser tab); then keep polling while a session runs
+  useEffect(() => {
+    void poll();
+  }, [poll]);
   useEffect(() => {
     if (!gazebo.running) return;
     const id = setInterval(() => void poll(), POLL_MS);
