@@ -251,7 +251,14 @@ def test_build_scenario_with_weights(dash):
     assert sc.mass.total_kg == pytest.approx(10 * 0.320 + 27 * 0.150)
     assert not sc.mass.estimated
     assert sc.mass.cad_reported is not None and sc.mass.cad_reported.mass_kg == pytest.approx(7.25)
-    # fan positions are relative to the computed CG
+    # fan positions are relative to the computed CG, which is the scenario origin: cg_frd_m is
+    # zero (consumers subtract it), cad_origin says where the CG sits in Fusion, and the
+    # dashboard's reported CoG is stored as its offset from ours
     cg = np.asarray(report["cg_fusion_mm"])
     for f, e in zip(sc.fans, order_edfs_px4(detect_edfs(dash), frame), strict=True):
         assert np.allclose(f.pos_frd_m, frame.to_frd_m(e.body.com_mm - cg), atol=1e-4)
+    assert sc.mass.cg_frd_m == (0.0, 0.0, 0.0)
+    assert np.allclose(sc.frame.cad_origin, cg, atol=1e-2)  # report rounds to 0.01 mm
+    assert np.allclose(
+        sc.mass.cad_reported.cg_m, frame.to_frd_m(np.array([0, 100, 50]) - cg), atol=1e-5
+    )

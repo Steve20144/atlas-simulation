@@ -1,0 +1,103 @@
+{
+  "document": "PHASE_0.1_ASSY",
+  "exported": "2026-09-14T23:59:30.319Z",
+  "total_g": 11412,
+  "cog_mm_fusion_frame": [
+    -0.39932614791447985,
+    133.16223799509285,
+    -40.01878724150015
+  ],
+  "cog_mm_xyz_forward_left_up": [
+    -40.01878724150015,
+    0.39932614791447985,
+    -133.16223799509285
+  ],
+  "weights_by_type": {
+    "Avionics_Bay:1": null,
+    "BATTER PACK:1": "3230",
+    "BATTERY GRID:1": "60",
+    "CLAMP_FOILROOT_L:1": "44",
+    "CLAMP_FOILROOT_R:1": "44",
+    "CLAMP_HUB_CENTER:1": "45",
+    "CLAMP_HUB_NOSE:1": "48",
+    "CLAMP_HUB_TIP_L:1": "74",
+    "CLAMP_HUB_TIP_R:1": "74",
+    "CLAMP_X_B37-B41_R:1": "37",
+    "CLAMP_X_B38-B39_R:1": null,
+    "CLAMP_X_B38-B41_R:1": "40",
+    "CLAMP_X_B44-B42_L:1": "37",
+    "CLAMP_X_B45-B39_L:1": null,
+    "CLAMP_X_B45-B42_L:1": "40",
+    "FRONT JET_ASSY:1": "177",
+    "FRONT JET_ASSY:2": null,
+    "PHASE_0.1_JET_FOIL_V2(Mirror):1": "950",
+    "PHASE_0.1_JET_FOIL_V2:1": "950",
+    "PID RIG MOUNT:1": null,
+    "Rod Body37": "35",
+    "Rod Body38": "73",
+    "Rod Body39": null,
+    "Rod Body41": "73",
+    "Rod Body42": "73",
+    "Rod Body44": "35",
+    "Rod Body45": "73",
+    "XFLY 80mm EDF(Mirror):1": "520",
+    "XFLY 80mm EDF(Mirror):5": "520",
+    "XFLY 80mm EDF(Mirror):6": "520",
+    "XFLY 80mm EDF(Mirror):7": "520",
+    "XFLY 80mm EDF:1": "520",
+    "XFLY 80mm EDF:5": "520",
+    "XFLY 80mm EDF:6": "520",
+    "XFLY 80mm EDF:7": "520",
+    "XFLY 80mm EDF:8": "520",
+    "XFLY 80mm EDF:9": "520"
+  },
+  "overrides": {
+    "FRONT JET_ASSY:2": 177,
+    "Rod Body39": 73,
+    "CLAMP_X_B38-B39_R:1": 40,
+    "CLAMP_X_B45-B39_L:1": 40
+  },
+  "position_offsets_mm": {
+    "BATTER PACK:1": [
+      0,
+      0,
+      110.03
+    ],
+    "BATTERY GRID:1": [
+      0,
+      0,
+      110.02
+    ],
+    "FRONT JET_ASSY:1": [
+      0,
+      0,
+      50.01
+    ],
+    "FRONT JET_ASSY:2": [
+      0,
+      0,
+      50.01
+    ],
+    "PID RIG MOUNT:1": [
+      0,
+      0,
+      113.58
+    ],
+    "XFLY 80mm EDF:1": [
+      0,
+      -0.01,
+      -0.02
+    ],
+    "XFLY 80mm EDF:5": [
+      0,
+      0,
+      49.31
+    ],
+    "XFLY 80mm EDF:6": [
+      0,
+      0,
+      49.31
+    ]
+  },
+  "vectra_note": "overrides fill unentered twins from their mirror parts (FRONT JET_ASSY:1 177 g, Rod Body41/42/45 73 g, CLAMP_X_B38-B41_R 40 g); Avionics_Bay and PID RIG MOUNT stay unweighed."
+}

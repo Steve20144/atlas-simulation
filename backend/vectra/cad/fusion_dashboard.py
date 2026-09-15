@@ -541,14 +541,25 @@ def build_scenario(
     if weights is not None:
         mp = mass_properties(dash, weights, frame)
         cg_fusion = mp.cg_fusion_mm
+        # The scenario origin IS the computed CG: fan positions and foil pressure points below are
+        # measured from it and frame.cad_origin records where it sits in Fusion. mass.cg_frd_m is
+        # therefore zero (every consumer subtracts it from the positions). The dashboard's own
+        # CoG is kept as the offset from our CG, FRD metres, so the two can be compared.
         mass = Mass(
             total_kg=mp.total_kg,
-            cg_frd_m=tuple(np.round(mp.cg_frd_m, 6).tolist()),
+            cg_frd_m=(0.0, 0.0, 0.0),
             inertia_frd_kgm2=[[float(x) for x in row] for row in np.round(mp.inertia_frd_kgm2, 6)],
             cad_reported=(
                 CadReported(
                     mass_kg=weights.reported_total_g * 1e-3,
-                    cg_m=tuple(frame.to_frd_m(np.asarray(weights.reported_cog_mm_fusion)).tolist()),
+                    cg_m=tuple(
+                        np.round(
+                            frame.to_frd_m(
+                                np.asarray(weights.reported_cog_mm_fusion, dtype=float) - cg_fusion
+                            ),
+                            6,
+                        ).tolist()
+                    ),
                 )
                 if weights.reported_total_g and weights.reported_cog_mm_fusion
                 else None
