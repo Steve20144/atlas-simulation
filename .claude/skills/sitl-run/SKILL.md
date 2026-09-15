@@ -19,9 +19,13 @@ Paths: repo `C:\Users\stefa\Documents\Utopia Labs\vibe-coded`, in WSL `~/utopia/
 - Windows side: Git Bash, `cd "C:/Users/stefa/Documents/Utopia Labs/vibe-coded" && source scripts/env.sh`
   before any `uv run`.
 - WSL side: always `wsl -d Ubuntu-24.04 -- bash -lc "<one command line>"`. Inside the quotes use
-  `~` freely, but do not define shell variables (`P=...; bash $P ...`): the Windows shell strips
-  `$P` before WSL sees it and every call degrades to `bash show`. Put multi-step logic in a script
-  under `scripts/` of this skill and call the script.
+  `~` freely, but never `$var` or `$(...)`: `wsl.exe -- <args>` hands its arguments to the
+  distro's default shell first, which expands them before `bash -lc` runs, so a variable set
+  inside the command comes back empty and every call degrades to `bash show`. Put multi-step
+  logic in a script under `scripts/` of this skill and call the script. From Python, do what
+  `gazebo_launch._wsl` does: send the script as bytes on stdin (text mode adds `\r`), copy it to
+  a file and run it from there (a script read straight from stdin is eaten by the first px4
+  client, which reads stdin).
 - Scripts written from Windows need LF endings and the exec bit: `sed -i 's/\r$//' f.sh; chmod +x f.sh`,
   then `bash -n` them inside WSL.
 - Anything that must outlive the tool call (the sim itself) is started by the launcher loop, not by

@@ -211,7 +211,7 @@ export interface VectraState {
 }
 
 const idleGazebo = (): GazeboStatus & { message: string } => ({
-  available: false, running: false, ready: false, mode: null, headless: false, harness: null, command: null,
+  available: false, running: false, ready: false, preflight_ok: false, mode: null, headless: false, harness: null, command: null,
   log: null, tail: [], uptime_s: null, wslg_copy_mode: false, returncode: null, message: "",
 });
 
@@ -252,7 +252,7 @@ export const useVectraStore = create<VectraState>((set, get) => {
     visibleGroups: { hover: true, authority: true, control: true, coupling: true, conditioning: true, composite: true },
     foilLinked: true,
     gazebo: idleGazebo(),
-    gazeboHeadless: false,
+    gazeboHeadless: true,  // WSLg's gz window breaks often on this machine; QGC shows the flight
     gazeboProbe: null,
     view: { geometry: true, metrics: true, cad: true, flow: true },
     board: idleBoard(),
@@ -689,7 +689,7 @@ export const useVectraStore = create<VectraState>((set, get) => {
       set({
         scenario: emptyScenario(),
         gazebo: idleGazebo(),
-        gazeboHeadless: false,
+        gazeboHeadless: true,  // WSLg's gz window breaks often on this machine; QGC shows the flight
         gazeboProbe: null,
         board: idleBoard(),
         paramEdit: idleParamEdit(),

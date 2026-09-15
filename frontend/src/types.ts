@@ -399,8 +399,10 @@ export type GazeboMode = "sitl" | "hitl";
 export interface GazeboStatus {
   available: boolean;
   running: boolean;
-  /** PX4 printed "Ready for takeoff!" since this launch */
+  /** PX4 has booted and can take a takeoff command (see gazebo_launch.status) */
   ready: boolean;
+  /** PX4 printed "Ready for takeoff!": preflight checks passed before the first arm */
+  preflight_ok: boolean;
   mode: GazeboMode | null;
   headless: boolean;
   harness: string | null;
@@ -423,6 +425,8 @@ export interface GazeboProbe {
   nav_mode: string | null;
   height_m: number | null;
   climb_mps: number | null;
+  /** PX4's preflight checks pass: a takeoff command will be accepted */
+  preflight_pass: boolean | null;
   torque_achieved: boolean | null;
   thrust_achieved: boolean | null;
   /** seconds since actuator_armed was last published; minutes means the commander wedged */

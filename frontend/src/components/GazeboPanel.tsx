@@ -4,6 +4,7 @@ import GazeboFlight from "./GazeboFlight";
 
 const btn = "ui-btn";
 const POLL_MS = 3000;
+const IDLE_POLL_MS = 10000;
 
 /**
  * Launch Gazebo for the current scenario from the app: SITL (gz sim, no hardware) or HITL
@@ -21,14 +22,11 @@ export default function GazeboPanel() {
   const reset = useVectraStore((s) => s.resetGazebo);
   const wslShutdown = useVectraStore((s) => s.wslShutdown);
 
-  // one poll on mount picks up a session started by another client (curl, a script, another
-  // browser tab); then keep polling while a session runs
+  // poll every 3 s while a session runs, every 10 s when idle: a session started by another
+  // client (curl, a script, another browser tab) shows up here without a page reload
   useEffect(() => {
     void poll();
-  }, [poll]);
-  useEffect(() => {
-    if (!gazebo.running) return;
-    const id = setInterval(() => void poll(), POLL_MS);
+    const id = setInterval(() => void poll(), gazebo.running ? POLL_MS : IDLE_POLL_MS);
     return () => clearInterval(id);
   }, [gazebo.running, poll]);
 

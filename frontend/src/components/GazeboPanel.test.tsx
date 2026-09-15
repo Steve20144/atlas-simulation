@@ -6,7 +6,7 @@ import type { GazeboStatus } from "../types";
 import GazeboPanel from "./GazeboPanel";
 
 const status = (over: Partial<GazeboStatus>): GazeboStatus => ({
-  available: true, running: false, ready: false, headless: false, uptime_s: null, wslg_copy_mode: false, mode: null, harness: null, command: null, log: null, tail: [],
+  available: true, running: false, ready: false, preflight_ok: false, headless: false, uptime_s: null, wslg_copy_mode: false, mode: null, harness: null, command: null, log: null, tail: [],
   returncode: null, ...over,
 });
 
@@ -23,7 +23,8 @@ describe("GazeboPanel", () => {
   });
 
   it("posts the scenario and mode, then shows the running session and enables Stop", async () => {
-    const running = status({ running: true, ready: true, headless: false, uptime_s: 3, wslg_copy_mode: false, mode: "sitl", log: "exports/logs/gazebo_sitl.log",
+    let latest: GazeboStatus = status({});
+    const running = status({ running: true, ready: true, preflight_ok: true, headless: false, uptime_s: 3, wslg_copy_mode: false, mode: "sitl", log: "exports/logs/gazebo_sitl.log",
       tail: ["Ready for takeoff!"] });
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -31,6 +32,7 @@ describe("GazeboPanel", () => {
       if (url === "/api/gazebo/launch") {
         expect(body.mode).toBe("sitl");
         expect(body.scenario.fans).toHaveLength(10);
+        latest = running;
         return Promise.resolve({ ok: true, status: 200, json: async () => running } as Response);
       }
       if (url === "/api/gazebo/reset") {
@@ -39,8 +41,10 @@ describe("GazeboPanel", () => {
       }
       if (url === "/api/gazebo/stop") {
         return Promise.resolve({ ok: true, status: 200,
-          json: async () => status({ stopped: true }) } as Response);
+          json: async () => { latest = status({ stopped: true }); return latest; } } as Response);
       }
+      if (url === "/api/gazebo/status") return Promise.resolve({ ok: true, status: 200, json: async () => latest } as Response);
+      if (url === "/api/gazebo/probe") return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: false }) } as Response);
       return Promise.resolve({ ok: true, status: 200, json: async () => ({}) } as Response);
     });
     vi.stubGlobal("fetch", fetchMock);

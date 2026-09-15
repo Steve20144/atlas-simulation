@@ -24,14 +24,17 @@ export default function GazeboFlight() {
   const sitl = gazebo.mode === "sitl";
   const allocatorBad = probe?.torque_achieved === false || probe?.thrust_achieved === false;
   const wedged = probe?.arming_topic_age_s != null && probe.arming_topic_age_s > 120;
+  const preflight = gazebo.preflight_ok || probe?.preflight_pass === true;
 
   return (
     <div className="flex flex-col gap-1 rounded border border-slate-700 bg-slate-950/60 p-2" data-testid="gazebo-flight">
       <div className="flex flex-wrap items-center gap-2">
         <button
           className={btn}
-          disabled={!gazebo.ready || !sitl || probe?.armed === true}
-          title="commander takeoff: arms, climbs to MIS_TAKEOFF_ALT (2.5 m), holds position with a fixed heading"
+          disabled={!gazebo.ready || !sitl || probe?.armed === true || !preflight}
+          title={preflight
+            ? "commander takeoff: arms, climbs to MIS_TAKEOFF_ALT (2.5 m), holds position with a fixed heading"
+            : "waiting for PX4's preflight checks (height estimate settles a minute or two after a cold start)"}
           onClick={() => void takeoff()}
         >
           Take off
@@ -54,6 +57,7 @@ export default function GazeboFlight() {
           {probe.ok
             ? `${probe.armed ? "armed" : "disarmed"} · ${probe.nav_mode ?? "?"} · ${probe.height_m ?? "?"} m` +
               (probe.climb_mps != null ? ` (${probe.climb_mps > 0 ? "+" : ""}${probe.climb_mps} m/s)` : "") +
+              ` · preflight ${probe.preflight_pass ? "ok" : "pending"}` +
               ` · allocator ${allocatorBad ? "NOT meeting setpoints" : "ok"}`
             : "no vehicle data yet"}
         </p>
