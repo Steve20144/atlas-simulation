@@ -102,3 +102,28 @@ def test_px4_params_override_wins_over_the_rule(cad):
     out = px4_tuning(sc)
     assert out["MC_YAWRATE_P"] == 0.07 and out["MPC_TILTMAX_AIR"] == 10.0
     assert px4_tuning(cad).get("MC_YAWRATE_P") != 0.07  # the rule alone gives something else
+
+
+def test_ct_override_reaches_airframe_not_physics(tmp_path):
+    """A CA_ROTORn_CT override tells the allocator a different thrust (airframe param) while the
+    simulated fan keeps the fan curve's thrust (motorConstant in the SDF)."""
+    import json
+    import re
+    from pathlib import Path
+
+    from vectra.export.gazebo import MAX_ROT_VELOCITY, model_sdf, px4_airframe
+    from vectra.scenario import Scenario
+
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "scenarios" / "atlas_weighed_p26_side30.json").read_text(encoding="utf-8")
+    sc = Scenario.model_validate(json.loads(text))
+    fan = sc.fans_sorted()[8]
+    curve_ct = sc.fan_curves[fan.curve_ref].thrust_at(1.0) * sc.foil_ct_scale(fan)
+    sc.control.px4_params_override["CA_ROTOR8_CT"] = 20.0
+    airframe = px4_airframe(sc, "t")
+    assert re.search(r"CA_ROTOR8_CT 20\b", airframe)
+    sdf = model_sdf(sc, "t", None)
+    block = sdf.split("<motorNumber>8</motorNumber>")[0].rsplit("<motorConstant>", 1)[1]
+    k = float(block.split("</motorConstant>")[0])
+    assert k == pytest.approx(curve_ct / MAX_ROT_VELOCITY**2, rel=1e-6)
+    assert k != pytest.approx(20.0 / MAX_ROT_VELOCITY**2, rel=1e-3)

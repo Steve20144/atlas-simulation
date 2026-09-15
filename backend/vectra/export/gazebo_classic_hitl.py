@@ -209,7 +209,7 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None, serial: str) 
             _motor_plugin(
                 i,
                 "ccw" if fan.spin == "CCW" else "cw",
-                float(ca[f"CA_ROTOR{i}_CT"]),
+                scenario.fan_ct_physical(fan),  # physics: fan curve, not the CA_ override
                 float(ca[f"CA_ROTOR{i}_KM"]),
                 fan_lag_s(scenario),
             )

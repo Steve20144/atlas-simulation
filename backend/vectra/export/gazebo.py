@@ -168,7 +168,9 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
         r, p, y = axis_to_rpy(axis)
         # first-order spool lag of this fan's curve (the scenario's estimate, not x500's 12 ms)
         lag = max(0.01, scenario.fan_curves[fan.curve_ref].lag_s) if fan.curve_ref else 0.01
-        ct = float(ca[f"CA_ROTOR{i}_CT"])
+        # physics: the fan curve, never the CA_ROTORn_CT override (that is the allocator's belief
+        # and goes into the airframe; a scaled CT there must not weaken the simulated fan too)
+        ct = scenario.fan_ct_physical(fan)
         km = float(ca[f"CA_ROTOR{i}_KM"])
         turning = "ccw" if fan.spin == "CCW" else "cw"
         parts += [

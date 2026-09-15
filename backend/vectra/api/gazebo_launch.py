@@ -93,8 +93,10 @@ def launch(mode: Mode, scenario: Scenario, exports_dir: Path, repo_root: Path) -
         raise RuntimeError("wsl.exe is not available here; run the command shown by hand")
     if _proc is not None and _proc.poll() is None:
         raise RuntimeError(f"a {_state['mode']} session is already running; stop it first")
+    # stdin stays an open pipe, never written: with DEVNULL the PX4 shell (pxh) reads EOF, reprints
+    # its prompt in a busy loop and wrote 6 GB of '[2Kpxh> ' into this log in 25 minutes.
     with open(log, "wb") as fh:
-        _proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+        _proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
     return status()
 
 

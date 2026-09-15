@@ -437,6 +437,12 @@ class Scenario(BaseModel):
             return float(self.control.px4_params_override[key])
         return self.fan_curves[fan.curve_ref].thrust_at(1.0)
 
+    def fan_ct_physical(self, fan: Fan) -> float:
+        """Thrust (N) the fan really makes at cmd 1.0 along its effective axis: fan curve times
+        the foil turning efficiency. Ignores a CA_ROTORn_CT override on purpose: the override is
+        what the allocator is told, this is what the simulated fan does."""
+        return self.fan_curves[fan.curve_ref].thrust_at(1.0) * self.foil_ct_scale(fan)
+
     def fan_km(self, fan: Fan) -> float:
         """PX4 CA_ROTORn_KM (signed, dimensionless): 0 unless control.reaction_torque."""
         return fan.signed_km() if self.control.reaction_torque else 0.0
