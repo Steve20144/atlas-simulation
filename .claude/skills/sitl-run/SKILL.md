@@ -56,6 +56,29 @@ is replaced.
 
 ## 4. Launch
 
+The app is the one code path (`backend/vectra/api/gazebo_launch.py`); use it whenever the
+backend is running (`curl -s localhost:8000/api/health`). It exports the harness, stops any sim
+in that distro whoever started it, keeps PX4's stdin open, truncates the console log, reports
+readiness from PX4's own `Ready for takeoff!` line and flags WSLg copy mode.
+
+```bash
+# launch (headless true skips the gz window; add it when WSLg misbehaves or for scripted runs)
+curl -s -X POST localhost:8000/api/gazebo/launch -H "content-type: application/json" \
+  -d "{\"scenario\": $(cat scenarios/<name>.json), \"mode\": \"sitl\", \"headless\": false}" | head -c 300
+# poll until ready is true (about 60 to 90 s), then give the height estimate 10 s
+curl -s localhost:8000/api/gazebo/status
+curl -s -X POST localhost:8000/api/gazebo/takeoff      # arm, climb to 2.5 m, hold
+curl -s localhost:8000/api/gazebo/probe                # armed, mode, height, allocator ok
+curl -s -X POST localhost:8000/api/gazebo/land
+curl -s -X POST localhost:8000/api/gazebo/log          # newest ulog -> exports/logs/sitl_<name>.ulg
+curl -s -X POST localhost:8000/api/gazebo/stop
+curl -s -X POST localhost:8000/api/gazebo/wsl_shutdown # only for WSLg copy mode; stops both distros
+```
+
+The same buttons are in the Metrics rail under Launch Gazebo (SITL, HITL, headless, Reset, Stop,
+then Take off, Land, Pull log with a live probe line once PX4 is ready). Without the backend, the
+scripts below do the same from a terminal.
+
 Interactive, from PowerShell or Git Bash (opens the gz GUI window through WSLg):
 
 ```bash
@@ -126,5 +149,22 @@ Write long outputs to the scratchpad and summarise; never paste a report into th
 | grey GUI titled `[WARN:COPY MODE]` | WSLg fault | `wsl --shutdown` from PowerShell, relaunch |
 | second launch will not start | previous `gz sim -s` holds the port | `vectra_gazebo.sh --stop`, then launch |
 | log copied is an old file | logger not closed yet | `hover_run.sh` waits 6 s after touchdown; wait longer after a hard landing |
+
+## 8. Cleaning up
+
+`scripts/wsl_clean.sh` stops every simulator process in a distro, removes stale FIFOs and console
+logs, optionally deletes the PX4 SITL ulogs (`--logs`, they are 20 to 30 MB per flight) and
+purges the harness copies of scenarios that no longer exist (gz model, world, airframe with its
+CMake line, Classic model and world):
+
+```bash
+wsl -d Ubuntu-24.04 -- bash -lc "bash ~/utopia/vibe-coded/.claude/skills/sitl-run/scripts/wsl_clean.sh --logs <old scenario> ..."
+wsl -d Ubuntu-22.04 -- bash -lc "bash ~/utopia/vibe-coded/.claude/skills/sitl-run/scripts/wsl_clean.sh <old scenario> ..."
+```
+
+Follow it with `wsl --shutdown` when WSLg is in copy mode. On the Windows side the matching
+leftovers are `exports/gazebo/<name>`, `exports/gazebo_hitl/<name>_hitl` and the scenario's
+`.json` and `.glb`; check `grep -rl <name> tests docs frontend/src scripts` before deleting a
+scenario, tests load several by name.
 
 More failure signatures, HITL and sweeps: the `vectra-sim` skill.

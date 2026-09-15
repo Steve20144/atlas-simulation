@@ -1,5 +1,5 @@
 import type {
-  BoardFlightResult, BoardLogResult, BoardParamResult, BoardParamValue, BoardPushResult, BoardStatus, ThrustSnapshot, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, Metrics, ParamInfo, Scenario,
+  BoardFlightResult, BoardLogResult, BoardParamResult, BoardParamValue, BoardPushResult, BoardStatus, ThrustSnapshot, ControlConcept, FoilSheetRow, GazeboMode, GazeboStatus, GazeboProbe, Metrics, ParamInfo, Scenario,
   SweepRequestBody, SweepResponse,
 } from "./types";
 
@@ -55,8 +55,14 @@ export const api = {
       { scenario },
     ),
   /** Export the harness and start the WSL launcher for that mode; the console goes to exports/logs/. */
-  launchGazebo: (scenario: Scenario, mode: GazeboMode) =>
-    post<GazeboStatus>("/api/gazebo/launch", { scenario, mode }),
+  launchGazebo: (scenario: Scenario, mode: GazeboMode, headless = false) =>
+    post<GazeboStatus>("/api/gazebo/launch", { scenario, mode, headless }),
+  takeoffGazebo: () => post<GazeboStatus & { note?: string }>("/api/gazebo/takeoff", {}),
+  landGazebo: () => post<GazeboStatus & { note?: string }>("/api/gazebo/land", {}),
+  gazeboProbe: () => request<GazeboProbe>("/api/gazebo/probe"),
+  /** Copy the newest SITL ulog into exports/logs (sitl_<name>.ulg). */
+  pullGazeboLog: () => post<{ path: string | null; name?: string; size?: number }>("/api/gazebo/log", {}),
+  wslShutdown: () => post<GazeboStatus>("/api/gazebo/wsl_shutdown", {}),
   gazeboStatus: () => request<GazeboStatus>("/api/gazebo/status"),
   stopGazebo: () => post<GazeboStatus>("/api/gazebo/stop", {}),
   /** Disarm and put the model back where it spawned; HITL reboots the board if termination latched. */

@@ -307,7 +307,9 @@ def gazebo_launch_endpoint(req: GazeboLaunchRequest) -> dict[str, Any]:
             detail="Gazebo launch needs wsl.exe on this host; run scripts/vectra_menu.py there",
         )
     try:
-        return gazebo_launch.launch(req.mode, req.scenario, EXPORTS_DIR, REPO_ROOT)
+        return gazebo_launch.launch(
+            req.mode, req.scenario, EXPORTS_DIR, REPO_ROOT, headless=req.headless
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -332,6 +334,50 @@ def gazebo_reset_endpoint() -> dict[str, Any]:
         return gazebo_launch.reset()
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/gazebo/takeoff")
+def gazebo_takeoff_endpoint() -> dict[str, Any]:
+    """commander takeoff on the SITL vehicle: arm, climb to MIS_TAKEOFF_ALT, hold."""
+    try:
+        return gazebo_launch.takeoff()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/gazebo/land")
+def gazebo_land_endpoint() -> dict[str, Any]:
+    try:
+        return gazebo_launch.land()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/gazebo/probe")
+def gazebo_probe_endpoint() -> dict[str, Any]:
+    """Armed, flight mode, height, allocator setpoints achieved, age of the arming topic."""
+    try:
+        return gazebo_launch.probe()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/gazebo/log")
+def gazebo_log_endpoint() -> dict[str, Any]:
+    """Copy the newest SITL ulog into exports/logs (sitl_<name>.ulg)."""
+    try:
+        return gazebo_launch.pull_log(EXPORTS_DIR)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/gazebo/wsl_shutdown")
+def gazebo_wsl_shutdown_endpoint() -> dict[str, Any]:
+    """wsl --shutdown: the only cure for WSLg copy mode (grey Gazebo window). Stops both
+    distros; a HITL USB attach is lost with it."""
+    return gazebo_launch.wsl_shutdown()
 
 
 # ---------------------------------------------------------------- pixhawk over usb

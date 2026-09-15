@@ -106,6 +106,7 @@ class GazeboLaunchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     scenario: Scenario
     mode: Literal["sitl", "hitl"]
+    headless: bool = Field(default=False, description="SITL without the gz GUI window")
 
 
 class BoardPushRequest(BaseModel):

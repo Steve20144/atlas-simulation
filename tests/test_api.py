@@ -181,3 +181,12 @@ def test_gazebo_launch_status_stop_dry_run(client: TestClient, tmp_path: Path,
     assert client.post("/api/gazebo/stop").json()["stopped"] is True
     assert client.post("/api/gazebo/reset").json()["reset"] is True  # dry run: no WSL call
     assert client.post("/api/gazebo/launch", json={**body, "mode": "vtol"}).status_code == 422
+    # headless goes into the launcher environment; the flight endpoints answer without WSL
+    d = client.post("/api/gazebo/launch", json={**body, "mode": "sitl", "headless": True}).json()
+    assert "HEADLESS=1 bash" in d["command"] and d["command"].endswith("atlas_phase01_cad_control")
+    assert d["headless"] is True and d["ready"] is False and d["wslg_copy_mode"] is False
+    assert client.post("/api/gazebo/takeoff").json()["takeoff"] is True
+    assert client.post("/api/gazebo/land").json()["land"] is True
+    assert client.get("/api/gazebo/probe").json()["ok"] is False
+    assert client.post("/api/gazebo/log").json()["dry_run"] is True
+    assert client.post("/api/gazebo/wsl_shutdown").json()["wsl_shutdown"] is True

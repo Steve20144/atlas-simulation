@@ -9,6 +9,7 @@ import type {
   ThrustSnapshot,
   BoardStatus,
   GazeboMode,
+  GazeboProbe,
   GazeboStatus,
   Coanda,
   ControlConcept,
@@ -138,6 +139,15 @@ export interface VectraState {
   foilLinked: boolean;
   /** Gazebo session started from the app (SITL or HITL); message is the last outcome shown. */
   gazebo: GazeboStatus & { message: string };
+  gazeboHeadless: boolean;
+  gazeboProbe: GazeboProbe | null;
+  setGazeboHeadless: (on: boolean) => void;
+  takeoffGazebo: () => Promise<void>;
+  landGazebo: () => Promise<void>;
+  probeGazebo: () => Promise<void>;
+  pullGazeboLog: () => Promise<void>;
+  /** wsl --shutdown through the backend: the cure for WSLg copy mode; stops both distros. */
+  wslShutdown: () => Promise<void>;
   view: Record<ViewFlag, boolean>;
   board: BoardState;
   angleMode: AngleMode;
@@ -201,8 +211,8 @@ export interface VectraState {
 }
 
 const idleGazebo = (): GazeboStatus & { message: string } => ({
-  available: false, running: false, mode: null, harness: null, command: null, log: null, tail: [],
-  returncode: null, message: "",
+  available: false, running: false, ready: false, mode: null, headless: false, harness: null, command: null,
+  log: null, tail: [], uptime_s: null, wslg_copy_mode: false, returncode: null, message: "",
 });
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -242,6 +252,8 @@ export const useVectraStore = create<VectraState>((set, get) => {
     visibleGroups: { hover: true, authority: true, control: true, coupling: true, conditioning: true, composite: true },
     foilLinked: true,
     gazebo: idleGazebo(),
+    gazeboHeadless: false,
+    gazeboProbe: null,
     view: { geometry: true, metrics: true, cad: true, flow: true },
     board: idleBoard(),
     paramEdit: idleParamEdit(),
@@ -421,9 +433,51 @@ export const useVectraStore = create<VectraState>((set, get) => {
         set({ board: { ...get().board, pushing: false, message: (e as Error).message } });
       }
     },
+    setGazeboHeadless: (on) => set({ gazeboHeadless: on }),
+    takeoffGazebo: async () => {
+      try {
+        const st = await api.takeoffGazebo();
+        set({ gazebo: { ...st, message: "takeoff sent: arming, climbing to 2.5 m" } });
+      } catch (e) {
+        set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
+    landGazebo: async () => {
+      try {
+        const st = await api.landGazebo();
+        set({ gazebo: { ...st, message: "landing" } });
+      } catch (e) {
+        set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
+    probeGazebo: async () => {
+      try {
+        set({ gazeboProbe: await api.gazeboProbe() });
+      } catch (e) {
+        set({ gazeboProbe: null, gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
+    pullGazeboLog: async () => {
+      try {
+        const r = await api.pullGazeboLog();
+        const mb = r.size ? ` (${(r.size / 1e6).toFixed(1)} MB)` : "";
+        set({ gazebo: { ...get().gazebo, message: r.path ? `log copied: ${r.name}${mb}` : "dry run" } });
+      } catch (e) {
+        set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
+    wslShutdown: async () => {
+      try {
+        const st = await api.wslShutdown();
+        set({ gazebo: { ...st, message: "WSL restarted: both distros stopped, WSLg reset; launch again" }, gazeboProbe: null });
+      } catch (e) {
+        set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
+      }
+    },
     launchGazebo: async (mode) => {
       try {
-        const st = await api.launchGazebo(get().scenario, mode);
+        set({ gazeboProbe: null });
+        const st = await api.launchGazebo(get().scenario, mode, get().gazeboHeadless);
         const message = st.dry_run
           ? `dry run, would run: ${st.command ?? ""}`
           : `${mode.toUpperCase()} launching; console in ${st.log ?? "exports/logs/"}`;
@@ -454,7 +508,7 @@ export const useVectraStore = create<VectraState>((set, get) => {
     stopGazebo: async () => {
       try {
         const st = await api.stopGazebo();
-        set({ gazebo: { ...st, message: "stopped" } });
+        set({ gazebo: { ...st, message: "stopped" }, gazeboProbe: null });
       } catch (e) {
         set({ gazebo: { ...get().gazebo, message: (e as Error).message } });
       }
@@ -635,6 +689,8 @@ export const useVectraStore = create<VectraState>((set, get) => {
       set({
         scenario: emptyScenario(),
         gazebo: idleGazebo(),
+        gazeboHeadless: false,
+        gazeboProbe: null,
         board: idleBoard(),
         paramEdit: idleParamEdit(),
         thrust: idleThrust(),

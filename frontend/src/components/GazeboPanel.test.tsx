@@ -6,7 +6,7 @@ import type { GazeboStatus } from "../types";
 import GazeboPanel from "./GazeboPanel";
 
 const status = (over: Partial<GazeboStatus>): GazeboStatus => ({
-  available: true, running: false, mode: null, harness: null, command: null, log: null, tail: [],
+  available: true, running: false, ready: false, headless: false, uptime_s: null, wslg_copy_mode: false, mode: null, harness: null, command: null, log: null, tail: [],
   returncode: null, ...over,
 });
 
@@ -23,7 +23,7 @@ describe("GazeboPanel", () => {
   });
 
   it("posts the scenario and mode, then shows the running session and enables Stop", async () => {
-    const running = status({ running: true, mode: "sitl", log: "exports/logs/gazebo_sitl.log",
+    const running = status({ running: true, ready: true, headless: false, uptime_s: 3, wslg_copy_mode: false, mode: "sitl", log: "exports/logs/gazebo_sitl.log",
       tail: ["Ready for takeoff!"] });
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -51,7 +51,7 @@ describe("GazeboPanel", () => {
       fireEvent.click(screen.getByText("SITL"));
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/gazebo/launch", expect.anything());
-    expect(screen.getByText("SITL running")).toBeInTheDocument();
+    expect(screen.getByText("SITL ready")).toBeInTheDocument();
     expect(screen.getByText(/Ready for takeoff!/)).toBeInTheDocument();
     expect((screen.getByText("HITL") as HTMLButtonElement).disabled).toBe(true);
 
@@ -60,7 +60,7 @@ describe("GazeboPanel", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/gazebo/reset", expect.anything());
     expect(useVectraStore.getState().gazebo.message).toContain("reset done");
-    expect(screen.getByText("SITL running")).toBeInTheDocument();
+    expect(screen.getByText("SITL ready")).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByText("Stop"));

@@ -399,14 +399,35 @@ export type GazeboMode = "sitl" | "hitl";
 export interface GazeboStatus {
   available: boolean;
   running: boolean;
+  /** PX4 printed "Ready for takeoff!" since this launch */
+  ready: boolean;
   mode: GazeboMode | null;
+  headless: boolean;
   harness: string | null;
   command: string | null;
   log: string | null;
   tail: string[];
+  uptime_s: number | null;
+  /** WSLg shared-memory fault: the gz window is grey; only wsl --shutdown clears it */
+  wslg_copy_mode: boolean;
   returncode: number | null;
   dry_run?: boolean;
   stopped?: boolean;
+}
+
+/** GET /api/gazebo/probe: one snapshot of the SITL vehicle. */
+export interface GazeboProbe {
+  ok: boolean;
+  armed: boolean | null;
+  nav_state: number | null;
+  nav_mode: string | null;
+  height_m: number | null;
+  climb_mps: number | null;
+  torque_achieved: boolean | null;
+  thrust_achieved: boolean | null;
+  /** seconds since actuator_armed was last published; minutes means the commander wedged */
+  arming_topic_age_s: number | null;
+  note?: string;
 }
 
 
