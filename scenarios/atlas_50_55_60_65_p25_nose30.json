@@ -3,7 +3,7 @@
     "name": "atlas_50_55_60_65_p25_nose30",
     "created": "2026-09-10T11:12:15-07:00",
     "px4_version": "1.17.0",
-    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0. | Foils 50/55/60/65 inner to outer (fans 6/7=50, 4/5=55, 2/3=60, 0/1=65); nose fan 9 (front) forward 30, fan 8 aft 30; hover pitch 25. Set 2026-09-13 for the bench test.",
+    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0. | Foils 50/55/60/65 inner to outer (fans 6/7=50, 4/5=55, 2/3=60, 0/1=65); nose fans 30 deg to the side (8 right, 9 left); hover pitch 25. Set 2026-09-13 for the bench test. | Nose fans corrected 2026-09-14: as built they lean 30 deg to the side, fan 8 (aft) to the right (azimuth 90), fan 9 (front) to the left (azimuth 270), matching the geometry the board carried before the 2026-09-13 push; the forward/aft lean was wrong.",
     "cad_model": "atlas_phase01_cad.glb"
   },
   "frame": {
@@ -45,7 +45,7 @@
     "bodies": [
       {
         "name": "Avionics_Bay:1",
-        "volume_m3": 0.00007560999999999999,
+        "volume_m3": 7.560999999999999e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
@@ -63,73 +63,73 @@
       },
       {
         "name": "CLAMP_FOILROOT_L:1",
-        "volume_m3": 0.000044987,
+        "volume_m3": 4.4987e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_FOILROOT_R:1",
-        "volume_m3": 0.000044987,
+        "volume_m3": 4.4987e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_HUB_CENTER:1",
-        "volume_m3": 0.000056918,
+        "volume_m3": 5.6918e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_HUB_NOSE:1",
-        "volume_m3": 0.000067022,
+        "volume_m3": 6.7022e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_HUB_TIP_L:1",
-        "volume_m3": 0.000093998,
+        "volume_m3": 9.3998e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_HUB_TIP_R:1",
-        "volume_m3": 0.000093998,
+        "volume_m3": 9.3998e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_X_B37-B41_R:1",
-        "volume_m3": 0.000038403,
+        "volume_m3": 3.8403e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_X_B38-B39_R:1",
-        "volume_m3": 0.000037326,
+        "volume_m3": 3.7326e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_X_B38-B41_R:1",
-        "volume_m3": 0.000037993999999999996,
+        "volume_m3": 3.7993999999999996e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_X_B44-B42_L:1",
-        "volume_m3": 0.000038403,
+        "volume_m3": 3.8403e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_X_B45-B39_L:1",
-        "volume_m3": 0.000037326,
+        "volume_m3": 3.7326e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "CLAMP_X_B45-B42_L:1",
-        "volume_m3": 0.000037993999999999996,
+        "volume_m3": 3.7993999999999996e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
@@ -165,43 +165,43 @@
       },
       {
         "name": "Rod Body37",
-        "volume_m3": 0.000024146999999999998,
+        "volume_m3": 2.4146999999999998e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "Rod Body38",
-        "volume_m3": 0.000046181,
+        "volume_m3": 4.6181e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "Rod Body39",
-        "volume_m3": 0.000033828,
+        "volume_m3": 3.3828e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "Rod Body41",
-        "volume_m3": 0.000047124,
+        "volume_m3": 4.7124e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "Rod Body42",
-        "volume_m3": 0.000047124,
+        "volume_m3": 4.7124e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "Rod Body44",
-        "volume_m3": 0.000024146999999999998,
+        "volume_m3": 2.4146999999999998e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
       {
         "name": "Rod Body45",
-        "volume_m3": 0.000046181,
+        "volume_m3": 4.6181e-05,
         "mass_kg": 0.0,
         "source": "user"
       },
@@ -399,7 +399,7 @@
         -0.076
       ],
       "tilt_deg": 30.0,
-      "azimuth_deg": 180.0,
+      "azimuth_deg": 90.0,
       "spin": "CW",
       "mirror_of": null,
       "curve_ref": "xfly80_3280",
@@ -414,7 +414,7 @@
         -0.076
       ],
       "tilt_deg": 30.0,
-      "azimuth_deg": 0.0,
+      "azimuth_deg": 270.0,
       "spin": "CW",
       "mirror_of": null,
       "curve_ref": "xfly80_3280",

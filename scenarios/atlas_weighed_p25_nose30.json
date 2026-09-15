@@ -3,7 +3,7 @@
     "name": "atlas_weighed_p25_nose30",
     "created": "2026-09-14T17:12:25-07:00",
     "px4_version": "1.17.0",
-    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0. | Foils 50/55/60/65 inner to outer (fans 6/7=50, 4/5=55, 2/3=60, 0/1=65); nose fan 9 (front) forward 30, fan 8 aft 30; hover pitch 25. Set 2026-09-13 for the bench test. | Weights from docs/cad/atlas_weights_2026-09-14_filled.json (dashboard export 2026-09-14, twins filled by symmetry, avionics bay unweighed).",
+    "notes": "Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Fan positions and mass properties from PHASE_0.1_ASSY (Atlas Mass & CoG dashboard). Baseline concept: rotors 0..7 tilted 30 degrees on the dihedral, thrust up and inward (azimuth 90 for PY < 0, 270 for PY > 0); fans 8 and 9 vertical. CT from the xfly80_3280 curve (33.3 N, estimated), KM 0. | Foils 50/55/60/65 inner to outer (fans 6/7=50, 4/5=55, 2/3=60, 0/1=65); nose fans 30 deg to the side (8 right, 9 left); hover pitch 25. Set 2026-09-13 for the bench test. | Weights from docs/cad/atlas_weights_2026-09-14_filled.json (dashboard export 2026-09-14, twins filled by symmetry, avionics bay unweighed). | Nose fans corrected 2026-09-14: as built they lean 30 deg to the side, fan 8 (aft) to the right (azimuth 90), fan 9 (front) to the left (azimuth 270), matching the geometry the board carried before the 2026-09-13 push; the forward/aft lean was wrong.",
     "cad_model": "atlas_weighed_p25_nose30.glb"
   },
   "frame": {
@@ -394,7 +394,7 @@
         -0.0738
       ],
       "tilt_deg": 30.0,
-      "azimuth_deg": 180.0,
+      "azimuth_deg": 90.0,
       "spin": "CW",
       "mirror_of": null,
       "curve_ref": "xfly80_3280",
@@ -409,7 +409,7 @@
         -0.0738
       ],
       "tilt_deg": 30.0,
-      "azimuth_deg": 0.0,
+      "azimuth_deg": 270.0,
       "spin": "CW",
       "mirror_of": null,
       "curve_ref": "xfly80_3280",
