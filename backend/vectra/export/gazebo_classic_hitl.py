@@ -503,7 +503,7 @@ def export_gazebo_classic_hitl(
     if scenario.meta.cad_model:
         src = Path(__file__).resolve().parents[3] / "scenarios" / scenario.meta.cad_model
         if src.is_file():
-            if airframe_stl(src, model_dir / "meshes" / "airframe.stl"):
+            if airframe_stl(src, model_dir / "meshes" / "airframe.stl") is not None:
                 mesh_uri = f"model://{name}/meshes/airframe.stl"
 
     (model_dir / "model.sdf").write_text(

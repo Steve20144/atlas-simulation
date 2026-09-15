@@ -31,6 +31,18 @@ export interface FrameMapping {
   cad_origin?: Vec3 | null;
   /** Hover attitude of the airframe, nose-up degrees; PX4's body frame is this hover frame. */
   hover_pitch_deg?: number;
+  /** Pitch the airframe parks at on its landing gear, nose-up degrees; null or absent: no gear. */
+  ground_pitch_deg?: number | null;
+  gear?: GearLeg[];
+}
+
+/** One landing-gear strut, FRD metres about the scenario origin. */
+export interface GearLeg {
+  name: string;
+  attach_frd_m: Vec3;
+  foot_frd_m: Vec3;
+  radius_m?: number;
+  foot_radius_m?: number;
 }
 
 export interface CadReportedMass {

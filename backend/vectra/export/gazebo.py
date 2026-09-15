@@ -23,6 +23,7 @@ from xml.sax.saxutils import escape
 
 import numpy as np
 
+from vectra.core.gear import Box, collision_boxes, rest_height_m
 from vectra.core.metrics import compute_metrics, fan_lag_s, inertia_matrix
 from vectra.export.params import ca_geometry_params
 from vectra.scenario import Scenario
@@ -64,26 +65,89 @@ def _noise(stddev: float) -> str:
     return f'<noise type="gaussian"><mean>0.0</mean><stddev>{stddev:g}</stddev></noise>'
 
 
-def airframe_stl(src_glb: Path, dst_stl: Path) -> bool:
+def airframe_stl(src_glb: Path, dst_stl: Path) -> np.ndarray | None:
     """Convert the scenario GLB (FRD metres about the CG) to a binary STL in gz body FLU.
 
     The GLB keeps raw FRD vertices with no root transform. Gazebo's glTF loader draws those as-is
     in its Z-up body frame, which shows the airframe upside down and mirrored (the wing dihedral
     appears to rise outward). STL has no up-axis convention, so FRD (x, y, z) -> FLU (x, -y, -z)
-    is applied to the vertices explicitly. Returns False when the conversion is not possible.
+    is applied to the vertices explicitly. Returns the airframe skin vertices (FRD metres, the
+    landing-gear nodes "gear:*" left out, for the collision boxes), or None when the conversion
+    is not possible.
     """
     try:
         import trimesh
 
         scene = trimesh.load(str(src_glb), force="scene")
+        skin = [g for name, g in scene.geometry.items() if not str(name).startswith("gear:")]
+        skin_vertices = np.vstack([g.vertices for g in skin]) if skin else None
         merged = trimesh.util.concatenate(list(scene.dump()))
         merged.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
         dst_stl.parent.mkdir(parents=True, exist_ok=True)
         merged.export(str(dst_stl))
-        return True
+        return skin_vertices
     except Exception:  # noqa: BLE001 - the mesh is cosmetic; the model must still export
         dst_stl.unlink(missing_ok=True)
-        return False
+        return None
+
+
+def gz_rest_pose(scenario: Scenario) -> tuple[float, float]:
+    """Spawn pose that parks the model on its gear: (z of base_link above the ground in metres,
+    pitch of base_link about gz FLU +Y in radians). base_link is the hover frame, so the
+    airframe pitch on the ground is hover_pitch minus that rotation; 1 cm drop onto the feet."""
+    frame = scenario.frame
+    assert frame.ground_pitch_deg is not None
+    pitch = math.radians(float(frame.hover_pitch_deg) - float(frame.ground_pitch_deg))
+    return rest_height_m(scenario) + 0.01, pitch
+
+
+def _pose_frd(
+    p_frd: np.ndarray | tuple[float, float, float],
+    rpy: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> str:
+    """SDF pose element in the airframe frame from an FRD point (metres) and FLU rpy."""
+    x, y, z = frd_to_flu(p_frd)
+    r, p, yw = rpy
+    return f'<pose relative_to="airframe">{x:.4f} {y:.4f} {z:.4f} {r:.5f} {p:.5f} {yw:.5f}</pose>'
+
+
+def gear_collisions(scenario: Scenario, boxes: list[Box], with_visuals: bool) -> list[str]:
+    """Collision geometry that lets the airframe park on its gear at frame.ground_pitch_deg:
+    the skin as column boxes, a cylinder per strut and a high-friction ball per foot (all in
+    the airframe frame). Visuals for the legs only when there is no CAD mesh (the GLB carries
+    them otherwise)."""
+    cg = np.asarray(scenario.mass.cg_frd_m, dtype=float)
+    out = [
+        f'      <collision name="airframe_box_{k}">{_pose_frd(np.asarray(b.centre_frd_m) - cg)}'
+        f"<geometry><box><size>{b.size_m[0]:.4f} {b.size_m[1]:.4f} {b.size_m[2]:.4f}</size>"
+        "</box></geometry></collision>"
+        for k, b in enumerate(boxes)
+    ]
+    friction = (
+        "<surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>"
+    )
+    for leg in scenario.frame.gear:
+        a = np.asarray(leg.attach_frd_m, dtype=float) - cg
+        f = np.asarray(leg.foot_frd_m, dtype=float) - cg
+        strut_axis = frd_to_flu(f - a)
+        rpy = axis_to_rpy(strut_axis)
+        length = float(np.linalg.norm(f - a))
+        strut = (
+            f"<geometry><cylinder><radius>{leg.radius_m:.4f}</radius>"
+            f"<length>{length:.4f}</length></cylinder></geometry>"
+        )
+        ball = f"<geometry><sphere><radius>{leg.foot_radius_m:.4f}</radius></sphere></geometry>"
+        mid, foot = _pose_frd((a + f) / 2, rpy), _pose_frd(f)
+        out.append(f'      <collision name="strut_{leg.name}">{mid}{strut}</collision>')
+        out.append(f'      <collision name="foot_{leg.name}">{foot}{ball}{friction}</collision>')
+        if with_visuals:
+            grey = (
+                "<material><ambient>0.3 0.3 0.3 1</ambient>"
+                "<diffuse>0.3 0.3 0.3 1</diffuse></material>"
+            )
+            out.append(f'      <visual name="strut_{leg.name}_visual">{mid}{strut}{grey}</visual>')
+            out.append(f'      <visual name="foot_{leg.name}_visual">{foot}{ball}{grey}</visual>')
+    return out
 
 
 def body_mass_kg(scenario: Scenario, rotor_mass_kg: float = ROTOR_MASS_KG) -> float:
@@ -106,14 +170,21 @@ def _inertia(scenario: Scenario) -> dict[str, float]:
     }
 
 
-def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
+def model_sdf(
+    scenario: Scenario,
+    name: str,
+    mesh_uri: str | None,
+    skin_vertices_frd: np.ndarray | None = None,
+) -> str:
     inertia = _inertia(scenario)
     # the CAD mesh is in the airframe frame; base_link is the hover frame (a nose-up hover is a
-    # negative rotation about FLU +Y)
+    # negative rotation about FLU +Y). The "airframe" frame below carries that rotation so the
+    # mesh, the collision boxes and the landing gear can be placed in airframe coordinates.
     mesh_pitch = -math.radians(float(scenario.frame.hover_pitch_deg))
     ca = ca_geometry_params(scenario)
+    gear = scenario.frame.ground_pitch_deg is not None and bool(scenario.frame.gear)
     body_visual = (
-        f'<visual name="airframe_visual"><pose>0 0 0 0 {mesh_pitch:.5f} 0</pose>'
+        f'<visual name="airframe_visual"><pose relative_to="airframe">0 0 0 0 0 0</pose>'
         f"<geometry><mesh><uri>{escape(mesh_uri)}</uri></mesh>"
         "</geometry><material><ambient>0.6 0.6 0.65 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse>"
         "</material></visual>"
@@ -121,11 +192,29 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
         else '<visual name="airframe_visual"><geometry><box><size>1.2 0.9 0.3</size></box>'
         "</geometry></visual>"
     )
+    if gear:
+        # parked on the feet at frame.ground_pitch_deg; the skin boxes stay clear of the ground
+        z0, pitch0 = gz_rest_pose(scenario)
+        model_pose = f"{z0:.4f} 0 {pitch0:.5f} 0"
+        boxes = (
+            collision_boxes(skin_vertices_frd)
+            if skin_vertices_frd is not None
+            else [Box((0.0, 0.0, 0.0), (1.2, 0.9, 0.3))]
+        )
+        collisions = gear_collisions(scenario, boxes, with_visuals=mesh_uri is None)
+    else:
+        model_pose = "0.3 0 0 0"
+        collisions = [
+            '      <collision name="airframe_collision"><geometry><box><size>1.2 0.9 0.3</size>'
+            "</box></geometry></collision>"
+        ]
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<sdf version="1.9">',
         f'  <model name="{escape(name)}">',
-        "    <pose>0 0 0.3 0 0 0</pose>",
+        f"    <pose>0 0 {model_pose}</pose>",
+        '    <frame name="airframe" attached_to="base_link">'
+        f'<pose relative_to="base_link">0 0 0 0 {mesh_pitch:.5f} 0</pose></frame>',
         '    <link name="base_link">',
         "      <inertial>",
         # the rotor links carry ROTOR_MASS_KG each; keep the model's total at the scenario mass
@@ -135,8 +224,7 @@ def model_sdf(scenario: Scenario, name: str, mesh_uri: str | None) -> str:
         + "</inertia>",
         "      </inertial>",
         f"      {body_visual}",
-        '      <collision name="airframe_collision"><geometry><box><size>1.2 0.9 0.3</size></box>'
-        "</geometry></collision>",
+        *collisions,
         # Sensor names, rates and noise mirror PX4-gazebo-models x500_base/model.sdf; the gz bridge
         # subscribes to .../link/base_link/sensor/<name>/... (GZBridge.cpp v1.17.0, lines 218-310)
         # and PX4's default preflight needs a GPS (navsat) before it will arm.
@@ -408,8 +496,26 @@ def px4_airframe(scenario: Scenario, name: str) -> str:
         "PX4_SIMULATOR=${PX4_SIMULATOR:=gz}",
         f"PX4_GZ_WORLD=${{PX4_GZ_WORLD:={name}}}",
         f"PX4_SIM_MODEL=${{PX4_SIM_MODEL:={name}}}",
+    ]
+    if scenario.frame.ground_pitch_deg is not None and scenario.frame.gear:
+        z0, pitch0 = gz_rest_pose(scenario)
+        lines += [
+            "# Parked on the landing gear: CG height and base_link pitch about gz +Y that put the",
+            f"# airframe at {float(scenario.frame.ground_pitch_deg):g} deg (nose-up positive) on",
+            "# its feet. px4-rc.gzsim passes x,y,z,roll,pitch,yaw to the spawn (ROMFS v1.17.0).",
+            f"PX4_GZ_MODEL_POSE=${{PX4_GZ_MODEL_POSE:=0,0,{z0:.4f},0,{pitch0:.5f},0}}",
+        ]
+    lines += [
         "",
         "param set-default SIM_GZ_EN 1",
+        "# The gz bridge flags a simulated ESC 'armed' only while its motor speed is above zero",
+        "# (gz_bridge/GZMixingInterfaceESC.cpp:118-120, v1.17.0) and the failure detector calls",
+        "# any ESC not armed within 300 ms of arming a failure (failure_detector/",
+        "# FailureDetector.cpp:163-178), which the spool-up failsafe answers by disarming",
+        "# (failsafe/failsafe.cpp:606-612). A fan the allocator holds at zero at arming (parked",
+        "# nose-down on the gear, or any trim that idles a fan) therefore kills the take-off. The",
+        "# gz ESC status is synthetic telemetry (and clamped to 8 of 10 fans), so the check is off.",
+        "param set-default FD_ESCS_EN 0",
         "param set-default CA_AIRFRAME 0",
         f"param set-default CA_METHOD {int(scenario.control.ca_method)}",
         f"param set-default CA_ROTOR_COUNT {int(ca['CA_ROTOR_COUNT'])}",
@@ -566,10 +672,34 @@ takeoff` to 2.5 m, 30 s hover with roll and pitch standard deviation under 3 deg
 within 2.4 cm, `commander land`; the hover motor commands matched vectra's prediction (mean
 0.449) on every motor. See docs/gazebo_flight_2026-09-10.md in the vectra repository.
 
-## Limits
+{gear_readme(scenario)}## Limits
 No aerodynamics of the foil or wing, no jet interaction, no ground effect; the Coanda turning is
 baked into the rotor axes (effective deflection), not simulated. Mass and inertia are the
 scenario's values (placeholders until the CoG dashboard weights are imported).
+"""
+
+
+def gear_readme(scenario: Scenario) -> str:
+    frame = scenario.frame
+    if frame.ground_pitch_deg is None or not frame.gear:
+        return ""
+    z0, pitch0 = gz_rest_pose(scenario)
+    legs = "\n".join(
+        f"- {leg.name}: strut from FRD ({leg.attach_frd_m[0]:+.3f}, {leg.attach_frd_m[1]:+.3f},"
+        f" {leg.attach_frd_m[2]:+.3f}) to the foot at ({leg.foot_frd_m[0]:+.3f},"
+        f" {leg.foot_frd_m[1]:+.3f}, {leg.foot_frd_m[2]:+.3f}) m,"
+        f" ball radius {leg.foot_radius_m:g} m"
+        for leg in frame.gear
+    )
+    return f"""## Landing gear
+The airframe parks on {len(frame.gear)} legs at {float(frame.ground_pitch_deg):g} deg pitch
+(nose-up positive), so PX4 reads {math.degrees(pitch0):.1f} deg nose-down in its hover frame
+before take-off and has to rotate through that to reach the {float(frame.hover_pitch_deg):g} deg
+hover. The spawn pose (`PX4_GZ_MODEL_POSE` in the airframe file, also the model's own `<pose>`)
+puts the CG {z0:.3f} m above the ground; the skin is a set of column boxes fitted to the CAD, the
+feet are high-friction balls, and only the feet touch the ground at the parked pitch.
+{legs}
+
 """
 
 
@@ -585,13 +715,16 @@ def export_gazebo(
     (root / "px4" / "airframes").mkdir(parents=True, exist_ok=True)
 
     mesh_uri = None
+    skin_vertices = None
     if scenario.meta.cad_model:
         src = Path(__file__).resolve().parents[3] / "scenarios" / scenario.meta.cad_model
-        if src.is_file() and airframe_stl(src, model_dir / "meshes" / "airframe.stl"):
-            mesh_uri = f"model://{name}/meshes/airframe.stl"
+        if src.is_file():
+            skin_vertices = airframe_stl(src, model_dir / "meshes" / "airframe.stl")
+            if skin_vertices is not None:
+                mesh_uri = f"model://{name}/meshes/airframe.stl"
 
     (model_dir / "model.sdf").write_text(
-        model_sdf(scenario, name, mesh_uri), encoding="utf-8", newline="\n"
+        model_sdf(scenario, name, mesh_uri, skin_vertices), encoding="utf-8", newline="\n"
     )
     (model_dir / "model.config").write_text(
         f'<?xml version="1.0"?>\n<model>\n  <name>{escape(name)}</name>\n  <version>1.0</version>\n'

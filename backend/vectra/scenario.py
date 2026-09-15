@@ -76,6 +76,18 @@ class Meta(BaseModel):
     cad_model: str | None = None
 
 
+class Leg(BaseModel):
+    """One landing-gear strut: a cylinder from attach_frd_m (on the airframe skin) to foot_frd_m
+    (centre of the contact ball), both in metres, airframe FRD about the scenario origin."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    attach_frd_m: Vec3
+    foot_frd_m: Vec3
+    radius_m: float = Field(default=0.012, gt=0.0)
+    foot_radius_m: float = Field(default=0.025, gt=0.0)
+
+
 class Frame(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cad_forward_axis: str = "+X"
@@ -88,6 +100,11 @@ class Frame(BaseModel):
     # CA_ROTOR* geometry lives) is this hover frame: airframe vectors are rotated about +Y by
     # hover_pitch_deg before allocation, so a nose-up hover lets forward-vectored jets carry lift.
     hover_pitch_deg: float = Field(default=0.0, ge=-90.0, le=90.0)
+    # Attitude the airframe rests at on its landing gear, nose-up positive, degrees (None: no
+    # gear, the airframe sits level in the hover frame). The gear feet are designed so that at
+    # this pitch they are the only points touching the ground (vectra/core/gear.py).
+    ground_pitch_deg: float | None = Field(default=None, ge=-90.0, le=90.0)
+    gear: list[Leg] = Field(default_factory=list)
 
 
 class CadReported(BaseModel):
