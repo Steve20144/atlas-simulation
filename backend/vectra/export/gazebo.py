@@ -514,7 +514,7 @@ def px4_airframe(scenario: Scenario, name: str) -> str:
         "# FailureDetector.cpp:163-178), which the spool-up failsafe answers by disarming",
         "# (failsafe/failsafe.cpp:606-612). A fan the allocator holds at zero at arming (parked",
         "# nose-down on the gear, or any trim that idles a fan) therefore kills the take-off. The",
-        "# gz ESC status is synthetic telemetry (and clamped to 8 of 10 fans), so the check is off.",
+        "# gz ESC status is synthetic telemetry (clamped to 8 of 10 fans), so the check is off.",
         "param set-default FD_ESCS_EN 0",
         "param set-default CA_AIRFRAME 0",
         f"param set-default CA_METHOD {int(scenario.control.ca_method)}",
